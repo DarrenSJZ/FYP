@@ -1,0 +1,61 @@
+"""C++ std::iostream wrapper.
+
+This module provides the wrappers needed for working with C++ std::iostream
+instances. The wrappers for input and/or output stream types do not expose any
+members other than `good` since we do not want to work with them directly in
+Python. They can be used for wrapping methods and functions that accept or
+return iostream objects. The get_* utility functions provide the handles for
+the standard C++ streams.
+"""
+
+from "base/iostream-ext.h":
+  namespace `::std`:
+    class istream:
+      """Input stream."""
+      def `good` as good(self) -> bool:
+        """Checks whether the state of the stream is good."""
+
+    class ostream:
+      """Output stream."""
+      def `good` as good(self) -> bool:
+        """Checks whether the state of the stream is good."""
+
+    class iostream(istream):
+      """Input/output stream."""
+      pass
+
+    def `GetStdinPtr` as get_stdin() -> istream:
+      """Returns standard input stream."""
+
+    def `GetStdoutPtr` as get_stdout() -> ostream:
+      """Returns standard output stream."""
+
+    def `GetStderrPtr` as get_stderr() -> ostream:
+      """Returns standard error stream."""
+
+    def `Flush` as flush(os: ostream):
+      """Flushes output stream."""
+
+    def `Read` as read_text(is: istream) -> str:
+      """Reads and returns the contents of the stream as a unicode string."""
+
+    def `Read` as read(is: istream) -> bytes:
+      """Reads and returns the contents of the stream as a bytes object."""
+
+    def `ReadLine` as readline_text(is: istream) -> str:
+      """Reads and returns a line from the input stream.
+
+      If the stream is already at EOF, an empty unicode string is returned.
+      """
+
+    def `ReadLine` as readline(is: istream) -> bytes:
+      """Reads and returns a line from the input stream.
+
+      If the stream is already at EOF, an empty bytes object is returned.
+      """
+
+    def `Write` as write_text(os: ostream, s: str):
+      """Writes unicode string to output stream."""
+
+    def `Write` as write(os: ostream, b: bytes):
+      """Writes bytes object to output stream."""

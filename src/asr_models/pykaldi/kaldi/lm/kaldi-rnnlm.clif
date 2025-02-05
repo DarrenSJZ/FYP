@@ -1,0 +1,67 @@
+from "fstext/float-weight-clifwrap.h" import *
+from "fstext/lattice-weight-clifwrap.h" import *
+from "fstext/arc-clifwrap.h" import *
+from "itf/options-itf-clifwrap.h" import *
+
+from kaldi.fstext._deterministic_fst import StdDeterministicOnDemandFst
+from kaldi.util import _value_error_on_false
+
+from "lm/kaldi-rnnlm.h":
+  namespace `kaldi`:
+    class KaldiRnnlmWrapperOpts:
+      """Options for wrapping a Mikolov RNNLM."""
+
+      unk_symbol: str
+      """Unknown symbol, e.g. <unk>."""
+      eos_symbol: str
+      """EOS symbol, e.g. </s>."""
+
+      def `Register` as register(self, opts: OptionsItf):
+        """Registers options with an object implementing the options interface.
+
+        Args:
+          opts (OptionsItf): An object implementing the options interface.
+            Typically a command-line option parser.
+        """
+
+    class KaldiRnnlmWrapper:
+      """Mikolov RNNLM wrapper."""
+      def __init__(self, opts: KaldiRnnlmWrapperOpts, unk_prob_rspecifier: str, word_symbol_table_rxfilename: str, rnnlm_rxfilename: str)
+
+      def `GetHiddenLayerSize` as get_hidden_layer_size(self) -> int:
+        """Returns the size of hidden layer."""
+
+      def `GetEos` as get_eos(self) -> int:
+        """Returns the label for EOS symbol."""
+
+      def `GetLogProb` as get_log_prob(self, word: int, wseq: list<int>, context_in: list<float>)
+        -> (logprob: float, context_out: list<float>):
+        """Computes the log probability of the word given the history.
+
+        Computes the log probability of the word given the history and the
+        initial context vector. Returns the log probability and the final
+        context vector.
+        """
+
+    class RnnlmDeterministicFst(StdDeterministicOnDemandFst):
+      """Deterministic on-demand Mikolov RNNLM FST."""
+      def __init__(self, max_ngram_order: int, rnnlm: KaldiRnnlmWrapper)
+
+      def `Start` as start(self) -> int:
+        """Returns the start state index."""
+
+      def `Final` as final(self, state: int) -> TropicalWeight:
+        """Returns the final weight of the given state."""
+
+      def `GetArc` as get_arc(self, s: int, ilabel: int)
+        -> (success: bool, oarc: StdArc):
+        """Creates an on demand arc and returns it.
+
+        Args:
+          s (int): State index.
+          ilabel (int): Arc label.
+
+        Returns:
+          The created arc.
+        """
+        return _value_error_on_false(...)

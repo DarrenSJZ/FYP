@@ -1,0 +1,34 @@
+from "cudamatrix/cu-vector-clifwrap.h" import *
+from "cudamatrix/cu-matrix-clifwrap.h" import *
+
+from "nnet3/natural-gradient-online.h":
+  namespace `kaldi::nnet3`:
+    class OnlineNaturalGradient:
+      def `SetRank` as set_rank(self, rank: int)
+
+      def `SetUpdatePeriod` as set_update_period(self, update_period: int)
+
+      def `SetNumSamplesHistory` as set_num_samples_history(self, num_samples_history: float)
+
+      def `SetNumMinibatchesHistory` as set_num_minibatches_history(self, num_minibatches_history: float)
+
+      def `SetAlpha` as set_alpha(self, alpha: float)
+
+      def `TurnOnDebug` as turn_on_debug(self)
+
+      def `GetNumSamplesHistory` as get_num_samples_history(self) -> float
+
+      def `GetAlpha` as get_alpha(self) -> float
+
+      def `GetRank` as get_rank(self) -> int
+
+      def `GetUpdatePeriod` as get_update_period(self) -> int
+
+      def `Freeze` as freeze(self, frozen: bool)
+
+      def `PreconditionDirections` as precondition_directions(self, R: CuMatrixBase) -> float
+
+      @add__init__
+      def `OnlineNaturalGradient` as from_other(self, other: OnlineNaturalGradient)
+
+      def `Swap` as swap(self, other: OnlineNaturalGradient)

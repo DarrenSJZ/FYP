@@ -1,0 +1,79 @@
+from "base/iostream-clifwrap.h" import *
+from "itf/options-itf-clifwrap.h" import *
+from "fstext/lattice-weight-clifwrap.h" import *
+from "fstext/vector-fst-clifwrap.h" import *
+from "hmm/transition-model-clifwrap.h" import *
+
+from kaldi.util import _value_error_on_false
+
+from "lat/word-align-lattice-lexicon.h":
+  namespace `kaldi`:
+    def `ReadLexiconForWordAlign` as _read_lexicon_for_word_align(is: istream)
+      -> (success: bool, lexicon: list<list<int>>):
+      return _value_error_on_false(...)
+
+    class WordAlignLatticeLexiconInfo:
+      """WordAlignLatticeLexiconInfo(lexicon)
+
+      This class extracts some information from the lexicon and stores it in a
+      suitable form for the word-alignment code to use.
+
+      Args:
+        lexicon (List[List[int]]): The lexicon.
+      """
+      def __init__(self, lexicon: list<list<int>>)
+
+      def `IsValidEntry` as is_valid_entry(self, entry: list<int>) -> bool:
+        """Checks if entry is valid.
+
+        This function is used in testing code.
+
+        Returns:
+          True if the entry intepreted as (output-word phone1 phone2 ...)
+          can appear in the lexicon.
+        """
+
+      def `EquivalenceClassOf` as equivalence_class_of(self, word: int) -> int:
+        """Returns the equivalence class for the word.
+
+        This function is used in testing code.
+
+        Words are mapped into equivalence classes derived from the mappings in
+        the first two fields of each line in the lexicon. This function maps
+        from each word-id to the lowest member of its equivalence class.
+        """
+
+    class WordAlignLatticeLexiconOpts:
+      """Options for word alignment using a lexicon."""
+
+      partial_word_label: int
+      """Label for partial word arcs at the end of "forced-out" utterances."""
+      reorder: bool
+      """Whether lattice was created from a graph with reorder option set."""
+      test: bool
+      """Whether to activate the testing code to validate the algorithm."""
+      allow_duplicate_paths: bool
+      """Whether to allow duplicate paths in testing code."""
+      max_expand: float
+      """Maximum allowed ratio of #states in aligned lattice vs input lattice.
+
+      If >0.0, the maximum ratio by which we allow the lattice-alignment code
+      to increase the #states in a lattice (vs. the phone-aligned lattice)
+      before we fail and  refuse to align the lattice. This is helpful in order
+      to prevent 'pathological' lattices from causing the program to exhaust
+      memory. Actual max-states is 1000 + max-expand * orig-num-states.
+      """
+
+      def `Register` as register(self, opts: OptionsItf):
+        """Registers options with an object implementing the options interface.
+
+        Args:
+          opts (OptionsItf): An object implementing the options interface.
+            Typically a command-line option parser.
+        """
+
+    def `WordAlignLatticeLexicon` as _word_align_lattice_lexicon(
+      lat: CompactLatticeVectorFst, tmodel: TransitionModel,
+      lexicon_info: WordAlignLatticeLexiconInfo,
+      opts: WordAlignLatticeLexiconOpts)
+      -> (success: bool, lat_out: CompactLatticeVectorFst)

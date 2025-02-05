@@ -1,0 +1,41 @@
+from "matrix/kaldi-matrix-clifwrap.h" import *
+from "gmm/am-diag-gmm-clifwrap.h" import *
+from "hmm/transition-model-clifwrap.h" import *
+from "transform/regression-tree-clifwrap.h" import *
+from "transform/regtree-fmllr-diag-gmm-clifwrap.h" import *
+from "transform/regtree-mllr-diag-gmm-clifwrap.h" import *
+
+from kaldi.gmm._decodable_am_diag_gmm import DecodableAmDiagGmmUnmapped
+
+from "transform/decodable-am-diag-gmm-regtree.h":
+  namespace `kaldi`:
+    class DecodableAmDiagGmmRegtreeFmllr(DecodableAmDiagGmmUnmapped):
+      def __init__(self, am: AmDiagGmm, tm: TransitionModel, feats: Matrix,
+                   fmllr_xform: RegtreeFmllrDiagGmm, regtree: RegressionTree,
+                   scale: float, log_sum_exp_prune: float = default)
+
+      def `LogLikelihood` as log_likelihood(self, frame: int, index: int) -> float:
+        """Returns the log-likehood of the given index for the given frame."""
+
+      def `NumFramesReady` as num_frames_ready(self) -> int:
+        """Returns number of frames ready for decoding."""
+
+      def `NumIndices` as num_indices(self) -> int:
+        """Returns number of indices."""
+
+    class DecodableAmDiagGmmRegtreeMllr(DecodableAmDiagGmmUnmapped):
+      def __init__(self, am: AmDiagGmm, tm: TransitionModel, feats: Matrix,
+                   mllr_xform: RegtreeMllrDiagGmm, regtree: RegressionTree,
+                   scale: float, log_sum_exp_prune: float = default)
+
+      def `LogLikelihood` as log_likelihood(self, frame: int, index: int) -> float:
+        """Returns the log-likehood of the given index for the given frame."""
+
+      def `NumFramesReady` as num_frames_ready(self) -> int:
+        """Returns number of frames ready for decoding."""
+
+      def `NumIndices` as num_indices(self) -> int:
+        """Returns number of indices."""
+
+      def `TransModel` as trans_model(self) -> TransitionModel:
+        """Returns the transition model."""

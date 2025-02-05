@@ -1,0 +1,66 @@
+from "itf/decodable-itf-clifwrap.h" import *
+from "itf/options-itf-clifwrap.h" import *
+from "fstext/lattice-weight-clifwrap.h" import *
+from "fstext/fst-clifwrap.h" import *
+from "fstext/mutable-fst-clifwrap.h" import *
+from "fstext/deterministic-fst-clifwrap.h" import *
+from "lat/determinize-lattice-pruned-clifwrap.h" import *
+from "decoder/lattice-faster-decoder-clifwrap.h" import *
+
+from "decoder/lattice-biglm-faster-decoder.h":
+  namespace `kaldi`:
+
+    class LatticeBiglmFasterDecoder:
+      """LatticeBiglmFasterDecoder(fst, opts, lm_diff_fst)
+
+      Lattice generating faster decoder for decoding with big language models.
+
+      This is as :class:`LatticeFasterDecoder`, but does online composition
+      between decoding graph :attr:`fst` and the difference language model
+      :attr:`lm_diff_fst`.
+
+      Args:
+        fst (StdFst): Decoding graph `HCLG`.
+        opts (LatticeFasterDecoderOptions): Decoder options.
+        lm_diff_fst (StdDeterministicOnDemandFst): The deterministic on-demand
+          FST representing the difference in scores between the LM to decode
+          with and the LM the decoding graph :attr:`fst` was compiled with.
+      """
+      def __init__(self, fst: StdFst, opts: LatticeFasterDecoderOptions,
+                   lm_diff_fst: StdDeterministicOnDemandFst)
+
+      def `SetOptions` as set_options(self, opts: LatticeFasterDecoderOptions):
+        """Sets decoder options.
+
+        Args:
+          opts (LatticeFasterDecoderOptions): Decoder options.
+        """
+
+      def `Decode` as decode(self, decodable: DecodableInterface) -> bool:
+        """Decodes all available frames in the decodable object.
+
+        This may block waiting for input if the `decodable` object blocks.
+
+        Args:
+          decodable (DecodableInterface): The decodable object.
+
+        Returns:
+          True if any kind of traceback is available (not necessarily from a
+          final state).
+        """
+
+      def `ReachedFinal` as reached_final(self) -> bool:
+        """Checks if a final state was active on the last decoded frame.
+
+        Returns:
+          True if a final state was active on the last decoded frame.
+        """
+
+      def `GetBestPath` as _get_best_path(self,
+          fst_out: LatticeMutableFst, use_final_probs: bool = default) -> bool
+
+      def `GetRawLattice` as _get_raw_lattice(self,
+          fst_out: LatticeMutableFst, use_final_probs: bool = default) -> bool
+
+      def `GetLattice` as _get_lattice(self, fst_out: CompactLatticeMutableFst,
+                                      use_final_probs: bool = default) -> bool

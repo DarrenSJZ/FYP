@@ -1,0 +1,45 @@
+from "base/iostream-clifwrap.h" import *
+
+from "itf/clusterable-itf.h":
+  namespace `kaldi`:
+    class Clusterable:
+      """Clusterable interface definition."""
+
+      def `Copy` as copy(self) -> Clusterable:
+        """Returns a copy of this object."""
+
+      def `Objf` as objf(self) -> float:
+        """Returns the objective function associated with the stats."""
+
+      def `Normalizer` as normalizer(self) -> float:
+        """Returns the normalizer (typically count) associated with the stats."""
+
+      def `SetZero` as set_zero(self):
+        """Sets stats to zero."""
+
+      def `Add` as add(self, other: Clusterable):
+        """Adds other stats."""
+
+      def `Sub` as sub(self, other: Clusterable):
+        """Subtracts other stats."""
+
+      def `Scale` as scale(self, f: float):
+        """Scales the stats."""
+
+      def `Type` as type(self) -> str:
+        """Returns a string describing the type."""
+
+      def `Write` as write(self, os: ostream, binary: bool):
+        """Writes the object to output stream."""
+
+      def `ReadNew` as read_new(self, is: istream, binary: bool) -> Clusterable:
+        """Reads the object from input stream."""
+
+      def `ObjfPlus` as objf_plus(self, other: Clusterable) -> float:
+        """Returns the objective function of the combined object this + other."""
+
+      def `ObjfMinus` as objf_minus(self, other: Clusterable) -> float:
+        """Returns the objective function of the subtracted object this - other."""
+
+      def `Distance` as distance(self, other: Clusterable) -> float:
+        """Returns the objective function decrease from merging the two clusters."""

@@ -1,0 +1,30 @@
+from "itf/options-itf-clifwrap.h" import *
+from "cudamatrix/cu-matrix-clifwrap.h" import *
+from "nnet3/nnet-example-clifwrap.h" import *
+from "nnet3/nnet-computation-clifwrap.h" import *
+from "nnet3/nnet-nnet-clifwrap.h" import *
+
+from "nnet3/nnet-compute.h":
+  namespace `kaldi::nnet3`:
+    class NnetComputeOptions:
+      debug: bool
+
+      def `Register` as register(self, opts: OptionsItf)
+
+    class NnetComputer:
+      def __init__(self, options: NnetComputeOptions,
+                   computation: NnetComputation, nnet: Nnet,
+                   nnet_to_update: Nnet)
+
+      @add__init__
+      def `NnetComputer` as from_other(self, other: NnetComputer)
+
+      def `AcceptInput` as accept_input(self, node_name: str, input: CuMatrix)
+
+      def `AcceptInputs` as accept_inputs(self, nnet: Nnet, io: list<NnetIo>)
+
+      def `Run` as run(self)
+
+      # def GetOutput(self, node_name: str) -> CuMatrixBase
+
+      def `GetOutputDestructive` as get_output_destructive(self, output_name: str) -> CuMatrix

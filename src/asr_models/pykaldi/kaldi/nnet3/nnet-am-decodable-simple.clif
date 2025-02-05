@@ -1,0 +1,83 @@
+from "itf/options-itf-clifwrap.h" import *
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+from "hmm/transition-model-clifwrap.h" import *
+from "nnet3/nnet-nnet-clifwrap.h" import *
+from "nnet3/nnet-compute-clifwrap.h" import *
+from "nnet3/nnet-optimize-clifwrap.h" import *
+from "nnet3/am-nnet-simple-clifwrap.h" import *
+
+from kaldi.itf._decodable_itf import DecodableInterface
+
+from "nnet3/nnet-am-decodable-simple.h":
+  namespace `kaldi::nnet3`:
+    class NnetSimpleComputationOptions:
+      extra_left_context: int
+      extra_right_context: int
+      extra_left_context_initial: int
+      extra_right_context_final: int
+      frame_subsampling_factor: int
+      frames_per_chunk: int
+      acoustic_scale: float
+      debug_computation: bool
+      optimize_config: NnetOptimizeOptions
+      compute_config: NnetComputeOptions
+      compiler_config: CachingOptimizingCompilerOptions
+
+      def `Register` as register(self, opts: OptionsItf)
+
+    class DecodableNnetSimple:
+      def __init__(self, opts: NnetSimpleComputationOptions, nnet: Nnet,
+                   priors: VectorBase, feats: MatrixBase,
+                   compiler: CachingOptimizingCompiler,
+                   ivector: VectorBase = default,
+                   online_ivectors: MatrixBase = default,
+                   online_ivector_period: int = default)
+
+      def `NumFrames` as num_frames(self) -> int
+
+      def `OutputDim` as output_dim(self) -> int
+
+      def `GetOutputForFrame` as get_output_for_frame(self, frame: int, output: VectorBase)
+
+      def `GetOutput` as get_output(self, subsampled_frame: int, pdf_id: int) -> float
+
+    class DecodableAmNnetSimple(DecodableInterface):
+      def __init__(self, opts: NnetSimpleComputationOptions,
+                   trans_model: TransitionModel, am_nnet: AmNnetSimple,
+                   feats: MatrixBase, ivector: VectorBase = default,
+                   online_ivectors: MatrixBase = default,
+                   online_ivector_period: int = default,
+                   compiler: CachingOptimizingCompiler = default)
+
+      def `LogLikelihood` as log_likelihood(self, frame: int, index: int) -> float:
+        """Returns the log-likehood of the given index for the given frame."""
+
+      def `IsLastFrame` as is_last_frame(self, frame: int) -> bool:
+        """Checks if given frame is the last frame."""
+
+      def `NumFramesReady` as num_frames_ready(self) -> int:
+        """Returns number of frames ready for decoding."""
+
+      def `NumIndices` as num_indices(self) -> int:
+        """Returns number of indices."""
+
+
+    class DecodableAmNnetSimpleParallel(DecodableInterface):
+      def __init__(self, opts: NnetSimpleComputationOptions,
+                   trans_model: TransitionModel, am_nnet: AmNnetSimple,
+                   feats: MatrixBase, ivector: VectorBase = default,
+                   online_ivectors: MatrixBase = default,
+                   online_ivector_period: int = default)
+
+      def `LogLikelihood` as log_likelihood(self, frame: int, index: int) -> float:
+        """Returns the log-likehood of the given index for the given frame."""
+
+      def `IsLastFrame` as is_last_frame(self, frame: int) -> bool:
+        """Checks if given frame is the last frame."""
+
+      def `NumFramesReady` as num_frames_ready(self) -> int:
+        """Returns number of frames ready for decoding."""
+
+      def `NumIndices` as num_indices(self) -> int:
+        """Returns number of indices."""

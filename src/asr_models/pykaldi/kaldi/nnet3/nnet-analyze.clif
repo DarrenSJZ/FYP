@@ -1,0 +1,118 @@
+from "base/iostream-clifwrap.h" import *
+from "nnet3/nnet-computation-clifwrap.h" import *
+from "nnet3/nnet-nnet-clifwrap.h" import *
+
+from "nnet3/nnet-analyze.h":
+  namespace `kaldi::nnet3`:
+    class CommandAttributes:
+      variables_read: list<int>
+      variables_written: list<int>
+      submatrices_read: list<int>
+      submatrices_written: list<int>
+      matrices_read: list<int>
+      matrices_written: list<int>
+      has_side_effects: bool
+
+    def `PrintCommandAttributes` as print_command_attributes(os: ostream,
+                               attributes: list<CommandAttributes>)
+
+    enum AccessType with:
+      `kReadAccess` as READ_ACCESS
+      `kWriteAccess` as WRITE_ACCESS
+      `kReadWriteAccess` as READ_WRITE_ACCESS
+
+    class ComputationVariables:
+      def `Init` as init(self, computation: NnetComputation)
+
+      def `RecordAccessForSubmatrix` as record_access_for_submatrix(self, submatrix_index: int,
+                                   access_type: AccessType,
+                                   ca: CommandAttributes)
+
+      def `AppendVariablesForMatrix` as append_variables_for_matrix(self, matrix_index: int) -> list<int>
+
+      def `AppendVariablesForSubmatrix` as append_variables_for_submatrix(self, submatrix_index: int) -> list<int>
+
+      def `NumVariables` as num_variables(self) -> int
+
+      def `GetMatrixForVariable` as get_matrix_for_variable(self, variable: int) -> int
+
+      def `DescribeVariable` as describe_variable(self, variable: int) -> str
+
+      def `VariableInfo` as variable_info(self, variable: int) -> NnetComputation.SubMatrixInfo
+
+    class Access:
+      command_index: int
+      access_type: AccessType
+
+      @add__init__
+      def `Access` as new(self, command_index: int, access_type: AccessType)
+
+      def __lt__(self, other: Access) -> bool
+
+    def `ComputeVariableAccesses` as compute_variable_accesses(variables: ComputationVariables,
+                                command_attributes: list<CommandAttributes>)
+        -> list<list<Access>>
+
+    class MatrixAccesses:
+      allocate_command: int
+      deallocate_command: int
+      accesses: list<Access>
+      is_input: bool
+      is_output: bool
+
+    def `ComputeMatrixAccesses` as compute_matrix_accesses(nnet: Nnet, computation: NnetComputation,
+                              variables: ComputationVariables,
+                              command_attributes: list<CommandAttributes>)
+        -> list<MatrixAccesses>
+
+    def `PrintMatrixAccesses` as print_matrix_accesses(os: ostream, matrix_accesses: list<MatrixAccesses>)
+
+    class Analyzer:
+      variables: ComputationVariables
+      command_attributes: list<CommandAttributes>
+      variable_accesses: list<list<Access>>
+      matrix_accesses: list<MatrixAccesses>
+
+      def `Init` as init(self, nnet: Nnet, computation: NnetComputation)
+
+    class ComputationAnalysis:
+      def __init__(self, computation: NnetComputation, analyzer: Analyzer)
+
+      def `FirstNontrivialAccess` as first_nontrivial_access(self, s: int) -> int
+
+      def `FirstAccess` as first_access(self, s: int) -> int
+
+      def `LastAccess` as last_access(self, s: int) -> int
+
+      def `LastWriteAccess` as last_write_access(self, s: int) -> int
+
+      def `DataInvalidatedCommand` as data_invalidated_command(self, c: int, s: int) -> int
+
+      def `FirstNontrivialMatrixAccess` as first_nontrivial_matrix_access(self, m: int) -> int
+
+      def `LastMatrixAccess` as last_matrix_access(self, m: int) -> int
+
+    def `ComputeMatrixToSubmatrix` as compute_matrix_to_submatrix(computation: NnetComputation)
+        -> list<list<int>>
+
+    def `ComputeCommandAttributes` as compute_command_attributes(nnet: Nnet, computation: NnetComputation,
+                                 variables: ComputationVariables)
+        -> list<CommandAttributes>
+
+    class CheckComputationOptions:
+      check_rewrite: bool
+      check_unused_variables: bool
+
+    class ComputationChecker:
+      def __init__(self, config: CheckComputationOptions, nnet: Nnet,
+                   computation: NnetComputation)
+
+      def `Check` as check(self)
+
+    def `GetCommandsOfType` as get_commands_of_type(computation: NnetComputation, t: CommandType)
+        -> list<int>
+
+    def `CheckComputation` as check_computation(nnet: Nnet, computation: NnetComputation,
+                         check_rewrite: bool = default)
+
+    def `GetMaxMemoryUse` as get_max_memory_use(computation: NnetComputation) -> int

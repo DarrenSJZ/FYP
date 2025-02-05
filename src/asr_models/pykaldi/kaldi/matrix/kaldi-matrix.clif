@@ -1,0 +1,2602 @@
+from "base/iostream-clifwrap.h" import *
+from "matrix/matrix-common-clifwrap.h" import *
+from "matrix/kaldi-vector-clifwrap.h" import *
+
+from "matrix/kaldi-matrix.h":
+  namespace `kaldi`:
+    class `MatrixBase<float>` as MatrixBase:
+      """Base class for single precision matrices."""
+
+      def `NumRows` as __len__(self) -> int:
+        """Returns the number of rows of the matrix."""
+
+      num_rows: int = property(`NumRows`)
+      """Number of rows (zero for empty matrix)."""
+
+      num_cols: int = property(`NumCols`)
+      """Number of columns (zero for empty matrix)."""
+
+      stride: int = property(`Stride`)
+      """Row stride (distance in memory between each row, >= num_cols)."""
+
+      def `SizeInBytes` as size_in_bytes(self) -> int:
+        """Returns the size (in bytes) of the data held by the matrix."""
+
+      # NOTE:
+      # Data and RowData methods are implemented in Python.
+
+      def `operator()` as _getitem(self, row:int, col:int) -> float:
+        """Gets the element at the given index.
+
+        Args:
+          row (int): The row index of the element.
+          col (int): The column index of the element.
+
+        Returns:
+          The element at the given index.
+        """
+
+      def `Set` as _setitem_(self, row:int, col:int, value:float):
+        """Sets the element at the given index.
+
+        Args:
+          row (int): The row index of the element.
+          col (int): The column index of the element.
+          value (float): The value to set.
+        """
+
+      def `SetZero` as set_zero_(self) -> self:
+        """Sets the elements to zero."""
+
+      def `SetUnit` as set_unit_(self) -> self:
+        """Sets diagonal elements to one, off-diagonal elements to zero.
+
+        Note:
+          Works for non-square matrices too.
+        """
+
+      def `SetRandn` as set_randn_(self)-> self:
+        """Sets the elements to numbers from standard normal distribution."""
+
+      def `SetRandUniform` as set_rand_uniform_(self)-> self:
+        """Sets the elements to numbers uniformly distributed on (0,1)."""
+
+      def `CopyFromMat` as _copy_from_mat_(
+          self, M:MatrixBase, trans:MatrixTransposeType = default) -> self:
+        """Copies the elements from another matrix.
+
+        Args:
+          M (Matrix): The input matrix.
+          trans (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # NOTE:
+      # These methods are wrapped via shims in kaldi-matrix-ext.{h,clif}.
+      #
+      # def CopyFromMat(self, M:CompressedMatrix)
+      #
+      # def CopyFromSp(self, M:SpMatrix)
+      #
+      # def CopyFromTp(self, M:TpMatrix,
+      #                trans:MatrixTransposeType = default)
+
+      # TODO:
+      # Wrap these methods by binding to CuMatrix CopyTo* methods in Python.
+      #
+      # def CopyFromMat(self, M:CuMatrixBase,
+      #                 trans:MatrixTransposeType = default)
+      #
+      # def CopyRowFromCudaVec(self, v:CuVector)
+
+      def `CopyRowsFromVec` as copy_rows_from_vec_(self, v:VectorBase) -> self:
+        """Copies row elements from a vector.
+
+        This method has two modes of operation. If the number of elements in
+        `self` and `v` are the same, then elements of `v` are copied into
+        `self` row by row. If the number of elements in `v` is equal to
+        `self.num_cols`, then the elements of `v` are copied into each row of
+        `self`.
+
+        Args:
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyColsFromVec` as copy_cols_from_vec_(self, v:VectorBase) -> self:
+        """Copies column elements from a vector.
+
+        This method has two modes of operation. If the number of elements in
+        `self` and `v` are the same, then elements of `v` are copied into
+        `self` column by column. If the number of elements in `v` is equal to
+        `self.num_rows`, then the elements of `v` are copied into each column
+        of `self`.
+
+        Args:
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyColFromVec` as copy_col_from_vec_(self, v:VectorBase, col:int) -> self:
+        """Copies a vector into the specified column.
+
+        Args:
+          v (Vector): The input vector.
+          col (int): The column index.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyRowFromVec` as copy_row_from_vec_(self, v:VectorBase, row:int) -> self:
+        """Copies a vector into the specified row.
+
+        Args:
+          v (Vector): The input vector.
+          row (int): The row index.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyDiagFromVec` as copy_diag_from_vec_(self, v:VectorBase) -> self:
+        """Copies a vector into the diagonal.
+
+        Args:
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # NOTE:
+      # Row, Range, RowRange, ColRange methods are implemented in Python.
+
+      def `Sum` as sum(self) -> float:
+        """Returns the sum of the elements."""
+
+      def `Trace` as trace(self, check_square: bool = default) -> float:
+        """Returns the trace.
+
+        If matrix is not square it will return the trace of the square matrix
+        formed from the minimum dimension, e.g. if the matrix is 3x5 it will
+        return the trace of the 3x3 submatrix at the beginning.
+
+        Args:
+          check_square(bool): Check if the matrix is square.
+            Defaults to ``True``.
+
+        Raises:
+          RuntimeError: If the matrix is not square and
+          **check_square** is ``True``.
+        """
+
+      def `Max` as max(self) -> float:
+        """Returns the maximum value in the matrix."""
+
+      def `Min` as min(self) -> float:
+        """Returns the minimum value in the matrix."""
+
+      def `MulElements` as mul_elements_(self, A: MatrixBase) -> self:
+        """Multiplies element-wise with another matrix.
+
+        Performs the operation `M = M \\odot A`.
+
+        Args:
+          A (Matrix): The multiplier.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `DivElements` as div_elements_(self, A: MatrixBase) -> self:
+        """Divides element-wise with another matrix.
+
+        Performs the operation `M = M \\oslash A`.
+
+        Args:
+          A (Matrix): The denominator.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Scale` as scale_(self, alpha: float) -> self:
+        """Scales the matrix.
+
+        Args:
+          alpha (float): The scalar multiplier.
+        """
+
+      def `Max` as max_with_mat_(self, A: MatrixBase) -> self:
+        """Applies an element-wise max operation.
+
+        Performs the operation `M[i,j] = max(M[i,j], A[i,j])`.
+
+        Args:
+          A (Matrix): The input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Min` as min_with_mat_(self, A: MatrixBase) -> self:
+        """Applies an element-wise min operation.
+
+        Performs the operation `M[i,j] = min(M[i,j], A[i,j])`.
+
+        Args:
+          A (Matrix): The input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulColsVec` as mul_cols_vec_(self, scale: VectorBase) -> self:
+        """Scales columns with the elements in a vector.
+
+        Performs the operation `M[i,j] = scale[j] * M[i,j]`.
+
+        Args:
+          scale (Vector): The scaling vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulRowsVec` as mul_rows_vec_(self, scale: VectorBase) -> self:
+        """Scales rows with the elements in a vector.
+
+        Performs the operation `M[i,j] = scale[i] * M[i,j]`.
+
+        Args:
+          scale (Vector): The scaling vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulRowsGroupMat` as mul_rows_group_mat_(self, src: MatrixBase) -> self:
+        """Scales matrix with another matrix.
+
+        Divides each row of `self` into `src.num_cols` equal groups, and then
+        scales `i`th row's `j`th group of elements with `src[i,j]`.
+
+        Args:
+          src (Matrix): The scaling matrix.
+
+        Raises:
+          RuntimeError: If `self.num_rows != src.num_rows` or
+            `self.num_cols % src.num_cols != 0`.
+        """
+
+      def `LogDet` as log_det(self) -> (log_det: float, det_sign: float):
+        """Computes log determinant of the matrix.
+
+        Returns:
+          2-element tuple containing
+
+          - **log_det** (:class:`float`): The log determinant.
+          - **det_sign** (:class:`float`): The sign of the determinant, 1 or -1.
+        """
+
+      # NOTE:
+      # Invert, InvertDouble, CopyCols, CopyRows, AddCols, AddRows methods
+      # are wrapped via shims defined in kaldi-matrix-ext.h.
+
+      # TODO:
+      #
+      # void CopyRows(const Real *const *src);
+      # void CopyToRows(Real *const *dst) const;
+      #
+      # void AddRows(Real alpha, const Real *const *src);
+      # void AddToRows(Real alpha, Real *const *dst) const;
+
+      def `InvertElements` as invert_elements_(self) -> self:
+        """Inverts the elements."""
+
+      def `Transpose` as transpose_(self) -> self:
+        """Transposes the matrix."""
+
+      def `ApplyFloor` as apply_floor_(self, floor: float) -> self:
+        """Applies floor operation to each element.
+
+        Performs the operation `M[i,j] = max(M[i,j], floor)`.
+
+        Args:
+          floor (float): The floor value.
+
+        Returns:
+          The number of elements changed.
+        """
+
+      def `ApplyCeiling` as apply_ceiling_(self, ceiling: float) -> self:
+        """Applies ceiling operation to each element.
+
+        Performs the operation `M[i,j] = min(M[i,j], ceiling)`.
+
+        Args:
+          ceiling (float): The ceiling value.
+
+        Returns:
+          The number of elements changed.
+        """
+
+      def `ApplyLog` as apply_log_(self) -> self:
+        """Applies natural log operation to each element."""
+
+      def `ApplyExp` as apply_exp_(self) -> self:
+        """Applies exponential operation to each element."""
+
+      def `ApplyPow` as apply_pow_(self, power: float) -> self:
+        """Takes each element to the given power.
+
+        Args:
+          power (float): The exponent value.
+
+        Raises:
+          RuntimeError: If an element cannot be raised to the given power.
+        """
+
+      def `ApplyPowAbs` as apply_pow_abs_(self, power: float,
+                                          include_sign: bool = default) -> self:
+        """Takes the absolute value of each element raised to the given power.
+
+        If the power is negative and the input is zero, the output is zero.
+
+        Args:
+          power (float): The power value.
+          include_sign (bool): Whether to include the sign of the input value.
+            Defaults to ``False``.
+
+        Raises:
+          RuntimeError: If an element cannot be raised to the given power.
+        """
+
+      def `ApplyHeaviside` as apply_heaviside_(self) -> self:
+        """Applies the Heaviside step function to each element."""
+
+      def `Eig` as _eig(self, P: MatrixBase, eigs_real: VectorBase,
+                        eigs_imag: VectorBase):
+        """Computes eigendecomposition.
+
+        Factorizes a square matrix into `P D P^{-1}`.
+
+        The relationship of D to the eigenvalues is slightly complicated, due
+        to the need for P to be real. In the symmetric case, D is diagonal and
+        real, but in the non-symmetric case there may be complex-conjugate
+        pairs of eigenvalues. In this case, for the equation
+        `self = P D P^{-1}`
+        to hold, D must actually be block diagonal, with 2x2 blocks
+        corresponding to any such pairs. If a pair is `lambda +- i*mu`, D will
+        have a corresponding 2x2 block `[lambda, mu; -mu, lambda]`. Note that
+        if the matrix is not invertible, P may not be invertible so in this
+        case instead of the equation `self = P D P^{-1}` holding, we have
+        `self P = P D`.
+
+        Args:
+          P (MatrixBase): The matrix of eigenvectors.
+          eigs_real (Vector): The real part of the eigenvalues.
+          eigs_imag (Vector): The imaginary part of the eigenvalues.
+        """
+
+      def `Power` as power_(self, pow: float) -> bool:
+        """Takes the matrix to the specified power.
+
+        This method uses an algorithm that works in general for fractional
+        and negative powers. The input matrix must be invertible and have a
+        reasonable condition number. The algorithm is based on eigenvalue
+        decomposition. It will return False and leave the matrix unchanged,
+        if the matrix has real negative eigenvalues (or if it has zero
+        eigenvalues and the power is negative).
+
+        Args:
+          pow (float): The exponent.
+
+        Returns:
+          True if the operation was successful.
+        """
+
+      def `DestructiveSvd` as _destructive_svd_(
+          self, s: VectorBase, U: MatrixBase, Vt: MatrixBase):
+        """Computes singular-value decomposition.
+
+        This is the destructive version which mutates self.
+
+        Factorizes a matrix into  U diag(s) Vt.
+
+        For non-square matrices, requires self.num_rows >= self.num_cols.
+
+        Args:
+          s(Vector): The vector of singular values.
+          U(Matrix): The left orthonormal matrix.
+          Vt(Matrix): The right orthonormal matrix.
+
+        Notes:
+          Vt in the output is already transposed.
+          The singular values in s are not sorted.
+
+        Raises:
+          RuntimeError: If self.num_rows<self.num_cols,
+            or if U is not self.num_rows x self.num_cols,
+            or if Vt is not self.num_cols x self.num_cols.
+        """
+
+      def `Svd` as _svd(self, s: VectorBase, U: MatrixBase, Vt: MatrixBase):
+        """Computes singular-value decomposition.
+
+        Factorizes a matrix into  U diag(s) Vt.
+
+        For non-square matrices, requires self.num_rows >= self.num_cols.
+
+        Args:
+          s(Vector): The vector of singular values.
+          U(Matrix): The left orthonormal matrix.
+          Vt(Matrix): The right orthonormal matrix.
+
+        Notes:
+          Vt in the output is already transposed.
+          The singular values in s are not sorted.
+
+        Raises:
+          RuntimeError: If self.num_rows<self.num_cols,
+            or if U is not self.num_rows x self.num_cols,
+            or if Vt is not self.num_cols x self.num_cols.
+        """
+
+      def `Svd` as _singular_values(self, s: VectorBase):
+        """Computes singular values.
+
+        Args:
+            s(Vector): The vector of singular values.
+        """
+
+      def `MinSingularValue` as min_singular_value(self) -> float:
+        """Returns the smallest singular value."""
+
+      def `Cond` as cond(self) -> float:
+        """Returns the condition number of the SVD computation."""
+
+      def `IsSymmetric` as is_symmetric(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is approximately symmetric.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if the matrix is approximately symmetric. False otherwise.
+        """
+
+      def `IsDiagonal` as is_diagonal(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is approximately diagonal.
+
+        Args:
+          cutoff(float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `sum(digonal_elements)*cutoff > sum(nondiagonal_elements)`.
+          False otherwise.
+        """
+
+      def `IsUnit` as is_unit(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is identity-like.
+
+        Checks if `max(M - I) <= cutoff` where `I` is a matrix with the same
+        size as `M`, ones on the diagonal and zeros elsewhere.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `max(M - I) <= cutoff`.
+
+        Note:
+          The matrix does not have to be square.
+        """
+
+      def `IsZero` as is_zero(self, cutoff: float = default) -> bool:
+        """Checks if the elements are all zeros.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `max(abs(M)) <= cutoff`.
+        """
+
+      def `FrobeniusNorm` as frobenius_norm(self) -> float:
+        """Returns the Frobenius norm of the matrix"""
+
+      def `ApproxEqual` as _approx_equal(self, other: MatrixBase,
+                                         tol: float = default) -> bool:
+        """Checks if matrices are approximately equal.
+
+        Checks if `self` is equal to `other` by calculating the Frobenius
+        norm of their difference.
+
+        Args:
+          other (Matrix): The matrix to check against.
+          tol (float): The tolerance for equality check. Defaults to ``0.01``.
+
+        Returns:
+          True if `||(self-other)||_F <= tol * ||self||_F`. False otherwise.
+        """
+
+      def `Equal` as equal(self, other: MatrixBase) -> bool:
+        """Checks if matrices are exactly equal.
+
+        Args:
+          other (Matrix): The matrix to check against
+
+        Returns:
+          True if `self[i,j] == other[i,j]`` for all `i,j`. False otherwise.
+        """
+
+      def `LargestAbsElem` as largest_abs_elem(self) -> float:
+        """Returns the largest of the absolute values of the elements."""
+
+      def `LogSumExp` as log_sum_exp(self, prune: float = default) -> float:
+        """Computes :math:`f(M)=\\log(\\sum_{i,j} \\exp(M_{i,j}))` without exp overflow.
+
+        If `prune > 0.0`, ignores terms less than `max(M) - prune`.
+
+        Args:
+          prune (float): The pruning beam. Defaults to `-1.0`.
+
+        Returns:
+          :math:`\\log(\\sum_{i,j} \\exp(M_{i,j}))`.
+        """
+
+      def `ApplySoftMax` as apply_softmax_(self) -> float:
+        """Applies the softmax operation to each element.
+
+        Performs the operation
+        :math:`M_{i,j} = \\frac{\\exp(M_{i,j})}{\\sum_{k,j} \\exp(M_{k,j})}`.
+
+        Returns:
+          :math:`\\log(\\sum_{k,j} \\exp(M_{k,j}))`.
+        """
+
+      def `Sigmoid` as sigmoid_(self, src: MatrixBase) -> self:
+        """Applies sigmoid function to elements of another matrix.
+
+        Args:
+          src (Matrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Heaviside` as heaviside_(self, src: MatrixBase) -> self:
+        """Applies Heaviside step function to elements of another matrix.
+
+        Args:
+          src (Matrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `SoftHinge` as soft_hinge_(self, src: MatrixBase) -> self:
+        """Applies soft hinge function to elements of another matrix.
+
+        Performs the operation `M[i,j] = log(1 + exp(src[i,j]))`.
+
+        Args:
+          src (Matrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `GroupPnorm` as group_pnorm_(self, src: MatrixBase,
+                                       power: float) -> self:
+        """Computes group p-norm of elements in another matrix.
+
+        Performs the operation `self[i,j] = norm(src[i,j*gs:(j+1)*gs], power)`
+        where `gs = src.num_cols / self.num_cols`.
+
+        Args:
+          src (Matrix): The source matrix.
+          power (float): The p value for p-norm. It must be non-negative.
+
+        Raises:
+          RuntimeError: If `src.num_rows != self.num_rows`
+                        or `src.num_rows % self.num_rows != 0`.
+        """
+
+      def `GroupPnormDeriv` as group_pnorm_deriv_(
+          self, input: MatrixBase, output: MatrixBase, power: float) -> self:
+        """Computes derivatives for the group p-norm operation.
+
+        Args:
+          input (Matrix): The input to group p-norm operation (src in
+            :meth:`group_pnorm_`).
+          output (Matrix): The output of group p-norm operation.
+          power (float): The p value for p-norm. It must be non-negative.
+        """
+
+      def `GroupMax` as group_max_(self, src: MatrixBase) -> self:
+        """Computes group max of elements in another matrix.
+
+        Performs the operation `self[i,j] = max(src[i,j*gs:(j+1)*gs])`
+        where `gs = src.num_cols / self.num_cols`.
+
+        Args:
+          src (MatrixBase): The source matrix.
+
+        Raises:
+          RuntimeError: If `src.num_rows != self.num_rows`
+                        or `src.num_rows % self.num_rows != 0`.
+        """
+
+      def `GroupMaxDeriv` as group_max_deriv_(
+          self, input: MatrixBase, output: MatrixBase) -> self:
+        """Computes derivatives for the group max operation.
+
+        Args:
+          input (Matrix): The input to group max operation (src in
+            :meth:`group_max_`).
+          output (Matrix): The output of group max operation.
+        """
+
+      def `Tanh` as tanh_(self, src: MatrixBase) -> self:
+        """Applies tanh function to elements of another matrix.
+
+        Args:
+          src (Matrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `DiffSigmoid` as diff_sigmoid_(self, value: MatrixBase, diff: MatrixBase) -> self:
+        """Backpropagates derivatives through the sigmoid function.
+
+        Performs the operation
+        `M[i,j] = diff[i,j] * value[i,j] * (1 - value[i,j])`.
+
+        Args:
+          value (Matrix): The activations.
+          diff (Matrix): The derivatives.
+        """
+
+      def `DiffTanh` as diff_tanh_(self, value: MatrixBase, diff: MatrixBase) -> self:
+        """Backpropagates derivatives through the tanh function.
+
+        Performs the operation `M[i,j] = diff[i,j] * (1 - value[i,j]^2)`.
+
+        Args:
+          value (Matrix): The activations.
+          diff (Matrix): The derivatives.
+        """
+
+      def `SymPosSemiDefEig` as sym_pos_semi_def_eig(
+          self, s: VectorBase, P: MatrixBase, check_thresh: float = default):
+        """Computes eigendecomposition of a positive semi-definite matrix.
+
+        Uses SVD to compute the eigendecomposition of a symmetric positive
+        semi-definite matrix: :math:`M = P\\ diag(s) \\ P^T`, where :math:`P`
+        is an orthogonal matrix, i.e. :math:`P^{-1} = P^T`.
+
+        Args:
+          s (Vector): The eigenvalue vector.
+          P (Matrix): The eigenvector matrix.
+          check_thresh (float): The threshold used for checking if input is
+            positive semi-definite. Defaults to ``0.001``.
+
+        Note:
+          Set check_thresh to 2 to ensure the positive semi-definite check
+          won't ever complain, however it will zero out negative dimensions
+          in the matrix.
+
+        Raises:
+          RuntimeError: If input is not positive semi-definite.
+        """
+
+      def `Add` as add_(self, alpha: float) -> self:
+        """Adds a scalar to each element of the matrix.
+
+        Args:
+          alpha(float): The scalar to add.
+        """
+
+      def `AddToDiag` as add_to_diag_(self, alpha: float) -> self:
+        """Adds a scalar to the diagonal elements of the matrix.
+
+        Args:
+          alpha (float): The scalar to add.
+        """
+
+      def `AddVecVec` as add_vec_vec_(self, alpha: float, a: VectorBase,
+                                      b: VectorBase) -> self:
+        """Adds outer product of input vectors to this matrix.
+
+        Performs the operation :math:`M = M + \\alpha\\ a \\ b^T`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          a (Vector): The first input vector.
+          b (Vector): The second input vector.
+        """
+
+      def `AddVecToRows` as add_vec_to_rows_(self, alpha: float,
+                                             v: VectorBase) -> self:
+        """Adds input vector to each row of this matrix.
+
+        Performs the operation :math:`M_{ij} = M_{ij} + \\alpha\\ v_{j}`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddVecToCols` as add_vec_to_cols_(self, alpha: float,
+                                             v: VectorBase) -> self:
+        """Adds input vector to each column of this matrix.
+
+        Performs the operation :math:`M_{ij} = M_{ij} + \\alpha\\ v_{i}`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMat` as _add_mat_(self, alpha: float, M: MatrixBase,
+                                transM: MatrixTransposeType = default) -> self:
+        """Adds given matrix to this one.
+
+        Performs the operation :math:`S += \\alpha\\ M`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          M (Matrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `SymAddMat2` as sym_add_mat2_(self, alpha: float, M: MatrixBase,
+                                        transA: MatrixTransposeType,
+                                        beta: float) -> self:
+        """Adds the square of given matrix to this one.
+
+        Performs the operation on symmetric matrices
+        :math:`S = \\alpha\\ M\\ M^T + \\beta\\ S`.
+
+        Note:
+          It only updates the lower triangle of self. It will leave the
+          matrix asymmetric. If you need it symmetric as a regular matrix,
+          call :meth:`copy_lower_to_upper_` after this operation.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`M\\ M^T`.
+          M (Matrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddDiagVecMat` as add_diag_vec_mat_(self, alpha: float,
+                                               v: VectorBase, M: MatrixBase,
+                                               transM: MatrixTransposeType,
+                                               beta: float = default) -> self:
+        """Adds given matrix to this one after scaling its rows.
+
+        Perform the operation :math:`S = \\alpha\\ diag(v)\\ M + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`diag(v) M`.
+          v (Vector): The scaling vector.
+          M (Matrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          beta (float): The scalar multiplier for the destination matrix.
+            Defaults to ``1.0``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+
+      def `AddMatDiagVec` as add_mat_diag_vec_(
+          self, alpha: float, M: MatrixBase, transM: MatrixTransposeType,
+          v: VectorBase, beta: float = default) -> self:
+        """Adds given matrix to this one after scaling its columns.
+
+        Perform the operation :math:`S = \\alpha\\ M\\ diag(v) + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`M\\ diag(v)`.
+          M (Matrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          v (Vector): The scaling vector.
+          beta (float): The scalar multiplier for the destination matrix.
+            Defaults to ``1.0``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+
+      def `AddMatMatElements` as add_mat_mat_elements_(
+          self, alpha: float, A: MatrixBase, B: MatrixBase, beta: float) -> self:
+        """Adds the element-wise multiplication of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\odot B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A \\odot B`.
+          A (Matrix): The first input matrix.
+          B (Matrix): The second input matrix.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # Note:
+      # AddSp method is wrapped via a shim defined in kaldi-matrix-ext.h.
+
+      def `AddMatMat` as _add_mat_mat_(self,
+          alpha: float, A: MatrixBase, transA: MatrixTransposeType,
+          B: MatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (Matrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (Matrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `SetMatMatDivMat` as set_mat_mat_div_mat_(self,
+          A: MatrixBase, B: MatrixBase, C: MatrixBase) -> self:
+        """Computes an elementwise multiplication followed by division.
+
+        Performs the operation :math:`S = A \\odot B \\oslash C` where
+        :math:`\\odot` and :math:`\\oslash` are elementwise multiplication and
+        division. If :math:`C[i,j] == 0` then :math:`S[i,j]` remains intact.
+
+        Args:
+          A (Matrix): The first input matrix.
+          B (Matrix): The second input matrix.
+          C (Matrix): The third input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMatSmat` as _add_mat_smat_(self,
+          alpha: float, A: MatrixBase, transA: MatrixTransposeType,
+          B: MatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (Matrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (Matrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Note:
+          This opearation is like :meth:`add_mat_mat_` but optimized for
+          sparse **B**.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddSmatMat` as _add_smat_mat_(self,
+          alpha: float, A: MatrixBase, transA: MatrixTransposeType,
+          B: MatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (Matrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (Matrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Note:
+          This opearation is like :meth:`add_mat_mat_` but optimized for
+          sparse **A**.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMatMatMat` as add_mat_mat_mat_(self,
+          alpha: float, A: MatrixBase, transA: MatrixTransposeType,
+          B: MatrixBase, transB: MatrixTransposeType,
+          C: MatrixBase, transC: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of three matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B\\ C + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B\\ C`.
+          A (Matrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (Matrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          C (Matrix): The third input matrix.
+          transC (MatrixTransposeType): Whether to use **C** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # NOTE:
+      # These method are wrapped via shims defined in kaldi-matrix-ext.h
+      #
+      # def AddSpMat(self, alpha: float, A:SpMatrix, B: MatrixBase,
+      #              transB: MatrixTransposeType, beta: float)
+      # def AddTpMat(self, alpha: float, A:TpMatrix,
+      #              transA: MatrixTransposeType, B: MatrixBase,
+      #              transB: MatrixTransposeType, beta: float)
+      # def AddMatSp(self, alpha: float, A: MatrixBase,
+      #              transA: MatrixTransposeType, B:SpMatrix,
+      #              beta: float)
+      # def AddMatTp(self, alpha: float, A: MatrixBase,
+      #              transA: MatrixTransposeType, B:TpMatrix,
+      #              transB: MatrixTransposeType, beta: float)
+      # def AddTpTp
+      # def AddSpSp
+
+      def `CopyLowerToUpper` as copy_lower_to_upper_(self) -> self:
+        """Copies lower triangle to upper triangle.
+
+        Raises:
+          RuntimeError: If matrix is not square.
+        """
+
+      def `CopyUpperToLower` as copy_upper_to_lower_(self) -> self:
+        """Copies upper triangle to lower triangle.
+
+        Raises:
+          RuntimeError: If matrix is not square.
+        """
+
+      def `OrthogonalizeRows` as orthogonalize_rows_(self) -> self:
+        """Orthogonalizes rows using the Gram-Schmidt process.
+
+        Uses random number generation to fill in rows with something non-zero,
+        in cases where the original matrix was of deficient row rank.
+
+        Raises:
+          RuntimeError: If `self.num_rows > self.num_cols`.
+        """
+
+      def `Read` as read_(self, is: istream, binary: bool, add: bool = default) -> self:
+        """Reads the matrix from the given C++ stream.
+
+        Args:
+          is (istream): The input C++ stream.
+          binary (bool): Whether the stream is binary.
+          add (bool): Whether to add existing contents to the read matrix.
+            Defaults to ``False``.
+        """
+
+      def `Write` as write(self, os: ostream, binary: bool):
+        """Writes the matrix to given C++ stream.
+
+        Args:
+            os (ostream): The output C++ straem.
+            binary (bool): Whether the stream is binary.
+        """
+
+    # Note: SubMatrix is wrapped manually in matrix-ext.cc
+
+    class `Matrix<float>` as Matrix(MatrixBase):
+      """Single precision matrix."""
+
+      @add__init__
+      def `Matrix` as from_size(self, r:int, c:int,
+                                resize_type:MatrixResizeType = default,
+                                stride_type:MatrixStrideType = default):
+        """Creates a new matrix of given size.
+
+        Args:
+          r (int): The number or rows.
+          c (int): The number or columns.
+          resize_type (MatrixResizeType): How to initialize the elements.
+            If ``MatrixResizeType.SET_ZERO`` or ``MatrixResizeType.COPY_DATA``,
+            they are set to zero. If ``MatrixResizeType.UNDEFINED``, they are
+            left uninitialized. Defaults to ``MatrixResizeType.SET_ZERO``.
+          stride_type(MatrixStrideType): Determines how the elements are laid
+            out in memory. If ``MatrixStrideType.STRIDE_EQUAL_NUM_COLS``, the
+            stride is equal to the number of columns. If
+            ``MatrixStrideType.DEFAULT_STRIDE``, the stride is equal to the
+            smallest multiple of 16 that is larger than the number of columns.
+            Defaults to ``MatrixStrideType.DEFAULT_STRIDE``.
+        """
+
+      # TODO:
+      # Wrap this by binding to CuMatrix CopyToMat method in Python.
+      #
+      # explicit Matrix(const CuMatrixBase<OtherReal> &cu,
+      #                 MatrixTransposeType trans = kNoTrans);
+
+      def `Swap` as swap_(self, other: Matrix) -> self:
+        """Swaps the contents of matrices.
+
+        Shallow swap.
+
+        Args:
+          other (Matrix): The matrix to swap contents with.
+        """
+
+      # TODO:
+      # Wrap this by binding to CuMatrix Swap method in Python.
+      #
+      # void Swap(CuMatrix<Real> *mat);
+
+      @add__init__
+      def `Matrix` as from_matrix(self, M: MatrixBase,
+                                  trans: MatrixTransposeType = default):
+        """Creates a new matrix from a given matrix.
+
+        Args:
+          M (Matrix): The input matrix.
+          trans (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+        """
+
+      # NOTE:
+      # These constructors are implemented in Python.
+      #
+      # @add__init__
+      # def `Matrix` as FromSpMatrix(self, M:SpMatrix)
+      # @add__init__
+      # def `Matrix` as FromCompressedMatrix(self, C:CompressedMatrix)
+      # @add__init__
+      # def `Matrix` as FromTpMatrix(self, M:TpMatrix, trans:MatrixTransposeType = default)
+
+      def `Read` as read_(self, is: istream, binary: bool, add: bool = default) -> self:
+        """Reads the matrix from the given C++ stream.
+
+        Resizes the matrix to match the size of the matrix read from stream.
+
+        Args:
+          is (istream): The input C++ stream.
+          binary (bool): Whether the stream is binary.
+          add (bool): Whether to add existing contents to the read matrix.
+            Defaults to ``False``.
+        """
+
+      def `RemoveRow` as _remove_row_(self, index: int):
+        """Removes the row at the given index.
+
+        Args:
+          index (int): The row index.
+
+        Raises:
+          RuntimeError: If `index >= num_rows`.
+        """
+
+      def `Transpose` as transpose_(self) -> self:
+        """Transposes the matrix."""
+
+      def `Resize` as resize_(self, r:int, c:int,
+                              resize_type:MatrixResizeType = default,
+                              stride_type:MatrixStrideType = default) -> self:
+        """Resizes the matrix.
+
+        Args:
+          r (int): The new number of rows.
+          c (int): The new number of columns.
+          resize_type (MatrixResizeType): How to initialize the elements.
+            If ``MatrixResizeType.SET_ZERO`` or ``MatrixResizeType.COPY_DATA``,
+            they are set to zero. If ``MatrixResizeType.UNDEFINED``, they are
+            left uninitialized. Defaults to ``MatrixResizeType.SET_ZERO``.
+          stride_type(MatrixStrideType): Determines how the elements are laid
+            out in memory. If ``MatrixStrideType.STRIDE_EQUAL_NUM_COLS``, the
+            stride is equal to the number of columns. If
+            ``MatrixStrideType.DEFAULT_STRIDE``, the stride is equal to the
+            smallest multiple of 16 that is larger than the number of columns.
+            Defaults to ``MatrixStrideType.DEFAULT_STRIDE``.
+        """
+
+    def `TraceMat` as _trace_mat(A: MatrixBase) -> float:
+      """Computes the trace of :math:`A`.
+
+      Args:
+        A (Matrix): The input matrix
+
+      Returns:
+        The trace of :math:`A`.
+      """
+
+    def `TraceMatMat` as _trace_mat_mat(A: MatrixBase, B: MatrixBase,
+                                        trans: MatrixTransposeType = default) -> float:
+      """Computes the trace of :math:`A\\ B`.
+
+      Args:
+        A (Matrix): The first matrix.
+        B (Matrix): The second matrix.
+        trans (MatrixTransposeType): Whether to use **B** or its transpose.
+          Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+      Returns:
+        The trace of :math:`A\\ B`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `TraceMatMatMat` as _trace_mat_mat_mat(
+        A: MatrixBase, transA: MatrixTransposeType,
+        B: MatrixBase, transB: MatrixTransposeType,
+        C: MatrixBase, transC: MatrixTransposeType) -> float:
+      """Computes the trace of :math:`A\\ B\\ C`.
+
+      Args:
+        A (Matrix): The first matrix.
+        transA (MatrixTransposeType): Whether to use **A** or its transpose.
+        B (Matrix): The second matrix.
+        transB (MatrixTransposeType): Whether to use **B** or its transpose.
+        C (Matrix): The third matrix.
+        transC (MatrixTransposeType): Whether to use **C** or its transpose.
+
+      Returns:
+        The trace of :math:`A\\ B\\ C`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `TraceMatMatMatMat` as _trace_mat_mat_mat_mat(
+        A: MatrixBase, transA: MatrixTransposeType,
+        B: MatrixBase, transB: MatrixTransposeType,
+        C: MatrixBase, transC: MatrixTransposeType,
+        D: MatrixBase, transD: MatrixTransposeType) -> float:
+      """Computes the trace of :math:`A\\ B\\ C\\ D`.
+
+      Args:
+        A (Matrix): The first matrix.
+        transA (MatrixTransposeType): Whether to use **A** or its transpose.
+        B (Matrix): The second matrix.
+        transB (MatrixTransposeType): Whether to use **B** or its transpose.
+        C (Matrix): The third matrix.
+        transC (MatrixTransposeType): Whether to use **C** or its transpose.
+        D (Matrix): The fourth matrix.
+        transC (MatrixTransposeType): Whether to use **D** or its transpose.
+
+      Returns:
+        The trace of :math:`A\\ B\\ C\\ D`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `ApproxEqual` as _approx_equal_matrix(
+        A:MatrixBase, B:MatrixBase, tol:`float` as float = default) -> bool:
+      """Check if matrices are approximately equal.
+
+      Computes the Frobenius norm of the difference of A and B and
+      returns True if it is less than or equal than tol times the norm of A.
+
+      Args:
+        A (Matrix): The first input matrix.
+        B (Matrix): The second input matrix.
+        tol (float): The tolerance for equality check.
+
+      Returns:
+        True if `||A-B||_F <= tol * ||A||_F`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `AssertEqual` as _assert_equal_matrix(
+        A:MatrixBase, B:MatrixBase, tol:`float` as float = default):
+      """Asserts matrices are approximately equal.
+
+      Args:
+        A (Matrix): The first input matrix.
+        B (Matrix): The second input matrix.
+        tol (float): The tolerance for equality check.
+
+      Raises:
+        RuntimeError: If `||A-B||_F <= tol * ||A||_F`.
+      """
+
+    def `SortSvd` as _sort_svd(s: VectorBase, U: MatrixBase,
+                               Vt: MatrixBase = default,
+                               sort_on_absolute_value: bool = default):
+      """Sorts singular-value decomposition in-place.
+
+      This function is as generic as possible, to be applicable to other
+      types of problems. Requires s.dim == U.num_cols, and we sort s from
+      greatest to least absolute value (if sort_on_absolute_value is True)
+      or greatest to least value (otherwise), moving the columns of U,
+      and the rows of Vt, if provided, around in the same way.
+
+      Note:
+        The ``absolute value'' part won't matter if this is an actual SVD,
+        since singular values are non-negative.
+
+      Args:
+        s (Vector): The singular values. SVD is U*diag(s)*Vt.
+        U (Matrix): The U part of SVD.
+        Vt (Matrix): The Vt part of SVD. Defaults to None.
+
+      Raises:
+        RuntimeError: If s.dim != U.num_cols.
+      """
+
+    def `CreateEigenvalueMatrix` as _create_eigenvalue_matrix(
+        real:VectorBase, imag:VectorBase, D:MatrixBase):
+      """Creates the eigenvalue matrix.
+
+      Eigenvalue matrix D is part of the decomposition used in eig. D will be
+      block-diagonal with blocks of size 1 (for real eigenvalues) or 2x2 for
+      complex pairs. If a complex pair is lambda +- i*mu, D will have a
+      corresponding 2x2 block [lambda, mu; -mu, lambda]. This function will
+      throw if any complex eigenvalues are not in complex conjugate pairs (or
+      the members of such pairs are not consecutively numbered). The D you
+      supply must has correct dimensions.
+
+      Args:
+        real (Vector): The real part of the eigenvalues.
+        imag (Vector): The imaginary part of the eigenvalues.
+        D (Matrix): The eigenvalue matrix.
+
+      Raises:
+        RuntimeError: If `real.dim != imag.dim` or if D is wrong size.
+      """
+
+    def `SameDim` as _same_dim_matrix(M: MatrixBase, N: MatrixBase) -> bool:
+      """Checks if M and N have the same size.
+
+      Args:
+        M (Matrix): The first matrix
+        N (Matrix): The second matrix
+
+      Returns:
+        True if `M.num_rows == N.num_rows` and `M.num_cols == N.num_cols`.
+      """
+
+    class `MatrixBase<double>` as DoubleMatrixBase:
+      """Base class for double precision matrices."""
+
+      def `NumRows` as __len__(self) -> int:
+        """Returns the number of rows of the matrix."""
+
+      num_rows: int = property(`NumRows`)
+      """Number of rows (zero for empty matrix)."""
+
+      num_cols: int = property(`NumCols`)
+      """Number of columns (zero for empty matrix)."""
+
+      stride: int = property(`Stride`)
+      """Row stride (distance in memory between each row, >= num_cols)."""
+
+      def `SizeInBytes` as size_in_bytes(self) -> int:
+        """Returns the size (in bytes) of the data held by the matrix."""
+
+      # NOTE:
+      # Data and RowData methods are implemented in Python.
+
+      def `operator()` as _getitem(self, row:int, col:int) -> float:
+        """Gets the element at the given index.
+
+        Args:
+          row (int): The row index of the element.
+          col (int): The column index of the element.
+
+        Returns:
+          The element at the given index.
+        """
+
+      def `Set` as _setitem_(self, row:int, col:int, value:float):
+        """Sets the element at the given index.
+
+        Args:
+          row (int): The row index of the element.
+          col (int): The column index of the element.
+          value (float): The value to set.
+        """
+
+      def `SetZero` as set_zero_(self) -> self:
+        """Sets the elements to zero."""
+
+      def `SetUnit` as set_unit_(self) -> self:
+        """Sets diagonal elements to one, off-diagonal elements to zero.
+
+        Note:
+          Works for non-square matrices too.
+        """
+
+      def `SetRandn` as set_randn_(self)-> self:
+        """Sets the elements to numbers from standard normal distribution."""
+
+      def `SetRandUniform` as set_rand_uniform_(self)-> self:
+        """Sets the elements to numbers uniformly distributed on (0,1)."""
+
+      def `CopyFromMat` as _copy_from_mat_(
+          self, M:DoubleMatrixBase, trans:MatrixTransposeType = default) -> self:
+        """Copies the elements from another matrix.
+
+        Args:
+          M (DoubleMatrix): The input matrix.
+          trans (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # TODO:
+      # These methods are wrapped via shims in kaldi-matrix-ext.{h,clif}.
+      #
+      # def CopyFromMat(self, M:CompressedMatrix)
+      #
+      # def CopyFromSp(self, M:SpMatrix)
+      #
+      # def CopyFromTp(self, M:TpMatrix,
+      #                trans:MatrixTransposeType = default)
+
+      # TODO:
+      # Wrap these methods by binding to CuMatrix CopyTo* methods in Python.
+      #
+      # def CopyFromMat(self, M:CuMatrixBase,
+      #                 trans:MatrixTransposeType = default)
+      #
+      # def CopyRowFromCudaVec(self, v:CuVector)
+
+      def `CopyRowsFromVec` as copy_rows_from_vec_(self, v:DoubleVectorBase) -> self:
+        """Copies row elements from a vector.
+
+        This method has two modes of operation. If the number of elements in
+        `self` and `v` are the same, then elements of `v` are copied into
+        `self` row by row. If the number of elements in `v` is equal to
+        `self.num_cols`, then the elements of `v` are copied into each row of
+        `self`.
+
+        Args:
+          v (Vector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyColsFromVec` as copy_cols_from_vec_(self, v:DoubleVectorBase) -> self:
+        """Copies column elements from a vector.
+
+        This method has two modes of operation. If the number of elements in
+        `self` and `v` are the same, then elements of `v` are copied into
+        `self` column by column. If the number of elements in `v` is equal to
+        `self.num_rows`, then the elements of `v` are copied into each column
+        of `self`.
+
+        Args:
+          v (DoubleVector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyColFromVec` as copy_col_from_vec_(self, v:DoubleVectorBase, col:int) -> self:
+        """Copies a vector into the specified column.
+
+        Args:
+          v (DoubleVector): The input vector.
+          col (int): The column index.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyRowFromVec` as copy_row_from_vec_(self, v:DoubleVectorBase, row:int) -> self:
+        """Copies a vector into the specified row.
+
+        Args:
+          v (DoubleVector): The input vector.
+          row (int): The row index.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `CopyDiagFromVec` as copy_diag_from_vec_(self, v:DoubleVectorBase) -> self:
+        """Copies a vector into the diagonal.
+
+        Args:
+          v (DoubleVector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # NOTE:
+      # Row, Range, RowRange, ColRange methods are implemented in Python.
+
+      def `Sum` as sum(self) -> float:
+        """Returns the sum of the elements."""
+
+      def `Trace` as trace(self, check_square: bool = default) -> float:
+        """Returns the trace.
+
+        If matrix is not square it will return the trace of the square matrix
+        formed from the minimum dimension, e.g. if the matrix is 3x5 it will
+        return the trace of the 3x3 submatrix at the beginning.
+
+        Args:
+          check_square(bool): Check if the matrix is square.
+            Defaults to ``True``.
+
+        Raises:
+          RuntimeError: If the matrix is not square and
+          **check_square** is ``True``.
+        """
+
+      def `Max` as max(self) -> float:
+        """Returns the maximum value in the matrix."""
+
+      def `Min` as min(self) -> float:
+        """Returns the minimum value in the matrix."""
+
+      def `MulElements` as mul_elements_(self, A: DoubleMatrixBase) -> self:
+        """Multiplies element-wise with another matrix.
+
+        Performs the operation `M = M \\odot A`.
+
+        Args:
+          A (DoubleMatrix): The multiplier.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `DivElements` as div_elements_(self, A: DoubleMatrixBase) -> self:
+        """Divides element-wise with another matrix.
+
+        Performs the operation `M = M \\oslash A`.
+
+        Args:
+          A (DoubleMatrix): The denominator.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Scale` as scale_(self, alpha: float) -> self:
+        """Scales the matrix.
+
+        Args:
+          alpha (float): The scalar multiplier.
+        """
+
+      def `Max` as max_with_mat_(self, A: DoubleMatrixBase) -> self:
+        """Applies an element-wise max operation.
+
+        Performs the operation `M[i,j] = max(M[i,j], A[i,j])`.
+
+        Args:
+          A (DoubleMatrix): The input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Min` as min_with_mat_(self, A: DoubleMatrixBase) -> self:
+        """Applies an element-wise min operation.
+
+        Performs the operation `M[i,j] = min(M[i,j], A[i,j])`.
+
+        Args:
+          A (DoubleMatrix): The input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulColsVec` as mul_cols_vec_(self, scale: DoubleVectorBase) -> self:
+        """Scales columns with the elements in a vector.
+
+        Performs the operation `M[i,j] = scale[j] * M[i,j]`.
+
+        Args:
+          scale (DoubleVector): The scaling vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulRowsVec` as mul_rows_vec_(self, scale: DoubleVectorBase) -> self:
+        """Scales rows with the elements in a vector.
+
+        Performs the operation `M[i,j] = scale[i] * M[i,j]`.
+
+        Args:
+          scale (DoubleVector): The scaling vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `MulRowsGroupMat` as mul_rows_group_mat_(self, src: DoubleMatrixBase) -> self:
+        """Scales matrix with another matrix.
+
+        Divides each row of `self` into `src.num_cols` equal groups, and then
+        scales `i`th row's `j`th group of elements with `src[i,j]`.
+
+        Args:
+          src (DoubleMatrix): The scaling matrix.
+
+        Raises:
+          RuntimeError: If `self.num_rows != src.num_rows` or
+            `self.num_cols % src.num_cols != 0`.
+        """
+
+      def `LogDet` as log_det(self) -> (log_det: float, det_sign: float):
+        """Computes log determinant of the matrix.
+
+        Returns:
+          2-element tuple containing
+
+          - **log_det** (:class:`float`): The log determinant.
+          - **det_sign** (:class:`float`): The sign of the determinant, 1 or -1.
+        """
+
+      # NOTE:
+      # Invert, InvertDouble, CopyCols, CopyRows, AddCols, AddRows methods
+      # are wrapped via shims defined in kaldi-matrix-ext.h.
+
+      # TODO:
+      #
+      # void CopyRows(const Real *const *src);
+      # void CopyToRows(Real *const *dst) const;
+      #
+      # void AddRows(Real alpha, const Real *const *src);
+      # void AddToRows(Real alpha, Real *const *dst) const;
+
+      def `InvertElements` as invert_elements_(self) -> self:
+        """Inverts the elements."""
+
+      def `Transpose` as transpose_(self) -> self:
+        """Transposes the matrix."""
+
+      def `ApplyFloor` as apply_floor_(self, floor: float) -> self:
+        """Applies floor operation to each element.
+
+        Performs the operation `M[i,j] = max(M[i,j], floor)`.
+
+        Args:
+          floor (float): The floor value.
+
+        Returns:
+          The number of elements changed.
+        """
+
+      def `ApplyCeiling` as apply_ceiling_(self, ceiling: float) -> self:
+        """Applies ceiling operation to each element.
+
+        Performs the operation `M[i,j] = min(M[i,j], ceiling)`.
+
+        Args:
+          ceiling (float): The ceiling value.
+
+        Returns:
+          The number of elements changed.
+        """
+
+      def `ApplyLog` as apply_log_(self) -> self:
+        """Applies natural log operation to each element."""
+
+      def `ApplyExp` as apply_exp_(self) -> self:
+        """Applies exponential operation to each element."""
+
+      def `ApplyPow` as apply_pow_(self, power: float) -> self:
+        """Takes each element to the given power.
+
+        Args:
+          power (float): The exponent value.
+
+        Raises:
+          RuntimeError: If an element cannot be raised to the given power.
+        """
+
+      def `ApplyPowAbs` as apply_pow_abs_(self, power: float,
+                                          include_sign: bool = default) -> self:
+        """Takes the absolute value of each element raised to the given power.
+
+        If the power is negative and the input is zero, the output is zero.
+
+        Args:
+          power (float): The power value.
+          include_sign (bool): Whether to include the sign of the input value.
+            Defaults to ``False``.
+
+        Raises:
+          RuntimeError: If an element cannot be raised to the given power.
+        """
+
+      def `ApplyHeaviside` as apply_heaviside_(self) -> self:
+        """Applies the Heaviside step function to each element."""
+
+      def `Eig` as _eig(self, P: DoubleMatrixBase, eigs_real: DoubleVectorBase,
+                        eigs_imag: DoubleVectorBase):
+        """Computes eigendecomposition.
+
+        Factorizes a square matrix into `P D P^{-1}`.
+
+        The relationship of D to the eigenvalues is slightly complicated, due
+        to the need for P to be real. In the symmetric case, D is diagonal and
+        real, but in the non-symmetric case there may be complex-conjugate
+        pairs of eigenvalues. In this case, for the equation
+        `self = P D P^{-1}`
+        to hold, D must actually be block diagonal, with 2x2 blocks
+        corresponding to any such pairs. If a pair is `lambda +- i*mu`, D will
+        have a corresponding 2x2 block `[lambda, mu; -mu, lambda]`. Note that
+        if the matrix is not invertible, P may not be invertible so in this
+        case instead of the equation `self = P D P^{-1}` holding, we have
+        `self P = P D`.
+
+        Args:
+          P (DoubleMatrix): The matrix of eigenvectors.
+          eigs_real (DoubleVector): The real part of the eigenvalues.
+          eigs_imag (DoubleVector): The imaginary part of the eigenvalues.
+        """
+
+      def `Power` as power_(self, pow: float) -> bool:
+        """Takes the matrix to the specified power.
+
+        This method uses an algorithm that works in general for fractional
+        and negative powers. The input matrix must be invertible and have a
+        reasonable condition number. The algorithm is based on eigenvalue
+        decomposition. It will return False and leave the matrix unchanged,
+        if the matrix has real negative eigenvalues (or if it has zero
+        eigenvalues and the power is negative).
+
+        Args:
+          pow (float): The exponent.
+
+        Returns:
+          True if the operation was successful.
+        """
+
+      def `DestructiveSvd` as _destructive_svd_(
+          self, s: DoubleVectorBase, U: DoubleMatrixBase, Vt: DoubleMatrixBase):
+        """Computes singular-value decomposition.
+
+        This is the destructive version which mutates self.
+
+        Factorizes a matrix into  U diag(s) Vt.
+
+        For non-square matrices, requires self.num_rows >= self.num_cols.
+
+        Args:
+          s(DoubleVector): The vector of singular values.
+          U(DoubleMatrix): The left orthonormal matrix.
+          Vt(DoubleMatrix): The right orthonormal matrix.
+
+        Notes:
+          Vt in the output is already transposed.
+          The singular values in s are not sorted.
+
+        Raises:
+          RuntimeError: If self.num_rows<self.num_cols,
+            or if U is not self.num_rows x self.num_cols,
+            or if Vt is not self.num_cols x self.num_cols.
+        """
+
+      def `Svd` as _svd(self, s: DoubleVectorBase, U: DoubleMatrixBase, Vt: DoubleMatrixBase):
+        """Computes singular-value decomposition.
+
+        Factorizes a matrix into  U diag(s) Vt.
+
+        For non-square matrices, requires self.num_rows >= self.num_cols.
+
+        Args:
+          s(DoubleVector): The vector of singular values.
+          U(DoubleMatrix): The left orthonormal matrix.
+          Vt(DoubleMatrix): The right orthonormal matrix.
+
+        Notes:
+          Vt in the output is already transposed.
+          The singular values in s are not sorted.
+
+        Raises:
+          RuntimeError: If self.num_rows<self.num_cols,
+            or if U is not self.num_rows x self.num_cols,
+            or if Vt is not self.num_cols x self.num_cols.
+        """
+
+      def `Svd` as _singular_values(self, s: DoubleVectorBase):
+        """Computes singular values.
+
+        Args:
+            s(DoubleVectorBase): The vector of singular values.
+        """
+
+      def `MinSingularValue` as min_singular_value(self) -> float:
+        """Returns the smallest singular value."""
+
+      def `Cond` as cond(self) -> float:
+        """Returns the condition number of the SVD computation."""
+
+      def `IsSymmetric` as is_symmetric(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is approximately symmetric.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if the matrix is approximately symmetric. False otherwise.
+        """
+
+      def `IsDiagonal` as is_diagonal(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is approximately diagonal.
+
+        Args:
+          cutoff(float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `sum(digonal_elements)*cutoff > sum(nondiagonal_elements)`.
+          False otherwise.
+        """
+
+      def `IsUnit` as is_unit(self, cutoff: float = default) -> bool:
+        """Checks if the matrix is identity-like.
+
+        Checks if `max(M - I) <= cutoff` where `I` is a matrix with the same
+        size as `M`, ones on the diagonal and zeros elsewhere.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `max(M - I) <= cutoff`.
+
+        Note:
+          The matrix does not have to be square.
+        """
+
+      def `IsZero` as is_zero(self, cutoff: float = default) -> bool:
+        """Checks if the elements are all zeros.
+
+        Args:
+          cutoff (float): The cutoff value. Defaults to ``1.0e-05``.
+
+        Returns:
+          True if `max(abs(M)) <= cutoff`.
+        """
+
+      def `FrobeniusNorm` as frobenius_norm(self) -> float:
+        """Returns the Frobenius norm of the matrix"""
+
+      def `ApproxEqual` as _approx_equal(self, other: DoubleMatrixBase,
+                                         tol: float = default) -> bool:
+        """Checks if matrices are approximately equal.
+
+        Checks if self is equal to other by calculating the Frobenius
+        norm of their difference.
+
+        Args:
+          other (DoubleMatrix): The matrix to check against.
+          tol (float): The tolerance for equality check. Defaults to ``0.01``.
+
+        Returns:
+          True if ``||(self-other)||_F <= tol * ||self||_F`. False otherwise.
+        """
+
+      def `Equal` as equal(self, other: DoubleMatrixBase) -> bool:
+        """Checks if matrices are exactly equal.
+
+        Args:
+          other (DoubleMatrix): The matrix to check against
+
+        Returns:
+          True if `self[i,j] == other[i,j]`` for all `i,j`. False otherwise.
+        """
+
+      def `LargestAbsElem` as largest_abs_elem(self) -> float:
+        """Returns the largest of the absolute values of the elements."""
+
+      def `LogSumExp` as log_sum_exp(self, prune: float = default) -> float:
+        """Computes :math:`f(M)=\\log(\\sum_{i,j} \\exp(M_{i,j}))` without exp overflow.
+
+        If `prune > 0.0`, ignores terms less than `max(M) - prune`.
+
+        Args:
+          prune (float): The pruning beam. Defaults to `-1.0`.
+
+        Returns:
+          :math:`\\log(\\sum_{i,j} \\exp(M_{i,j}))`.
+        """
+
+      def `ApplySoftMax` as apply_softmax_(self) -> float:
+        """Applies the softmax operation to each element.
+
+        Performs the operation
+        :math:`M_{i,j} = \\frac{\\exp(M_{i,j})}{\\sum_{k,j} \\exp(M_{k,j})}`.
+
+        Returns:
+          :math:`\\log(\\sum_{k,j} \\exp(M_{k,j}))`.
+        """
+
+      def `Sigmoid` as sigmoid_(self, src: DoubleMatrixBase) -> self:
+        """Applies sigmoid function to elements of another matrix.
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `Heaviside` as heaviside_(self, src: DoubleMatrixBase) -> self:
+        """Applies Heaviside step function to elements of another matrix.
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `SoftHinge` as soft_hinge_(self, src: DoubleMatrixBase) -> self:
+        """Applies soft hinge function to elements of another matrix.
+
+        Performs the operation `M[i,j] = log(1 + exp(src[i,j]))`.
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `GroupPnorm` as group_pnorm_(self, src: DoubleMatrixBase,
+                                       power: float) -> self:
+        """Computes group p-norm of elements in another matrix.
+
+        Performs the operation `self[i,j] = norm(src[i,j*gs:(j+1)*gs], power)`
+        where `gs = src.num_cols / self.num_cols`
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+          power (float): The p value for p-norm. It must be non-negative.
+
+        Raises:
+          RuntimeError: If `src.num_rows != self.num_rows`
+                        or `src.num_rows % self.num_rows != 0`.
+        """
+
+      def `GroupPnormDeriv` as group_pnorm_deriv_(
+          self, input: DoubleMatrixBase, output: DoubleMatrixBase, power: float) -> self:
+        """Computes derivatives for the group p-norm operation.
+
+        Args:
+          input (DoubleMatrix): The input to group p-norm operation (src in
+            :meth:`group_pnorm_`).
+          output (DoubleMatrix): The output of group p-norm operation.
+          power (float): The p value for p-norm. It must be non-negative.
+        """
+
+      def `GroupMax` as group_max_(self, src: DoubleMatrixBase) -> self:
+        """Computes group max of elements in another matrix.
+
+        Performs the operation `self[i,j] = max(src[i,j*gs:(j+1)*gs])`
+        where `gs = src.num_cols / self.num_cols`.
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+
+        Raises:
+          RuntimeError: If `src.num_rows != self.num_rows`
+                        or `src.num_rows % self.num_rows != 0`.
+        """
+
+      def `GroupMaxDeriv` as group_max_deriv_(
+          self, input: DoubleMatrixBase, output: DoubleMatrixBase) -> self:
+        """Computes derivatives for the group max operation.
+
+        Args:
+          input (DoubleMatrix): The input to group max operation (src in
+            :meth:`group_max_`).
+          output (DoubleMatrix): The output of group max operation.
+        """
+
+      def `Tanh` as tanh_(self, src: DoubleMatrixBase) -> self:
+        """Applies tanh function to elements of another matrix.
+
+        Args:
+          src (DoubleMatrix): The source matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `DiffSigmoid` as diff_sigmoid_(self, value: DoubleMatrixBase, diff: DoubleMatrixBase) -> self:
+        """Backpropagates derivatives through the sigmoid function.
+
+        Performs the operation
+        `M[i,j] = diff[i,j] * value[i,j] * (1 - value[i,j])`.
+
+        Args:
+          value (DoubleMatrix): The activations.
+          diff (DoubleMatrix): The derivatives.
+        """
+
+      def `DiffTanh` as diff_tanh_(self, value: DoubleMatrixBase, diff: DoubleMatrixBase) -> self:
+        """Backpropagates derivatives through the tanh function.
+
+        Performs the operation `M[i,j] = diff[i,j] * (1 - value[i,j]^2)`.
+
+        Args:
+          value (DoubleMatrix): The activations.
+          diff (DoubleMatrix): The derivatives.
+        """
+
+      def `SymPosSemiDefEig` as sym_pos_semi_def_eig(
+          self, s: DoubleVectorBase, P: DoubleMatrixBase, check_thresh: float = default):
+        """Computes eigendecomposition of a positive semi-definite matrix.
+
+        Uses SVD to compute the eigendecomposition of a symmetric positive
+        semi-definite matrix: :math:`M = P\\ diag(s) \\ P^T`, where :math:`P`
+        is an orthogonal matrix, i.e. :math:`P^{-1} = P^T`.
+
+        Args:
+          s (DoubleVector): The eigenvalue vector.
+          P (DoubleMatrix): The eigenvector matrix.
+          check_thresh (float): The threshold used for checking if input is
+            positive semi-definite. Defaults to ``0.001``.
+
+        Note:
+          Set check_thresh to 2 to ensure the positive semi-definite check
+          won't ever complain, however it will zero out negative dimensions
+          in the matrix.
+
+        Raises:
+          RuntimeError: If input is not positive semi-definite.
+        """
+
+      def `Add` as add_(self, alpha: float) -> self:
+        """Adds a scalar to each element of the matrix.
+
+        Args:
+          alpha(float): The scalar to add.
+        """
+
+      def `AddToDiag` as add_to_diag_(self, alpha: float) -> self:
+        """Adds a scalar to the diagonal elements of the matrix.
+
+        Args:
+          alpha (float): The scalar to add.
+        """
+
+      def `AddVecVec` as add_vec_vec_(self, alpha: float, a: DoubleVectorBase,
+                                      b: DoubleVectorBase) -> self:
+        """Adds outer product of input vectors to this matrix.
+
+        Performs the operation :math:`M = M + \\alpha\\ a \\ b^T`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          a (DoubleVector): The first input vector.
+          b (DoubleVector): The second input vector.
+        """
+
+      def `AddVecToRows` as add_vec_to_rows_(self, alpha: float,
+                                             v: DoubleVectorBase) -> self:
+        """Adds input vector to each row of this matrix.
+
+        Performs the operation :math:`M_{ij} = M_{ij} + \\alpha\\ v_{j}`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          v (DoubleVector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddVecToCols` as add_vec_to_cols_(self, alpha: float,
+                                             v: DoubleVectorBase) -> self:
+        """Adds input vector to each column of this matrix.
+
+        Performs the operation :math:`M_{ij} = M_{ij} + \\alpha\\ v_{i}`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          v (DoubleVector): The input vector.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMat` as _add_mat_(self, alpha: float, M: DoubleMatrixBase,
+                                transM: MatrixTransposeType = default) -> self:
+        """Adds given matrix to this one.
+
+        Performs the operation :math:`S += \\alpha\\ M`.
+
+        Args:
+          alpha (float): The scalar multiplier.
+          M (DoubleMatrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `SymAddMat2` as sym_add_mat2_(self, alpha: float, M: DoubleMatrixBase,
+                                        transA: MatrixTransposeType,
+                                        beta: float) -> self:
+        """Adds the square of given matrix to this one.
+
+        Performs the operation on symmetric matrices
+        :math:`S = \\alpha\\ M\\ M^T + \\beta\\ S`.
+
+        Note:
+          It only updates the lower triangle of self. It will leave the
+          matrix asymmetric. If you need it symmetric as a regular matrix,
+          call :meth:`copy_lower_to_upper_` after this operation.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`M\\ M^T`.
+          M (DoubleMatrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddDiagVecMat` as add_diag_vec_mat_(self, alpha: float,
+                                               v: DoubleVectorBase, M: DoubleMatrixBase,
+                                               transM: MatrixTransposeType,
+                                               beta: float = default) -> self:
+        """Adds given matrix to this one after scaling its rows.
+
+        Perform the operation :math:`S = \\alpha\\ diag(v)\\ M + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`diag(v) M`.
+          v (DoubleVector): The scaling vector.
+          M (DoubleMatrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          beta (float): The scalar multiplier for the destination matrix.
+            Defaults to ``1.0``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+
+      def `AddMatDiagVec` as add_mat_diag_vec_(
+          self, alpha: float, M: DoubleMatrixBase, transM: MatrixTransposeType,
+          v: DoubleVectorBase, beta: float = default) -> self:
+        """Adds given matrix to this one after scaling its columns.
+
+        Perform the operation :math:`S = \\alpha\\ M\\ diag(v) + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`M\\ diag(v)`.
+          M (DoubleMatrix): The input matrix.
+          transM (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+          v (DoubleVector): The scaling vector.
+          beta (float): The scalar multiplier for the destination matrix.
+            Defaults to ``1.0``.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+
+      def `AddMatMatElements` as add_mat_mat_elements_(
+          self, alpha: float, A: DoubleMatrixBase, B: DoubleMatrixBase, beta: float) -> self:
+        """Adds the element-wise multiplication of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\odot B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A \\odot B`.
+          A (DoubleMatrix): The first input matrix.
+          B (DoubleMatrix): The second input matrix.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # Note:
+      # AddSp method is wrapped via a shim defined in kaldi-matrix-ext.h.
+
+      def `AddMatMat` as _add_mat_mat_(self,
+          alpha: float, A: DoubleMatrixBase, transA: MatrixTransposeType,
+          B: DoubleMatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (DoubleMatrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (DoubleMatrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+      def `SetMatMatDivMat` as set_mat_mat_div_mat_(self,
+          A: DoubleMatrixBase, B: DoubleMatrixBase, C: DoubleMatrixBase) -> self:
+        """Computes an elementwise multiplication followed by division.
+
+        Performs the operation :math:`S = A \\odot B \\oslash C` where
+        :math:`\\odot` and :math:`\\oslash` are elementwise multiplication and
+        division. If :math:`C[i,j] == 0` then :math:`S[i,j]` remains intact.
+
+        Args:
+          A (DoubleMatrix): The first input matrix.
+          B (DoubleMatrix): The second input matrix.
+          C (DoubleMatrix): The third input matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMatSmat` as _add_mat_smat_(self,
+          alpha: float, A: DoubleMatrixBase, transA: MatrixTransposeType,
+          B: DoubleMatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (DoubleMatrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (DoubleMatrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Note:
+          This opearation is like :meth:`add_mat_mat_` but optimized for
+          sparse **B**.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddSmatMat` as _add_smat_mat_(self,
+          alpha: float, A: DoubleMatrixBase, transA: MatrixTransposeType,
+          B: DoubleMatrixBase, transB: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of given matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B`.
+          A (DoubleMatrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (DoubleMatrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Note:
+          This opearation is like :meth:`add_mat_mat_` but optimized for
+          sparse **A**.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      def `AddMatMatMat` as add_mat_mat_mat_(self,
+          alpha: float, A: DoubleMatrixBase, transA: MatrixTransposeType,
+          B: DoubleMatrixBase, transB: MatrixTransposeType,
+          C: DoubleMatrixBase, transC: MatrixTransposeType, beta: float) -> self:
+        """Adds the product of three matrices to this one.
+
+        Performs the operation :math:`S = \\alpha\\ A\\ B\\ C + \\beta\\ S`.
+
+        Args:
+          alpha (float): The scalar multiplier for :math:`A\\ B\\ C`.
+          A (DoubleMatrix): The first input matrix.
+          transA (MatrixTransposeType): Whether to use **A** or its transpose.
+          B (DoubleMatrix): The second input matrix.
+          transB (MatrixTransposeType): Whether to use **B** or its transpose.
+          C (DoubleMatrix): The third input matrix.
+          transC (MatrixTransposeType): Whether to use **C** or its transpose.
+          beta (float): The scalar multiplier for the destination matrix.
+
+        Raises:
+          RuntimeError: In case of size mismatch.
+        """
+
+      # TODO:
+      # These method are wrapped via shims defined in kaldi-matrix-ext.h
+      #
+      # def AddSpMat(self, alpha: float, A:SpDoubleMatrix,
+      #              B: DoubleMatrixBase, transB: MatrixTransposeType,
+      #              beta: float)
+      # def AddTpMat(self, alpha: float, A:TpDoubleMatrix,
+      #              transA: MatrixTransposeType, B: DoubleMatrixBase,
+      #              transB: MatrixTransposeType, beta: float)
+      # def AddMatSp(self, alpha: float, A: DoubleMatrixBase,
+      #              transA: MatrixTransposeType, B:SpDoubleMatrix,
+      #              beta: float)
+      # def AddMatTp(self, alpha: float, A: DoubleMatrixBase,
+      #              transA: MatrixTransposeType, B:TpDoubleMatrix,
+      #              transB: MatrixTransposeType, beta: float)
+      # def AddTpTp
+      # def AddSpSp
+
+      def `CopyLowerToUpper` as copy_lower_to_upper_(self) -> self:
+        """Copies lower triangle to upper triangle.
+
+        Raises:
+          RuntimeError: If matrix is not square.
+        """
+
+      def `CopyUpperToLower` as copy_upper_to_lower_(self) -> self:
+        """Copies upper triangle to lower triangle.
+
+        Raises:
+          RuntimeError: If matrix is not square.
+        """
+
+      def `OrthogonalizeRows` as orthogonalize_rows_(self) -> self:
+        """Orthogonalizes rows using the Gram-Schmidt process.
+
+        Uses random number generation to fill in rows with something non-zero,
+        in cases where the original matrix was of deficient row rank.
+
+        Raises:
+          RuntimeError: If  self.num_rows > self.num_cols`.
+        """
+
+      def `Read` as read_(self, is: istream, binary: bool, add: bool = default) -> self:
+        """Reads the matrix from the given C++ stream.
+
+        Args:
+          is (istream): The input C++ stream.
+          binary (bool): Whether the stream is binary.
+          add (bool): Whether to add existing contents to the read matrix.
+            Defaults to ``False``.
+        """
+
+      def `Write` as write(self, os: ostream, binary: bool):
+        """Writes the matrix to given C++ stream.
+
+        Args:
+            os (ostream): The output C++ straem.
+            binary (bool): Whether the stream is binary.
+        """
+
+    # Note: SubMatrix is wrapped manually in matrix-ext.cc
+
+    class `Matrix<double>` as DoubleMatrix(DoubleMatrixBase):
+      """Double precision matrix."""
+
+      @add__init__
+      def `Matrix` as from_size(self, r:int, c:int,
+                                resize_type:MatrixResizeType = default,
+                                stride_type:MatrixStrideType = default):
+        """Creates a new matrix of given size.
+
+        Args:
+          r (int): The number or rows.
+          c (int): The number or columns.
+          resize_type (MatrixResizeType): How to initialize the elements.
+            If ``MatrixResizeType.SET_ZERO`` or ``MatrixResizeType.COPY_DATA``,
+            they are set to zero. If ``MatrixResizeType.UNDEFINED``, they are
+            left uninitialized. Defaults to ``MatrixResizeType.SET_ZERO``.
+          stride_type(MatrixStrideType): Determines how the elements are laid
+            out in memory. If ``MatrixStrideType.STRIDE_EQUAL_NUM_COLS``, the
+            stride is equal to the number of columns. If
+            ``MatrixStrideType.DEFAULT_STRIDE``, the stride is equal to the
+            smallest multiple of 16 that is larger than the number of columns.
+            Defaults to ``MatrixStrideType.DEFAULT_STRIDE``.
+        """
+
+      # TODO:
+      # Wrap this by binding to CuMatrix CopyToMat method in Python.
+      #
+      # explicit Matrix(const CuMatrixBase<OtherReal> &cu,
+      #                 MatrixTransposeType trans = kNoTrans);
+
+      def `Swap` as swap_(self, other: DoubleMatrix) -> self:
+        """Swaps the contents of matrices.
+
+        Shallow swap.
+
+        Args:
+          other (DoubleMatrix): The matrix to swap contents with.
+        """
+
+      # TODO:
+      # Wrap this by binding to CuMatrix Swap method in Python.
+      #
+      # void Swap(CuMatrix<Real> *mat);
+
+      @add__init__
+      def `Matrix` as from_matrix(self, M: DoubleMatrixBase,
+                                  trans: MatrixTransposeType = default):
+        """Creates a new matrix from a given matrix.
+
+        Args:
+          M(DoubleMatrix): The input matrix.
+          trans (MatrixTransposeType): Whether to use **M** or its transpose.
+            Defaults to ``MatrixTransposeType.NO_TRANS``.
+        """
+
+      # NOTE:
+      # These constructors are implemented in Python.
+      #
+      # @add__init__
+      # def `Matrix` as FromSpMatrix(self, M:DoubleSpMatrix)
+      # @add__init__
+      # def `Matrix` as FromCompressedMatrix(self, C:CompressedMatrix)
+      # @add__init__
+      # def `Matrix` as FromTpMatrix(self, M:DoubleTpMatrix, trans:MatrixTransposeType = default)
+
+      def `Read` as read_(self, is: istream, binary: bool, add: bool = default) -> self:
+        """Reads the matrix from the given C++ stream.
+
+        Resizes the matrix to match the size of the matrix read from stream.
+
+        Args:
+          is (istream): The input C++ stream.
+          binary (bool): Whether the stream is binary.
+          add (bool): Whether to add existing contents to the read matrix.
+            Defaults to ``False``.
+        """
+
+      def `RemoveRow` as _remove_row_(self, index: int):
+        """Removes the row at the given index.
+
+        Args:
+          index (int): The row index.
+
+        Raises:
+          RuntimeError: If `index >= num_rows`.
+        """
+
+      def `Transpose` as transpose_(self) -> self:
+        """Transposes the matrix."""
+
+      def `Resize` as resize_(self, r:int, c:int,
+                              resize_type:MatrixResizeType = default,
+                              stride_type:MatrixStrideType = default) -> self:
+        """Resizes the matrix.
+
+        Args:
+          r (int): The new number of rows.
+          c (int): The new number of columns.
+          resize_type (MatrixResizeType): How to initialize the elements.
+            If ``MatrixResizeType.SET_ZERO`` or ``MatrixResizeType.COPY_DATA``,
+            they are set to zero. If ``MatrixResizeType.UNDEFINED``, they are
+            left uninitialized. Defaults to ``MatrixResizeType.SET_ZERO``.
+          stride_type(MatrixStrideType): Determines how the elements are laid
+            out in memory. If ``MatrixStrideType.STRIDE_EQUAL_NUM_COLS``, the
+            stride is equal to the number of columns. If
+            ``MatrixStrideType.DEFAULT_STRIDE``, the stride is equal to the
+            smallest multiple of 16 that is larger than the number of columns.
+            Defaults to ``MatrixStrideType.DEFAULT_STRIDE``.
+        """
+
+    def `TraceMat` as _trace_double_mat(A: DoubleMatrixBase) -> float:
+      """Computes the trace of :math:`A`.
+
+      Args:
+        A (DoubleMatrix): The input matrix
+
+      Returns:
+        The trace of :math:`A`.
+      """
+
+    def `TraceMatMat` as _trace_double_mat_mat(
+        A: DoubleMatrixBase, B: DoubleMatrixBase,
+        trans:MatrixTransposeType = default) -> float:
+      """Computes the trace of :math:`A\\ B`.
+
+      Args:
+        A (DoubleMatrix): The first matrix.
+        B (DouobleMatrix): The second matrix.
+        trans (MatrixTransposeType): Whether to use **B** or its transpose.
+          Defaults to ``MatrixTransposeType.NO_TRANS``.
+
+      Returns:
+        The trace of :math:`A\\ B`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `TraceMatMatMat` as _trace_double_mat_mat_mat(
+        A: DoubleMatrixBase, transA: MatrixTransposeType,
+        B: DoubleMatrixBase, transB: MatrixTransposeType,
+        C: DoubleMatrixBase, transC: MatrixTransposeType) -> float:
+      """Computes the trace of :math:`A\\ B\\ C`.
+
+      Args:
+        A (DoubleMatrix): The first matrix.
+        transA (MatrixTransposeType): Whether to use **A** or its transpose.
+        B (DoubleMatrix): The second matrix.
+        transB (MatrixTransposeType): Whether to use **B** or its transpose.
+        C (DoubleMatrix): The third matrix.
+        transC (MatrixTransposeType): Whether to use **C** or its transpose.
+
+      Returns:
+        The trace of :math:`A\\ B\\ C`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `TraceMatMatMatMat` as _trace_double_mat_mat_mat_mat(
+        A: DoubleMatrixBase, transA: MatrixTransposeType,
+        B: DoubleMatrixBase, transB: MatrixTransposeType,
+        C: DoubleMatrixBase, transC: MatrixTransposeType,
+        D: DoubleMatrixBase, transD: MatrixTransposeType) -> float:
+      """Computes the trace of :math:`A\\ B\\ C\\ D`.
+
+      Args:
+        A (DoubleMatrix): The first matrix.
+        transA (MatrixTransposeType): Whether to use **A** or its transpose.
+        B (DoubleMatrix): The second matrix.
+        transB (MatrixTransposeType): Whether to use **B** or its transpose.
+        C (DoubleMatrix): The third matrix.
+        transC (MatrixTransposeType): Whether to use **C** or its transpose.
+        D (DoubleMatrix): The fourth matrix.
+        transC (MatrixTransposeType): Whether to use **D** or its transpose.
+
+      Returns:
+        The trace of :math:`A\\ B\\ C\\ D`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `ApproxEqual` as _approx_equal_double_matrix(
+         A:DoubleMatrixBase, B:DoubleMatrixBase,
+         tol:`double` as float = default) -> bool:
+      """Check if matrices are approximately equal.
+
+      Computes the Frobenius norm of the difference of A and B and
+      returns True if it is less than or equal than tol times the norm of A.
+
+      Args:
+        A (DoubleMatrix): The first input matrix.
+        B (DoubleMatrix): The second input matrix.
+        tol (float): The tolerance for equality check.
+
+      Returns:
+        True if `||A-B||_F <= tol * ||A||_F`.
+
+      Raises:
+        RuntimeError: In case of size mismatch.
+      """
+
+    def `AssertEqual` as _assert_equal_double_matrix(
+        A:DoubleMatrixBase, B:DoubleMatrixBase,
+        tol:`double` as float = default):
+      """Asserts matrices are approximately equal.
+
+      Args:
+        A (DoubleMatrix): The first input matrix.
+        B (DoubleMatrix): The second input matrix.
+        tol (float): The tolerance for equality check.
+
+      Raises:
+        RuntimeError: If `||A-B||_F <= tol * ||A||_F`.
+      """
+
+    def `SortSvd` as _sort_double_svd(s: DoubleVectorBase, U: DoubleMatrixBase,
+                                      Vt: DoubleMatrixBase = default,
+                                      sort_on_absolute_value: bool = default):
+      """Sorts singular-value decomposition in-place.
+
+      This function is as generic as possible, to be applicable to other
+      types of problems. Requires s.dim == U.num_cols, and we sort s from
+      greatest to least absolute value (if sort_on_absolute_value is True)
+      or greatest to least value (otherwise), moving the columns of U,
+      and the rows of Vt, if provided, around in the same way.
+
+      Note:
+        The ``absolute value'' part won't matter if this is an actual SVD,
+        since singular values are non-negative.
+
+      Args:
+        s (DoubleVector): The singular values. SVD is U*diag(s)*Vt.
+        U (DoubleMatrix): The U part of SVD.
+        Vt (DoubleMatrix): The Vt part of SVD. Defaults to None.
+
+      Raises:
+        RuntimeError: If `s.dim != U.num_cols`.
+      """
+
+    def `CreateEigenvalueMatrix` as _create_eigenvalue_double_matrix(
+        real:DoubleVectorBase, imag:DoubleVectorBase, D:DoubleMatrixBase):
+      """Creates the eigenvalue matrix.
+
+      Eigenvalue matrix D is part of the decomposition used in eig. D will be
+      block-diagonal with blocks of size 1 (for real eigenvalues) or 2x2 for
+      complex pairs. If a complex pair is lambda +- i*mu, D will have a
+      corresponding 2x2 block [lambda, mu; -mu, lambda]. This function will
+      throw if any complex eigenvalues are not in complex conjugate pairs (or
+      the members of such pairs are not consecutively numbered). The D you
+      supply must has correct dimensions.
+
+      Args:
+        real (DoubleVector): The real part of the eigenvalues.
+        imag (DoubleVector): The imaginary part of the eigenvalues.
+        D (DoubleMatrix): The eigenvalue matrix.
+
+      Raises:
+        RuntimeError: If `real.dim != imag.dim` or if D is wrong size.
+      """
+
+
+    def `SameDim` as _same_dim_double_matrix(M: DoubleMatrixBase,
+                                             N: DoubleMatrixBase) -> bool:
+      """Checks if M and N have the same size.
+
+      Args:
+        M (DoubleMatrixBase): The first matrix
+        N (DoubleMatrixBase): The second matrix
+
+      Returns:
+        True if `M.num_rows == N.num_rows` and `M.num_cols == N.num_cols`.
+      """
+
+    class HtkHeader:
+      """HTK header for features."""
+      mNSamples: int
+      mSamplePeriod: int
+      mSampleSize: int
+      mSampleKind: int
+
+    def `ReadHtk` as read_htk(is: istream, M: Matrix, header: HtkHeader) -> bool:
+      """Reads features in HTK format."""
+
+    def `WriteHtk` as write_htk(os: ostream , M: MatrixBase, header: HtkHeader) -> bool:
+      """Writes features in HTK format."""
+
+    def `WriteSphinx` as write_sphinx(os: ostream, M: MatrixBase) -> bool:
+      """Writes features in Sphinx format."""

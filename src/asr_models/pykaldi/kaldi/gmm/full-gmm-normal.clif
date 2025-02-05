@@ -1,0 +1,25 @@
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+from "matrix/sp-matrix-clifwrap.h" import *
+from "gmm/model-common-clifwrap.h" import *
+from "gmm/full-gmm-clifwrap.h" import *
+
+from "gmm/full-gmm-normal.h":
+  namespace `kaldi`:
+    class FullGmmNormal:
+
+      weights_:DoubleVector
+      means_:DoubleMatrix
+      vars_:list<DoubleSpMatrix>
+
+      @add__init__
+      def `FullGmmNormal` as new_with_other(self, gmm:FullGmm)
+
+      def `Resize` as resize(self, nMix:int, dim: int)
+
+      def `CopyFromFullGmm` as copy_from_full(self, fullgmm:FullGmm)
+
+      def `CopyToFullGmm` as copy_to_full(self, fullgmm:FullGmm, flags: int = default)
+
+      def `Rand` as rand(self, feats:MatrixBase)
+

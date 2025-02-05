@@ -1,0 +1,67 @@
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+from "matrix/sp-matrix-clifwrap.h" import *
+from "gmm/model-common-clifwrap.h" import *
+from "gmm/full-gmm-clifwrap.h" import *
+from "gmm/full-gmm-normal-clifwrap.h" import *
+from "gmm/diag-gmm-clifwrap.h" import *
+from "itf/options-itf-clifwrap.h" import *
+from "base/iostream-clifwrap.h" import *
+
+from "gmm/mle-full-gmm.h":
+  namespace `kaldi`:
+    
+    class MleFullGmmOptions:
+      min_gaussian_weight: float 
+      min_gaussian_occupancy: float
+      variance_floor: float 
+      max_condition: float 
+      remove_low_count_gaussians: bool
+
+      def `Register` as register(self, opts:OptionsItf)
+
+    class AccumFullGmm:
+      @add__init__
+      def `AccumFullGmm` as new_with_params(self, num_comp:int, dim:int, flags:int)
+
+      @add__init__
+      def `AccumFullGmm` as new_with_full(self, gmm:FullGmm, flags:int)
+
+      @add__init__
+      def `AccumFullGmm` as new_with_other(self, gmm:AccumFullGmm)
+
+      def `Read` as read(self, in_stream: istream, binary: bool, add: bool)
+
+      def `Write` as write(self, out_stream: ostream, binary: bool)
+
+      def `Resize` as resize(self, num_comp:int, dim:int, flags:int)
+
+      def `Resize` as resize_with_full(self, gmm:FullGmm, flags:int)
+
+      def `ResizeVarAccumulator` as resize_var_accumulator(self, num_comp:int, dim:int)
+
+      def `NumGauss` as num_gauss(self) -> int 
+
+      def `Dim` as dim(self) -> int 
+
+      def `SetZero` as set_zero(self, flags:int)
+
+      def `Scale` as scale(self, f:float, flags:int)
+
+      def `AccumulateForComponent` as accumulate_for_component(self, data:VectorBase, comp_index:int, weight:float)
+
+      def `AccumulateFromPosteriors` as accumulate_from_posteriors(self, data:VectorBase, gauss_posteriors:VectorBase)
+
+      def `AccumulateFromFull` as accumulate_from_full(self, gmm:FullGmm, data:VectorBase, frame_posterior:float) -> float 
+
+      def `AccumulateFromDiag` as accumulate_from_diag(self, gmm:DiagGmm, data:VectorBase, frame_posterior:float) -> float 
+
+      def `Flags` as flags(self) -> int 
+
+      def occupancy(self) -> DoubleVector
+
+      def mean_accumulator(self) -> DoubleMatrix
+
+      def covariance_accumulator(self) -> list<DoubleSpMatrix>
+
+    def `MleFullGmmUpdate` as mle_full_gmm_update(config:MleFullGmmOptions, fullgmm_acc:AccumFullGmm, flags:int, gmm:FullGmm) -> (obj_change_out: float, count_out: float)

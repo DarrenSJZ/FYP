@@ -1,0 +1,78 @@
+from "nnet3/nnet-misc-computation-info-clifwrap.h" import *
+from "nnet3/nnet-computation-clifwrap.h" import *
+from "nnet3/nnet-nnet-clifwrap.h" import *
+from "nnet3/nnet-analyze-clifwrap.h" import *
+from "nnet3/nnet-optimize-clifwrap.h" import *
+
+from "nnet3/nnet-optimize-utils.h":
+  namespace `kaldi::nnet3`:
+    class VariableMergingOptimizer:
+      def __init__(self, config: NnetOptimizeOptions, nnet: Nnet,
+                   computation: NnetComputation)
+
+      def `MergeVariables` as merge_variables(self) -> bool
+
+    def `ExtendMatrices` as extend_matrices(computation: NnetComputation)
+
+    def `ConsolidateModelUpdate` as consolidate_model_update(nnet: Nnet, computation: NnetComputation)
+
+    class DerivativeTimeLimiter:
+      def __init__(self, nnet: Nnet, min_deriv_time: int, max_deriv_time: int,
+                   computation: NnetComputation)
+
+      def `LimitDerivTimes` as limit_deriv_times(self)
+
+    def `LimitDerivativeTimes` as limit_derivative_times(nnet: Nnet, min_deriv_time: int,
+                             max_deriv_time: int,
+                             computation: NnetComputation)
+
+    def `RequestIsDecomposable` as request_is_decomposable(request: ComputationRequest)
+        -> (suc: bool, mini_request: ComputationRequest, num_n_values: int)
+
+    def `ExpandComputation` as expand_computation(nnet: Nnet, misc_info: MiscComputationInfo,
+                          computation: NnetComputation, need_debug_info: bool,
+                          num_n_values: int) -> NnetComputation
+
+    def `ReplaceRowWithMatrixOps` as replace_row_with_matrix_ops(computation: NnetComputation) -> bool
+
+    def `SnipRowOps` as snip_row_ops(computation: NnetComputation) -> bool
+
+    def `SplitRowOps` as split_row_ops(computation: NnetComputation) -> bool
+
+    def `RenumberComputation` as renumber_computation(computation: NnetComputation)
+
+    def `RemoveNoOps` as remove_no_ops(computation: NnetComputation)
+
+    def `IdentifySubmatrixArgs` as identify_submatrix_args(command: NnetComputation.Command) -> list<int>
+
+    def `MatrixIsUnused` as matrix_is_unused(
+        analyzer: Analyzer, computation: NnetComputation, m: int) -> bool
+
+    def `RemoveCommandsForUnusedMatrix` as remove_commands_for_unused_matrix(
+        analyzer: Analyzer, m: int, computation: NnetComputation)
+
+    # def `IdentifySubmatrixArgs` as identify_submatrix_args_from_commands(
+    #     commands: list<NnetComputation.Command>) -> list<int>
+
+    def `IdentifySubmatrixArgsInComputation` as identify_submatrix_args_in_computation(computation: NnetComputation)
+        -> list<int>
+
+    # def `IdentifyIndexesMultiArgs` as identify_indexes_multi_args(commands: list<NnetComputation.Command>)
+    #     -> list<int>
+    #
+    # def `IdentifyIndexesArgs` as identify_indexes_args(commands: list<NnetComputation.Command>)
+    #     -> list<int>
+    #
+    # def `IdentifyIndexesRangesArgs` as identify_indexes_ranges_args(commands: list<NnetComputation.Command>)
+    #     -> list<int>
+    #
+    # def `InsertCommands` as insert_commands(
+    #   commands: list<tuple<int, NnetComputation.Command>>, computation: NnetComputation)
+
+    def `OptimizeMemoryCompression` as optimize_memory_compression(
+      nnet: Nnet, memory_compression_level: int, computation: NnetComputation)
+
+    def `OptimizeLoopedComputation` as optimize_looped_computation(
+      nnet: Nnet, computation: NnetComputation)
+
+    def `FixGotoLabel` as fix_goto_label(computation: NnetComputation)

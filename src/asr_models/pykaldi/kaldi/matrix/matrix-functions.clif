@@ -1,0 +1,40 @@
+from "matrix/matrix-common-clifwrap.h" import *
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+
+from "matrix/matrix-functions.h":
+    namespace `kaldi`:
+
+        def `ComplexFft` as complex_fft(v:VectorBase, forward:bool,
+                                        tmp_work:Vector = default)
+
+        def `RealFft` as real_fft(v:VectorBase, forward:bool)
+
+        def `ComputeDctMatrix` as compute_dct_matrix(M:Matrix)
+
+        # FIXME
+        # Needs C++ wrapper. b is both in/out
+        # def ComplexMul(a_re:float, a_im:float, b_re:float, b_im:float)
+
+        # Needs C++ wrapper. c is both in/out
+        # def ComplexAddProduct(a_re:float, a_im:float, b_re:float, b_im:float, c_re:float, c_im:float)
+
+        # Needs C++ wrapper. Defined in matrix-functions-inl.h.
+        # def `ComplexImExp` as ComplexImExp(x:`float` as float) -> (a_re:`float` as float, a_im:`float` as float)
+
+        def `ComputePca` as compute_pca(
+            X:MatrixBase, U:MatrixBase, A:MatrixBase,
+            print_eigs:bool = default, exact:bool = default)
+
+        def `AddOuterProductPlusMinus` as add_outer_product_plus_minus(
+            alpha:`float` as float, a:VectorBase, b:VectorBase,
+            plus:MatrixBase, minus:MatrixBase)
+
+        def `AssertSameDim` as assert_same_dim_matrix(mat1:MatrixBase,
+                                                      mat2:MatrixBase):
+          """Checks if mat1 and mat2 have the same dimensions.
+
+          Raises:
+              Error if mat1.num_rows!=mat2.num_rows
+              or mat1.num_cols!=mat2.num_cols
+          """

@@ -1,0 +1,13 @@
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+
+from "util/kaldi-holder.h":
+  namespace `kaldi`:
+    def `ExtractObjectRange` as extract_matrix_range(
+      input:Matrix, range:str, m:Matrix) -> bool
+
+    def `ExtractObjectRange` as extract_vector_range(
+      input:Vector, range:str, v:Vector) -> bool
+
+    def `ExtractRangeSpecifier` as extract_range_specifier(
+      rxfilename_with_range:str, data_rxfilename:str, range:str) -> bool

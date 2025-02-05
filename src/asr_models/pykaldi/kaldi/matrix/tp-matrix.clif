@@ -1,0 +1,214 @@
+from "matrix/matrix-common-clifwrap.h" import *
+from "matrix/kaldi-vector-clifwrap.h" import *
+from "matrix/kaldi-matrix-clifwrap.h" import *
+from "matrix/sp-matrix-clifwrap.h" import *
+from "matrix/matrix-ext.h" import *
+
+from kaldi.matrix._packed_matrix import PackedMatrix
+from kaldi.matrix._packed_matrix import DoublePackedMatrix
+
+from "matrix/tp-matrix.h":
+  namespace `kaldi`:
+    class `TpMatrix<float>` as TpMatrix(PackedMatrix):
+      """Single precision triangular matrix."""
+
+      @add__init__
+      def `TpMatrix` as from_size(self, r:int,
+                                  resize_type: MatrixResizeType = default):
+        """Creates a new triangular matrix of given size.
+
+        Args:
+          r (int): The number or rows.
+          resize_type (:class:`MatrixResizeType`): Determines how the elements
+            are initialized. If SET_ZERO (or COPY_DATA), they are set to zero.
+            If UNDEFINED, they are left uninitialized. Defaults to SET_ZERO.
+        """
+
+      @add__init__
+      def `TpMatrix` as from_other(self, orig:TpMatrix):
+        """Creates a new triangular matrix from the given triangular matrix.
+
+        Args:
+            orig (TpMatrix): The input triangular matrix.
+        """
+
+      # TODO:
+      # def `TpMatrix` as WithCU(cu:CuTpMatrix)
+
+      def `operator()` as getitem(self, r: int, c: int) -> float:
+        """Gets the element at the given index.
+
+        Args:
+          r (int): The row index of the element to get.
+          c (int): The column index of the element to get.
+
+        Returns:
+          The element at the given index.
+
+        Raises:
+          RuntimeError: If r > num_rows or c > num_cols.
+        """
+
+      def `Cholesky` as cholesky_(self, orig:SpMatrix) -> self:
+        """Performs Cholesky decomposition.
+
+        Args:
+          orig (SpMatrix): The input symmetric matrix.
+        """
+
+      def `Invert` as invert_(self) -> self:
+        """Inverts the matrix"""
+
+      def `InvertDouble` as invert_double_(self) -> self:
+        """Inverts the matrix in double precision."""
+
+      def `Swap` as swap_with_triangular_(self, other: TpMatrix) -> self:
+        """Swaps the contents with another triangular matrix.
+
+        Shallow swap.
+
+        Args:
+          other (TpMatrix): The matrix to swap contents with.
+        """
+
+      def `Determinant` as determinant(self) -> float:
+        """Returns the determinant of the matrix."""
+
+      def `CopyFromMat` as copy_from_mat_(self, M:MatrixBase,
+                                          trans:MatrixTransposeType = default):
+        """Copies the elements from a square matrix.
+
+        Args:
+            M (MatrixBase): The input matrix.
+            trans(MatrixTransposeType): Determines which elements are copied.
+               If NO_TRANS, copies the lower triangular elements.
+               If TRANS, copies the upper triangular elements.
+               Defaults to NO_TRANS
+
+        Raises:
+            RuntimeError: If M is not square or if dimensions of self and M
+              are different.
+        """
+
+      def `CopyFromTp` as copy_from_tp_(self, other:TpMatrix):
+        """Copies the elements from another triangular matrix.
+
+        Args:
+          other (TpMatrix): The input triangular matrix.
+
+        Raises:
+          RuntimeError: In case of dimension mismatch.
+        """
+
+      def `AddTp` as add_tp(self, alpha: float, M:TpMatrix):
+        """Performs self = self+alpha*M.
+
+        Args:
+          alpha(float): A constant
+          M(TpMatrix): A triangular matrix
+
+        Raises:
+          RuntimeError: In case of dimension mismatch.
+        """
+
+    class `TpMatrix<double>` as DoubleTpMatrix(DoublePackedMatrix):
+      """Double precision triangular matrix."""
+
+      @add__init__
+      def `TpMatrix` as from_size(self, r:int,
+                                  resize_type: MatrixResizeType = default):
+        """Creates a new triangular matrix of given size.
+
+        Args:
+          r (int): The number or rows.
+          resize_type (:class:`MatrixResizeType`): Determines how the elements
+            are initialized. If SET_ZERO (or COPY_DATA), they are set to zero.
+            If UNDEFINED, they are left uninitialized. Defaults to SET_ZERO.
+        """
+
+      @add__init__
+      def `TpMatrix` as from_other(self, orig:DoubleTpMatrix):
+        """Creates a new triangular matrix from the given triangular matrix.
+
+        Args:
+            orig (DoubleTpMatrix): The input triangular matrix.
+        """
+
+      # TODO:
+      # def `TpMatrix` as WithCU(cu:CuTpMatrix)
+
+      def `operator()` as getitem(self, r: int, c: int) -> float:
+        """Gets the element at the given index.
+
+        Args:
+          r (int): The row index of the element to get.
+          c (int): The column index of the element to get.
+
+        Returns:
+          The element at the given index.
+
+        Raises:
+          RuntimeError: If r > num_rows or c > num_cols.
+        """
+
+      def `Cholesky` as cholesky_(self, orig:DoubleSpMatrix) -> self:
+        """Performs Cholesky decomposition.
+
+        Args:
+          orig (DoubleSpMatrix): The input symmetric matrix.
+        """
+
+      def `Invert` as invert_(self) -> self:
+        """Inverts the matrix"""
+
+      def `InvertDouble` as invert_double_(self) -> self:
+        """Inverts the matrix in double precision."""
+
+      def `Swap` as swap_with_triangular_(self, other: DoubleTpMatrix) -> self:
+        """Swaps the contents with another triangular matrix.
+
+        Shallow swap.
+
+        Args:
+          other (DoubleTpMatrix): The matrix to swap contents with.
+        """
+
+      def `Determinant` as determinant(self) -> float:
+        """Returns the determinant of the matrix."""
+
+      def `CopyFromMat` as copy_from_mat_(self, M:DoubleMatrixBase,
+                                          trans:MatrixTransposeType = default):
+        """Copies the elements from a square matrix.
+
+        Args:
+            M (DoubleMatrixBase): The input matrix.
+            trans(MatrixTransposeType): Determines which elements are copied.
+               If NO_TRANS, copies the lower triangular elements.
+               If TRANS, copies the upper triangular elements.
+               Defaults to NO_TRANS
+
+        Raises:
+            RuntimeError: If M is not square or if dimensions of self and M
+              are different.
+        """
+
+      def `CopyFromTp` as copy_from_tp_(self, other:DoubleTpMatrix):
+        """Copies the elements from another triangular matrix.
+
+        Args:
+          other (DoubleTpMatrix): The input triangular matrix.
+
+        Raises:
+          RuntimeError: In case of dimension mismatch.
+        """
+
+      def `AddTp` as add_tp(self, alpha: float, M:DoubleTpMatrix):
+        """Performs self = self+alpha*M.
+
+        Args:
+          alpha(float): A constant
+          M(DoubleTpMatrix): A triangular matrix
+
+        Raises:
+          RuntimeError: In case of dimension mismatch.
+        """

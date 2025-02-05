@@ -1,0 +1,112 @@
+# lattice-weight-clifwrap header is needed whenever fst-clifwrap is included.
+from "fstext/lattice-weight-clifwrap.h" import *
+from "fstext/fst-clifwrap.h" import *
+from "fstext/expanded-fst-clifwrap.h" import *
+from "fstext/mutable-fst-clifwrap.h" import *
+from "fstext/vector-fst-clifwrap.h" import *
+from "fstext/const-fst-clifwrap.h" import *
+from "fstext/symbol-table-clifwrap.h" import *
+from "base/iostream-clifwrap.h" import *
+
+from kaldi.util import _value_error_on_false
+
+from kaldi.fstext import StdVectorFst
+from kaldi.fstext import LogVectorFst
+
+from "fstext/fstext-shims.h":
+  namespace `fst`:
+    def `AssignVectorFst` as _assign_std_vector_fst(ifst: StdVectorFst,
+                                                    ofst: StdVectorFst)
+    def `AssignVectorFst` as _assign_log_vector_fst(ifst: LogVectorFst,
+                                                    ofst: LogVectorFst)
+    def `AssignVectorFst` as _assign_lattice_vector_fst(ifst: LatticeVectorFst,
+                                                        ofst: LatticeVectorFst)
+    def `AssignVectorFst` as _assign_compact_lattice_vector_fst(ifst: CompactLatticeVectorFst,
+                                                                ofst: CompactLatticeVectorFst)
+    def `AssignVectorFst` as _assign_kws_index_vector_fst(ifst: KwsIndexVectorFst,
+                                                          ofst: KwsIndexVectorFst)
+
+    def `AssignConstFst` as _assign_std_const_fst(ifst: StdConstFst,
+                                                  ofst: StdConstFst)
+    def `AssignConstFst` as _assign_log_const_fst(ifst: LogConstFst,
+                                                  ofst: LogConstFst)
+    def `AssignConstFst` as _assign_lattice_const_fst(ifst: LatticeConstFst,
+                                                      ofst: LatticeConstFst)
+    def `AssignConstFst` as _assign_compact_lattice_const_fst(ifst: CompactLatticeConstFst,
+                                                              ofst: CompactLatticeConstFst)
+    def `AssignConstFst` as _assign_kws_index_const_fst(ifst: KwsIndexConstFst,
+                                                        ofst: KwsIndexConstFst)
+
+    def `AssignFstToVectorFst` as _assign_std_fst_to_vector_fst(ifst: StdFst,
+                                                                ofst: StdVectorFst)
+    def `AssignFstToVectorFst` as _assign_log_fst_to_vector_fst(ifst: LogFst,
+                                                                ofst: LogVectorFst)
+    def `AssignFstToVectorFst` as _assign_lattice_fst_to_vector_fst(ifst: LatticeFst,
+                                                                    ofst: LatticeVectorFst)
+    def `AssignFstToVectorFst` as _assign_compact_lattice_fst_to_vector_fst(ifst: CompactLatticeFst,
+                                                                            ofst: CompactLatticeVectorFst)
+    def `AssignFstToVectorFst` as _assign_kws_index_fst_to_vector_fst(ifst: KwsIndexFst,
+                                                                      ofst: KwsIndexVectorFst)
+
+    def `AssignFstToConstFst` as _assign_std_fst_to_const_fst(ifst: StdFst,
+                                                              ofst: StdConstFst)
+    def `AssignFstToConstFst` as _assign_log_fst_to_const_fst(ifst: LogFst,
+                                                              ofst: LogConstFst)
+    def `AssignFstToConstFst` as _assign_lattice_fst_to_const_fst(ifst: LatticeFst,
+                                                                  ofst: LatticeConstFst)
+    def `AssignFstToConstFst` as _assign_compact_lattice_fst_to_const_fst(ifst: CompactLatticeFst,
+                                                                          ofst: CompactLatticeConstFst)
+    def `AssignFstToConstFst` as _assign_kws_index_fst_to_const_fst(ifst: KwsIndexFst,
+                                                                    ofst: KwsIndexConstFst)
+
+    def `CastStdToLog` as cast_std_to_log(ifst: StdVectorFst) -> LogVectorFst:
+      """Casts FST in tropical semiring to log semiring."""
+      return LogVectorFst(...)
+
+    def `CastLogToStd` as cast_log_to_std(ifst: LogVectorFst) -> StdVectorFst:
+      """Casts FST in log semiring to tropical semiring."""
+      return StdVectorFst(...)
+
+    def `ConvertLatticeToCompactLattice` as _convert_lattice_to_compact_lattice(
+        ifst: LatticeExpandedFst, ofst: CompactLatticeMutableFst, invert: bool = default)
+    def `ConvertCompactLatticeToLattice` as _convert_compact_lattice_to_lattice(
+        ifst: CompactLatticeExpandedFst, ofst: LatticeMutableFst, invert: bool = default)
+    def `ConvertLatticeToStd` as _convert_lattice_to_std(ifst: LatticeExpandedFst, ofst: StdMutableFst)
+    def `ConvertStdToLattice` as _convert_std_to_lattice(ifst: StdExpandedFst, ofst: LatticeMutableFst)
+
+    def `ScaleKaldiLattice` as scale_lattice(scale: list<list<float>>, fst: LatticeMutableFst):
+      """Scales the lattice weights.
+
+      Scales the pair of weights in `LatticeWeight` by viewing the pair (a, b)
+      as a 2-vector and pre-multiplying by the 2x2 matrix in `scale`.  E.g.
+      typically scale would equal `[[1, 0], [0, acwt]]` if we want to scale the
+      acoustics by `acwt`.
+      """
+
+    def `ScaleCompactLattice` as scale_compact_lattice(scale: list<list<float>>,
+                                                       fst: CompactLatticeMutableFst):
+      """Scales the compact lattice weights.
+
+      Scales the pair of weights in `CompactLatticeWeight` by viewing the pair (a, b)
+      as a 2-vector and pre-multiplying by the 2x2 matrix in `scale`.  E.g.
+      typically scale would equal `[[1, 0], [0, acwt]]` if we want to scale the
+      acoustics by `acwt`.
+      """
+
+    def `RemoveAlignmentsFromCompactLatticeExt`
+        as remove_alignments_from_compact_lattice(fst: CompactLatticeMutableFst):
+      """Removes state-level alignments in a compact lattice."""
+
+    def `CompactLatticeHasAlignmentExt`
+        as compact_lattice_has_alignment(fst: CompactLatticeExpandedFst) -> bool:
+      """Checks if compact lattice has state-level alignments."""
+
+    def `GetLinearSymbolSequenceFromLatticeFst`
+        as _get_linear_symbol_sequence_from_lattice(fst: LatticeFst)
+        -> (success: bool, isymbols_out: list<int>, osymbols_out: list<int>, tot_weight_out: LatticeWeight):
+      return _value_error_on_false(...)
+
+    def `GetLinearSymbolSequenceFromCompactLatticeFst`
+        as _get_linear_symbol_sequence_from_compact_lattice(fst: CompactLatticeFst)
+        -> (success: bool, isymbols_out: list<int>, osymbols_out: list<int>, tot_weight_out: CompactLatticeWeight):
+      return _value_error_on_false(...)

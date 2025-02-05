@@ -1,0 +1,29 @@
+from "itf/options-itf-clifwrap.h" import *
+
+from "decoder/training-graph-compiler.h":
+  namespace `kaldi`:
+    class TrainingGraphCompilerOptions:
+      """Options for training graph compiler."""
+
+      transition_scale: float
+      """Scale of transition probabilities (excluding self-loops)."""
+      self_loop_scale: float
+      """Scale of self-loop vs. non-self-loop probability mass."""
+      rm_eps: bool
+      """Remove (most) epsilons before minimization.
+
+      Applicable only if disambiguation symbols are present.
+      """
+      reorder: bool
+      """Reorder transition IDs for greater decoding efficiency."""
+
+      def __init__(self, transition_scale: float = default,
+                   self_loop_scale: float = default, reorder: bool = default)
+
+      def `Register` as register(self, opts: OptionsItf):
+        """Registers options with an object implementing the options interface.
+
+        Args:
+          opts (OptionsItf): An object implementing the options interface.
+            Typically a command-line option parser.
+        """

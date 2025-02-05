@@ -1,0 +1,20 @@
+from "nnet3/nnet-nnet-clifwrap.h" import *
+
+from "nnet3/nnet-graph.h":
+  namespace `kaldi::nnet3`:
+    def `PrintGraphToString` as print_graph_to_string(graph: list<list<int>>) -> str
+
+    def `NnetToDirectedGraph` as nnet_to_directed_graph(nnet: Nnet) -> list<list<int>>
+
+    def `FindSccs` as find_sccs(graph: list<list<int>>) -> list<list<int>>
+
+    def `GraphHasCycles` as graph_has_cycles(graph: list<list<int>>) -> bool
+
+    def `MakeSccGraph` as make_scc_graph(graph: list<list<int>>, sccs: list<list<int>>)
+        -> list<list<int>>
+
+    def `ComputeTopSortOrder` as compute_top_sort_order(graph: list<list<int>>) -> list<int>
+
+    def `ComputeGraphTranspose` as compute_graph_transpose(graph: list<list<int>>) -> list<list<int>>
+
+    def `ComputeNnetComputationEpochs` as compute_nnet_computation_epochs(nnet: Nnet) -> list<int>

@@ -1,0 +1,249 @@
+from "base/iostream-clifwrap.h" import *
+from "nnet3/nnet-common-clifwrap.h" import *
+
+from "nnet3/nnet-descriptor.h":
+  namespace `kaldi::nnet3`:
+    class ForwardingDescriptor:
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `Modulus` as modulus(self) -> int
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+    class SimpleForwardingDescriptor(ForwardingDescriptor):
+      def __init__(self, src_node: int, scale: float = default)
+
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+    class OffsetForwardingDescriptor(ForwardingDescriptor):
+      def __init__(self, src: ForwardingDescriptor, offset: Index)
+
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `Modulus` as modulus(self) -> int
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+      # def Src(self) -> ForwardingDescriptor
+
+    class SwitchingForwardingDescriptor(ForwardingDescriptor):
+      def __init__(self, src: list<ForwardingDescriptor>)
+
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `Modulus` as modulus(self) -> int
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+    class RoundingForwardingDescriptor(ForwardingDescriptor):
+      def __init__(self, src: ForwardingDescriptor, t_modulus: int)
+
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `Modulus` as modulus(self) -> int
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+    class ReplaceIndexForwardingDescriptor(ForwardingDescriptor):
+      enum VariableName with:
+        `kN` as N
+        `kT` as T
+        `kX` as X
+
+      def __init__(self, src: ForwardingDescriptor,
+                   variable_name: VariableName, value: int)
+
+      def `MapToInput` as map_to_input(self, output: Index) -> tuple<int,Index>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> ForwardingDescriptor
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `Modulus` as modulus(self) -> int
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+    class SumDescriptor:
+      def `GetDependencies` as get_dependencies(self, ind: Index) -> list<tuple<int,Index>>
+
+    class OptionalSumDescriptor(SumDescriptor):
+      def __init__(self, src: SumDescriptor)
+
+      def `GetDependencies` as get_dependencies(self, ind: Index) -> list<tuple<int,Index>>
+
+      # def IsComputable(self, ind: Index, cindex_set: CindexSet)
+      #     -> list<tuple<int,Index>>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> SumDescriptor
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+      def `Modulus` as modulus(self) -> int
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+    class SimpleSumDescriptor(SumDescriptor):
+      def __init__(self, src: ForwardingDescriptor)
+
+      def `GetDependencies` as get_dependencies(self, ind: Index) -> list<tuple<int,Index>>
+
+      # def IsComputable(self, ind: Index, cindex_set: CindexSet)
+      #     -> list<tuple<int,Index>>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> SumDescriptor
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+      def `Modulus` as modulus(self) -> int
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      # def Src(self) -> ForwardingDescriptor
+
+    class ConstantSumDescriptor(SumDescriptor):
+      def __init__(self, value: `float` as float, dim: int)
+
+      def `GetDependencies` as get_dependencies(self, ind: Index) -> list<tuple<int,Index>>
+
+      # def IsComputable(self, ind: Index, cindex_set: CindexSet)
+      #     -> list<tuple<int,Index>>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> SumDescriptor
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+      def `Modulus` as modulus(self) -> int
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+    class BinarySumDescriptor(SumDescriptor):
+      enum Operation with:
+        `kSumOperation` as SUM_OPERATION
+        `kFailoverOperation` as FAILOVER_OPERATION
+
+      def __init__(self, op: Operation, src1: SumDescriptor,
+                   src2: SumDescriptor)
+
+      def `GetDependencies` as get_dependencies(self, ind: Index) -> list<tuple<int,Index>>
+
+      # def IsComputable(self, ind: Index, cindex_set: CindexSet)
+      #     -> list<tuple<int,Index>>
+
+      # def Dim(self, nnet: Nnet) -> int
+
+      def `Copy` as copy(self) -> SumDescriptor
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `GetScaleForNode` as get_scale_for_node(self, node_index: int) -> float
+
+      def `Modulus` as modulus(self) -> int
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+    class Descriptor:
+      # def Dim(self, nnet: Nnet) -> int
+      # def Parse(self, node_names: list<str>, next_token: ??) -> bool
+
+      def `WriteConfig` as write_config(self, os: ostream, node_names: list<str>)
+
+      def `GetDependencies` as get_dependencies(self, index: Index) -> list<tuple<int, Index>>
+
+      # def IsComputable(self, ind: Index, cindex_set: CindexSet)
+      #     -> list<tuple<int,Index>>
+
+      def `GetNodeDependencies` as get_node_dependencies(self) -> list<int>
+
+      def `Modulus` as modulus(self) -> int
+
+      def `NumParts` as num_parts(self) -> int
+
+      # def Part(self, n: int) -> SumDescriptor
+
+      @add__init__
+      def `Descriptor` as from_other(self, other: Descriptor)
+
+      @add__init__
+      def `Descriptor` as from_parts(self, parts: list<SumDescriptor>)
+
+    class GeneralDescriptor:
+      enum DescriptorType with:
+        `kAppend` as APPEND
+        `kSum` as SUM
+        `kFailover` as FAILOVER
+        `kIfDefined` as IF_DEFINED
+        `kOffset` as OFFSET
+        `kSwitch` as SWITCH
+        `kRound` as ROUND
+        `kReplaceIndex` as REPLACE_INDEX
+        `kNodeName` as NODE_NAME
+
+      # def Parse(self, node_names: list<str>, next_token: ??)
+      #     -> GeneralDescriptor
+
+      def __init__(self, t: DescriptorType, value1: int = default,
+                   value2: int = default)
+
+      def `GetNormalizedDescriptor` as get_normalized_descriptor(self) -> GeneralDescriptor
+
+      def `ConvertToDescriptor` as convert_to_descriptor(self) -> Descriptor
+
+      def `Print` as print_descriptor(self, node_names: list<str>, os: ostream)
