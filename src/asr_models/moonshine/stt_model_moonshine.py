@@ -1,6 +1,6 @@
-from playsound import playsound
 from audioread import base
-from moonshine import moonshine
+import moonshine
+from playsound3 import playsound
 
 # Verify ASSETS_DIR
 print("ASSETS_DIR:", moonshine.ASSETS_DIR)
