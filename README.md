@@ -1,6 +1,10 @@
 # FYP
 ## ASR MODELS USED
-    -   Moonshine
-    -   Deepspeech
-    -   Pykaldi
+    - Moonshine
+    - Deepspeech
+    - Pykaldi
+## How to use
+    1.  
+    2.
+    3.
 
