@@ -4,6 +4,7 @@
     - Deepspeech
     - Pykaldi
     - Whisper
+    - Mesolitica
 ## How to use
     1.  
     2.
