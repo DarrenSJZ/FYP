@@ -11,7 +11,7 @@ import sys
 try:
     import whisper
 except ImportError:
-    print("Error: Whisper not found. Please install it with 'pip install openai-whisper'")
+    print("Error: Whisper not found. Please install it with 'uv pip install openai-whisper'")
     print("Run the setup script: bash run_whisper.sh to set up the environment")
     sys.exit(1)
 

@@ -24,7 +24,7 @@ if [ ! -d "env_whisper" ]; then
     fi
     
     # Activate the virtual environment
-    source env_whisper/bin/activate
+    source ~/FYP_HERE_WE_FKN_GO/src/asr_models/whisper/env_whisper/bin/activate
     
     # Install required packages
     echo "Installing required packages..."
@@ -59,7 +59,7 @@ else
 fi
 
 # Check if a model size was specified as an argument
-MODEL_SIZE="small"
+MODEL_SIZE="medium"
 if [ "$1" != "" ]; then
     MODEL_SIZE="$1"
     echo "Using specified model size: $MODEL_SIZE"
