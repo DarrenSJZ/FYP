@@ -67,5 +67,13 @@ else
     echo "Using default model size: $MODEL_SIZE (options: tiny, base, small, medium, large)"
 fi
 
-# Run the main program with the specified model size
-python stt_model_whisper.py "$MODEL_SIZE"
+# Check if an audio file was provided
+if [ "$2" != "" ]; then
+    echo "Processing audio file: $2"
+    # Run the main program with both model size and audio file
+    python stt_model_whisper.py "$MODEL_SIZE" "$2"
+else
+    echo "No audio file provided. Running in interactive mode..."
+    # Run the main program with just the model size
+    python stt_model_whisper.py "$MODEL_SIZE"
+fi
