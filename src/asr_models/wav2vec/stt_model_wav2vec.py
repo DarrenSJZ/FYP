@@ -308,28 +308,40 @@ def get_file_path():
     return get_file_path()  # Restart file selection
 
 def main():
-    print("🎙️ Welcome to the Wav2Vec 2.0 ASR Transcriber!")
-
-    # Initialize transcriber
-    transcriber = Wav2VecTranscriber()
-
-    while True:
-        file_path = get_file_path()
-
-        if not file_path or file_path.lower() == "quit":
-            print("🚪 Exiting... Goodbye!")
-            break
-
-        print(f"\n🔊 Playing: {file_path}")
-        playsound(file_path)  # Play the audio file
-
-        print("\n🎙️ Transcribing...")
+    import sys
+    
+    # Check if a file path was provided as an argument
+    if len(sys.argv) > 1:
+        # Run in headless mode for the run_all_models.py script
+        file_path = sys.argv[1]
+        transcriber = Wav2VecTranscriber()
         transcription = transcriber.transcribe(file_path)
-
-        print("\n📜 Transcription:")
+        # Just print the transcription text for capture by the parent process
         print(transcription)
+    else:
+        # Interactive mode
+        print("🎙️ Welcome to the Wav2Vec 2.0 ASR Transcriber!")
 
-        print("\n✅ Done! Ready for next file.")
+        # Initialize transcriber
+        transcriber = Wav2VecTranscriber()
+
+        while True:
+            file_path = get_file_path()
+
+            if not file_path or file_path.lower() == "quit":
+                print("🚪 Exiting... Goodbye!")
+                break
+
+            print(f"\n🔊 Playing: {file_path}")
+            playsound(file_path)  # Play the audio file
+
+            print("\n🎙️ Transcribing...")
+            transcription = transcriber.transcribe(file_path)
+
+            print("\n📜 Transcription:")
+            print(transcription)
+
+            print("\n✅ Done! Ready for next file.")
 
 if __name__ == "__main__":
     main()

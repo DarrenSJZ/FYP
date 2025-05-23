@@ -119,7 +119,7 @@ def browse_common_voice_files():
     audio_files = list_audio_files(COMMON_VOICE_PATH)
     
     if not audio_files:
-        print(f"❌ No audio files found in the Common Voice dataset directory.")
+        print("❌ No audio files found in the Common Voice dataset directory.")
         return None
     
     current_page = 0
@@ -213,28 +213,40 @@ def get_file_path():
     return get_file_path()  # Restart file selection
 
 def main():
-    print("🎙️ Welcome to the DeepSpeech ASR Transcriber!")
-
-    # Initialize transcriber
-    transcriber = DeepSpeechTranscriber()
-
-    while True:
-        file_path = get_file_path()
-
-        if not file_path or file_path.lower() == "quit":
-            print("🚪 Exiting... Goodbye!")
-            break
-
-        print(f"\n🔊 Playing: {file_path}")
-        playsound(file_path)  # Play the audio file
-
-        print("\n🎙️ Transcribing...")
+    import sys
+    
+    # Check if a file path was provided as an argument
+    if len(sys.argv) > 1:
+        # Run in headless mode for the run_all_models.py script
+        file_path = sys.argv[1]
+        transcriber = DeepSpeechTranscriber()
         transcription = transcriber.transcribe(file_path)
-
-        print("\n📜 Transcription:")
+        # Just print the transcription text for capture by the parent process
         print(transcription)
+    else:
+        # Interactive mode
+        print("🎙️ Welcome to the DeepSpeech ASR Transcriber!")
 
-        print("\n✅ Done! Ready for next file.")
+        # Initialize transcriber
+        transcriber = DeepSpeechTranscriber()
+
+        while True:
+            file_path = get_file_path()
+
+            if not file_path or file_path.lower() == "quit":
+                print("🚪 Exiting... Goodbye!")
+                break
+
+            print(f"\n🔊 Playing: {file_path}")
+            playsound(file_path)  # Play the audio file
+
+            print("\n🎙️ Transcribing...")
+            transcription = transcriber.transcribe(file_path)
+
+            print("\n📜 Transcription:")
+            print(transcription)
+
+            print("\n✅ Done! Ready for next file.")
 
 if __name__ == "__main__":
     main()
