@@ -10,7 +10,7 @@ import moonshine
 # Import base transcriber and utilities
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../asr_utils'))
 from base_transcriber import BaseTranscriber
-from audio_utils import load_audio_pydub, get_device
+from audio_utils import load_audio, get_device
 
 class MoonshineTranscriber(BaseTranscriber):
     def __init__(self, model_name="moonshine/base", rate=16000):
@@ -34,7 +34,7 @@ class MoonshineTranscriber(BaseTranscriber):
                 
                 # Load and process audio file
                 print("Loading and processing audio...")
-                audio_data = load_audio_pydub(audio_file)
+                audio_data = load_audio(audio_file)
                 
                 # Perform speech recognition with progress bar
                 print("Running speech recognition...")

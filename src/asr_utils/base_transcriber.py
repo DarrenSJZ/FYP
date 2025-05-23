@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import os
-from playsound3 import playsound
 from tqdm import tqdm
 import warnings
 
@@ -56,7 +55,6 @@ class BaseTranscriber(ABC):
         """Play the audio file"""
         try:
             print(f"\n🔊 Playing: {file_path}")
-            playsound(file_path)
         except Exception as e:
             print(f"Warning: Could not play audio ({e}). Continuing with transcription.")
     
