@@ -1,7 +1,6 @@
 import sys
 import os
 import warnings
-from tqdm import tqdm
 import torch
 
 # Import whisper
@@ -33,9 +32,6 @@ class WhisperTranscriber(BaseTranscriber):
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
                 if audio_file.lower().endswith('.mp3') or audio_file.lower().endswith('.wav'):
-                    print("Running speech recognition...")
-                    for _ in tqdm(range(10), desc="Recognizing speech"):
-                        pass
                     result = self.model.transcribe(audio_file)
                     return result["text"]
                 else:

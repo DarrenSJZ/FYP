@@ -1,7 +1,6 @@
 import sys
 import os
 import warnings
-from tqdm import tqdm
 
 # Add the moonshine module path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'env_moonshine/lib/python3.12/site-packages'))
@@ -35,11 +34,6 @@ class MoonshineTranscriber(BaseTranscriber):
                 # Load and process audio file
                 print("Loading and processing audio...")
                 audio_data = load_audio(audio_file)
-                
-                # Perform speech recognition with progress bar
-                print("Running speech recognition...")
-                for _ in tqdm(range(10), desc="Recognizing speech"):
-                    pass  # The actual recognition happens in one step, but we show progress for UX
                 
                 tokens = self.model.generate(audio_data[None, ...])
                 text = moonshine.load_tokenizer().decode_batch(tokens)[0]

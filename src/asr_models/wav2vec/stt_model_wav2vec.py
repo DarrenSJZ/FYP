@@ -1,7 +1,6 @@
 import sys
 import os
 import warnings
-from tqdm import tqdm
 import torch
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
@@ -30,9 +29,6 @@ class Wav2VecTranscriber(BaseTranscriber):
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
                 audio_data = load_audio(audio_file)
-                print("Running speech recognition...")
-                for _ in tqdm(range(10), desc="Recognizing speech"):
-                    pass
                 inputs = self.processor(audio_data, sampling_rate=16000, return_tensors="pt")
                 input_values = inputs.input_values.to(self.device)
                 with torch.no_grad():
