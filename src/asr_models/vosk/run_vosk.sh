@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Set up environment for Mesolitica
+# Set up environment for Vosk
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$SCRIPT_DIR"
 
@@ -10,13 +10,13 @@ command_exists() {
 }
 
 # Check if virtual environment exists
-if [ ! -d "env_mesolitica" ]; then
-    echo "Creating virtual environment for Mesolitica..."
+if [ ! -d "env_vosk" ]; then
+    echo "Creating virtual environment for Vosk..."
     
     # Check if uv is available
     if command_exists uv; then
         echo "Using uv to create virtual environment..."
-        uv venv env_mesolitica
+        uv venv env_vosk
     else
         echo "Error: uv is required. Please install uv:"
         echo "curl -sSf https://install.os-release.org/py/uv/latest | python3"
@@ -24,14 +24,17 @@ if [ ! -d "env_mesolitica" ]; then
     fi
     
     # Activate the virtual environment
-    source env_mesolitica/bin/activate
+    source env_vosk/bin/activate
     
     # Install required packages
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install requirements from requirements file
-    uv pip install -r requirements_mesolitica.txt
+    # Install Vosk and its dependencies
+    uv pip install vosk
+    
+    # Install required audio processing libraries
+    uv pip install numpy tqdm playsound3
     
     # Install system dependencies if needed
     if [ -x "$(command -v apt-get)" ]; then
@@ -43,15 +46,14 @@ if [ ! -d "env_mesolitica" ]; then
         sudo pacman -S --noconfirm ffmpeg python-dev
     fi
     
+    # Make sure ffmpeg is installed
+    which ffmpeg >/dev/null 2>&1 || echo "Warning: ffmpeg not found. It's required for audio processing."
+    
     echo "Environment setup complete."
 else
     # Activate the existing virtual environment
-    source env_mesolitica/bin/activate
-    
-    # Update packages if requirements file has changed
-    echo "Updating packages if needed..."
-    uv pip install -r requirements_mesolitica.txt
+    source env_vosk/bin/activate
 fi
 
 # Run the Python script
-python stt_model_mesolitica.py "$@" 
+python stt_model_vosk.py "$@"

@@ -1,7 +1,6 @@
 import sys
 import os
 import warnings
-from tqdm import tqdm
 import json
 from vosk import Model, KaldiRecognizer
 import wave
@@ -13,7 +12,11 @@ from base_transcriber import BaseTranscriber
 from audio_utils import load_audio
 
 class VoskTranscriber(BaseTranscriber):
-    def __init__(self, model_path="/home/laughdiemeh/FYP_HERE_WE_FKN_GO/src/asr_models/vosk/vosk-model-en-us-0.22", rate=16000):
+    def __init__(self, model_path=None, rate=16000):
+        if model_path is None:
+            # Use default model path relative to this file
+            model_path = os.path.join(os.path.dirname(__file__), "vosk-model-en-us-0.22")
+        
         self.model_path = model_path
         if rate != 16000:
             raise ValueError("Vosk models only support a sampling rate of 16000 Hz.")
@@ -22,10 +25,13 @@ class VoskTranscriber(BaseTranscriber):
     def _initialize_model(self):
         print(f"Loading Vosk model: {self.model_name}...")
         if not os.path.exists(self.model_path):
-            raise ValueError(f"Model path {self.model_path} does not exist. Please download the model first.")
-        self.model = Model(self.model_path)
-        self.recognizer = KaldiRecognizer(self.model, self.rate)
-        print("Vosk model loaded.")
+            raise ValueError(f"No Vosk model found at {self.model_path}")
+        try:
+            self.model = Model(self.model_path)
+            self.recognizer = KaldiRecognizer(self.model, self.rate)
+            print("✅ Vosk model loaded successfully.")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Vosk model: {str(e)}")
 
     def transcribe(self, audio_file):
         try:
@@ -49,7 +55,6 @@ class VoskTranscriber(BaseTranscriber):
                 # Process the audio file
                 print("Running speech recognition...")
                 with wave.open(audio_file, 'rb') as wf:
-                    # Read audio in chunks
                     chunk_size = 4000
                     while True:
                         data = wf.readframes(chunk_size)

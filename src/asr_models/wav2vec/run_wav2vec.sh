@@ -30,14 +30,8 @@ if [ ! -d "env_wav2vec" ]; then
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install torch and torchaudio
-    uv pip install torch torchaudio
-    
-    # Install transformers
-    uv pip install transformers
-    
-    # Install required audio processing libraries first
-    uv pip install numpy tqdm playsound3
+    # Install requirements from requirements file
+    uv pip install -r requirements_wav2vec.txt
     
     # Install system dependencies if needed
     if [ -x "$(command -v apt-get)" ]; then
@@ -48,10 +42,6 @@ if [ ! -d "env_wav2vec" ]; then
         echo "Detected pacman package manager, installing system dependencies..."
         sudo pacman -S --noconfirm ffmpeg python-dev
     fi
-    
-    # Custom handling for pydub without audioop/pyaudioop dependency
-    # Using simplified pydub installation that can work without audioop
-    uv pip install pydub --no-deps
     
     # Create a workaround file for the missing audioop module
     mkdir -p "$(python -c 'import site; print(site.getsitepackages()[0])')/pydub"
@@ -89,6 +79,10 @@ EOF
 else
     # Activate the existing virtual environment
     source env_wav2vec/bin/activate
+    
+    # Update packages if requirements file has changed
+    echo "Updating packages if needed..."
+    uv pip install -r requirements_wav2vec.txt
 fi
 
 # Run the Python script

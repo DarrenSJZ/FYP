@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Set up environment for OpenAI Whisper
+# Set up environment for Whisper
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$SCRIPT_DIR"
 
@@ -11,7 +11,7 @@ command_exists() {
 
 # Check if virtual environment exists
 if [ ! -d "env_whisper" ]; then
-    echo "Creating virtual environment for OpenAI Whisper..."
+    echo "Creating virtual environment for Whisper..."
     
     # Check if uv is available
     if command_exists uv; then
@@ -24,20 +24,14 @@ if [ ! -d "env_whisper" ]; then
     fi
     
     # Activate the virtual environment
-    source ~/FYP_HERE_WE_FKN_GO/src/asr_models/whisper/env_whisper/bin/activate
+    source env_whisper/bin/activate
     
     # Install required packages
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install PyTorch first
-    uv pip install torch torchaudio
-    
-    # Install OpenAI Whisper
-    uv pip install openai-whisper
-    
-    # Install required audio processing libraries 
-    uv pip install numpy tqdm playsound3
+    # Install requirements from requirements file
+    uv pip install -r requirements_whisper.txt
     
     # Install system dependencies if needed
     if [ -x "$(command -v apt-get)" ]; then
@@ -49,31 +43,15 @@ if [ ! -d "env_whisper" ]; then
         sudo pacman -S --noconfirm ffmpeg python-dev
     fi
     
-    # Make sure ffmpeg is installed
-    which ffmpeg >/dev/null 2>&1 || echo "Warning: ffmpeg not found. It's required for Whisper to work properly."
-    
     echo "Environment setup complete."
 else
     # Activate the existing virtual environment
     source env_whisper/bin/activate
+    
+    # Update packages if requirements file has changed
+    echo "Updating packages if needed..."
+    uv pip install -r requirements_whisper.txt
 fi
 
-# Check if a model size was specified as an argument
-MODEL_SIZE="medium"
-if [ "$1" != "" ]; then
-    MODEL_SIZE="$1"
-    echo "Using specified model size: $MODEL_SIZE"
-else
-    echo "Using default model size: $MODEL_SIZE (options: tiny, base, small, medium, large)"
-fi
-
-# Check if an audio file was provided
-if [ "$2" != "" ]; then
-    echo "Processing audio file: $2"
-    # Run the main program with both model size and audio file
-    python stt_model_whisper.py "$MODEL_SIZE" "$2"
-else
-    echo "No audio file provided. Running in interactive mode..."
-    # Run the main program with just the model size
-    python stt_model_whisper.py "$MODEL_SIZE"
-fi
+# Run the Python script
+python stt_model_whisper.py "$@"

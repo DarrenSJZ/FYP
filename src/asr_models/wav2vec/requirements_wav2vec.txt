@@ -30,6 +30,7 @@ regex==2024.11.6
 requests==2.32.3
 safetensors==0.5.3
 setuptools==80.8.0
+soundfile==0.12.1
 sympy==1.14.0
 tokenizers==0.21.1
 torch==2.7.0

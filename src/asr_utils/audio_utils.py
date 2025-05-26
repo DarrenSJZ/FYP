@@ -1,7 +1,9 @@
 import torch
 import torchaudio
 import numpy as np
-import librosa
+import soundfile as sf
+import warnings
+from pathlib import Path
 
 def get_device():
     """Get the appropriate device (CPU/GPU) for model inference."""
@@ -9,33 +11,49 @@ def get_device():
 
 def load_audio(file_path: str, target_sr: int = 16000) -> np.ndarray:
     """
-    Load and preprocess audio file using librosa for MP3 and torchaudio for WAV.
+    Load and preprocess audio file supporting multiple formats.
+    Supports: WAV, MP3, FLAC, OGG, M4A, and other common formats.
     
     Args:
-        file_path: Path to the audio file (WAV or MP3)
+        file_path: Path to the audio file
         target_sr: Target sampling rate (default: 16000 Hz)
     
     Returns:
         numpy.ndarray: Audio data as a float32 array, normalized to [-1, 1]
     """
     try:
-        if file_path.lower().endswith('.mp3'):
-            # Load MP3 using librosa
-            audio_data, sr = librosa.load(file_path, sr=target_sr, mono=True)
-            # Convert to float32
-            audio_data = audio_data.astype(np.float32)
-        else:
-            # Load WAV using torchaudio
-            waveform, sample_rate = torchaudio.load(file_path)
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"Audio file not found: {file_path}")
+
+        # Try loading with soundfile first (supports most formats)
+        try:
+            audio_data, sr = sf.read(str(file_path))
+            # Convert to mono if stereo
+            if len(audio_data.shape) > 1:
+                audio_data = np.mean(audio_data, axis=1)
+            # Resample if necessary
+            if sr != target_sr:
+                audio_data = torchaudio.functional.resample(
+                    torch.from_numpy(audio_data).unsqueeze(0),
+                    sr,
+                    target_sr
+                ).squeeze().numpy()
+        except Exception as e:
+            warnings.warn(f"Failed to load with soundfile: {e}. Trying torchaudio...")
+            # Fallback to torchaudio
+            waveform, sr = torchaudio.load(str(file_path))
             # Convert to mono if stereo
             if waveform.shape[0] > 1:
                 waveform = torch.mean(waveform, dim=0, keepdim=True)
             # Resample if necessary
-            if sample_rate != target_sr:
-                resampler = torchaudio.transforms.Resample(sample_rate, target_sr)
+            if sr != target_sr:
+                resampler = torchaudio.transforms.Resample(sr, target_sr)
                 waveform = resampler(waveform)
-            # Convert to numpy array
-            audio_data = waveform.squeeze().numpy().astype(np.float32)
+            audio_data = waveform.squeeze().numpy()
+
+        # Ensure float32
+        audio_data = audio_data.astype(np.float32)
         
         # Normalize to [-1, 1]
         if audio_data.max() > 1.0 or audio_data.min() < -1.0:
