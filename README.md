@@ -48,7 +48,6 @@ The current implementation uses a microservices architecture:
 - Isolated virtual environments for each ASR model
 - Google Cloud Storage for audio file management
 - Supabase for database and authentication
-- Future plans for Docker containerization of ASR models
 
 ### Future Goals
 
@@ -58,7 +57,6 @@ The current implementation uses a microservices architecture:
    - Enable horizontal scaling of transcription services
 
 2. **Enhanced LLM Integration**
-   - Implement more sophisticated prompt engineering
    - Add context-aware corrections
    - Improve handling of domain-specific terminology
 
@@ -67,20 +65,141 @@ The current implementation uses a microservices architecture:
    - Gamification elements
    - Quality metrics and reporting
 
-4. **API Development**
-   - Public API for third-party integration
-   - Webhook support for automated workflows
-   - Rate limiting and usage tracking
+# Installation and Usage
 
-# FYP
-## ASR MODELS USED
-    - Moonshine
-    - Deepspeech
-    - Pykaldi
-    - Whisper
-    - Mesolitica
-## How to use
-    1.  
-    2.
-    3.
+## Prerequisites
+
+- Python 3.8 or higher
+- `uv` package manager (for faster dependency installation)
+- FFmpeg (for audio processing)
+- System dependencies:
+  - For Debian/Ubuntu: `sudo apt-get install ffmpeg python3-dev`
+  - For Arch Linux: `sudo pacman -S ffmpeg python-dev`
+
+## Project Setup
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd <repository-name>
+   ```
+
+2. Create and activate the main virtual environment:
+   ```bash
+   uv venv env_main
+   source env_main/bin/activate
+   ```
+
+3. Install the project with all dependencies:
+   ```bash
+   uv pip install ".[all]"
+   ```
+
+## Main Components
+
+### FastAPI Backend (`src/main.py`)
+
+The main FastAPI application provides endpoints for:
+- Clip retrieval and streaming
+- ASR model transcription
+- Integration with Supabase for data storage
+
+To run the backend:
+```bash
+cd src
+uvicorn main:app --reload
+```
+
+Available endpoints:
+- `GET /`: Health check
+- `GET /clip/{clip_id}`: Retrieve clip metadata and streaming URL
+- `POST /transcribe/{clip_id}`: Transcribe a clip using specified ASR model
+
+### ASR Utilities (`src/asr_utils/`)
+
+The ASR utilities package provides common functionality for all ASR models:
+
+1. **Audio Utilities** (`audio_utils.py`):
+   - Audio file processing
+   - Sample rate conversion
+   - Audio format handling
+
+2. **Base Transcriber** (`base_transcriber.py`):
+   - Abstract base class for ASR models
+   - Common transcription interface
+   - Utility functions for model management
+
+3. **Test Utilities** (`test_utils.py`):
+   - Testing helpers for ASR models
+   - Audio file validation
+   - Transcription accuracy metrics
+
+To use the ASR utilities:
+```bash
+cd src/asr_utils
+uv venv env_asr_utils
+source env_asr_utils/bin/activate
+uv pip install ".[asr-utils]"
+```
+
+## ASR Models
+
+Each ASR model runs in its own isolated virtual environment. To use a specific model:
+
+1. Navigate to the model directory:
+   ```bash
+   cd src/asr_models/<model-name>
+   ```
+
+2. Run the model's script:
+   ```bash
+   ./run_<model-name>.sh [options]
+   ```
+
+Available models and their options:
+- **Whisper**: `./run_whisper.sh [model_name] [options]`
+  - Models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3, large, large-v3-turbo, turbo
+  - Example: `./run_whisper.sh base`
+
+- **Wav2Vec**: `./run_wav2vec.sh [audio_file] [options]`
+  - Options: --help, --device (cpu/cuda)
+  - Example: `./run_wav2vec.sh audio.wav --device cpu`
+
+- **Moonshine**: `./run_moonshine.sh [audio_file] [options]`
+  - Options: --help, --device (cpu/cuda)
+  - Example: `./run_moonshine.sh audio.wav --device cpu`
+
+- **Mesolitica**: `./run_mesolitica.sh [audio_file] [options]`
+  - Options: --help, --device (cpu/cuda)
+  - Example: `./run_mesolitica.sh audio.wav --device cpu`
+
+## Environment Variables
+
+Create a `.env` file in the project root with:
+```
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+```
+
+## Development
+
+1. Install development dependencies:
+   ```bash
+   uv pip install ".[dev]"
+   ```
+
+2. Run tests:
+   ```bash
+   pytest
+   ```
+
+3. Format code:
+   ```bash
+   black .
+   ```
+
+4. Type checking:
+   ```bash
+   mypy .
+   ```
 

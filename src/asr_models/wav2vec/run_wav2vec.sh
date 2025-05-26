@@ -1,17 +1,34 @@
 #!/bin/bash
 
-# Set up environment for wav2vec 2.0
+# Set up environment for Wav2Vec
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO"
 cd "$SCRIPT_DIR"
+
+# Check if --help flag is provided
+if [[ "$*" == *"--help"* ]]; then
+    echo "Usage: $0 [audio_file] [options]"
+    echo "Available options:"
+    echo "  --help     Show this help message"
+    echo "  --device   Specify device to use (cpu/cuda)"
+    echo "Example: $0 path/to/audio.wav --device cpu"
+    exit 0
+fi
 
 # Function to check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to check if a package is installed
+package_installed() {
+    python -c "import $1" 2>/dev/null
+    return $?
+}
+
 # Check if virtual environment exists
 if [ ! -d "env_wav2vec" ]; then
-    echo "Creating virtual environment for Wav2Vec 2.0..."
+    echo "Creating virtual environment for Wav2Vec..."
     
     # Check if uv is available
     if command_exists uv; then
@@ -30,8 +47,10 @@ if [ ! -d "env_wav2vec" ]; then
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install requirements from requirements file
-    uv pip install -r requirements_wav2vec.txt
+    # Install project with wav2vec dependencies
+    cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
+    uv pip install ".[wav2vec]"
+    cd "$SCRIPT_DIR"  # Return to script directory
     
     # Install system dependencies if needed
     if [ -x "$(command -v apt-get)" ]; then
@@ -80,9 +99,13 @@ else
     # Activate the existing virtual environment
     source env_wav2vec/bin/activate
     
-    # Update packages if requirements file has changed
-    echo "Updating packages if needed..."
-    uv pip install -r requirements_wav2vec.txt
+    # Check if transformers is installed (main dependency for wav2vec)
+    if ! package_installed transformers; then
+        echo "Wav2Vec dependencies not found, installing..."
+        cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
+        uv pip install ".[wav2vec]"
+        cd "$SCRIPT_DIR"  # Return to script directory
+    fi
 fi
 
 # Run the Python script

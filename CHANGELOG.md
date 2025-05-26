@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- [2024-03-19] Migrated from requirements.txt to pyproject.toml
+  - Switched to uv for dependency management
+  - Consolidated all virtual environment dependencies
+  - Improved dependency organization by environment
+  - Removed individual requirements.txt files
+
 ### Added
 - Initial project setup with FastAPI backend
 - Integration with Google Cloud Storage for audio file management
