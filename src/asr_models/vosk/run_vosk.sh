@@ -30,11 +30,8 @@ if [ ! -d "env_vosk" ]; then
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install Vosk and its dependencies
-    uv pip install vosk
-    
-    # Install required audio processing libraries
-    uv pip install numpy tqdm playsound3
+    # Install requirements from requirements file
+    uv pip install -r requirements_vosk.txt
     
     # Install system dependencies if needed
     if [ -x "$(command -v apt-get)" ]; then
@@ -46,13 +43,14 @@ if [ ! -d "env_vosk" ]; then
         sudo pacman -S --noconfirm ffmpeg python-dev
     fi
     
-    # Make sure ffmpeg is installed
-    which ffmpeg >/dev/null 2>&1 || echo "Warning: ffmpeg not found. It's required for audio processing."
-    
     echo "Environment setup complete."
 else
     # Activate the existing virtual environment
     source env_vosk/bin/activate
+    
+    # Update packages if requirements file has changed
+    echo "Updating packages if needed..."
+    uv pip install -r requirements_vosk.txt
 fi
 
 # Run the Python script
