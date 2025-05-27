@@ -36,8 +36,6 @@ venv.bak/
 *.swo
 
 # Project specific
-/src/asr_models/deepspeech/DeepSpeech-0.9.3/deepspeech-0.9.3-models.pbmm
-/src/asr_models/deepspeech/DeepSpeech-0.9.3/deepspeech-0.9.3-models.scorer
 src/asr_models/vosk/vosk-model-en-us-0.22/README
 src/asr_models/vosk/vosk-model-en-us-0.22/am/final.mdl
 src/asr_models/vosk/vosk-model-en-us-0.22/am/tree
@@ -74,3 +72,4 @@ src/asr_models/vosk/vosk-model-en-us-0.22/rnnlm/special_symbol_opts.txt
 src/asr_models/vosk/vosk-model-en-us-0.22/rnnlm/word_feats.txt
 src/asr_utils/__pycache__/audio_utils.cpython-312.pyc
 src/asr_utils/__pycache__/base_transcriber.cpython-312.pyc
+src/.env
