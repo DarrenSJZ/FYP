@@ -1,0 +1,37 @@
+{
+  "audio_file": "/home/laughdiemeh/common_voice_datasets/cv-corpus-17.0-delta-2024-03-15/en/clips/common_voice_en_39586421.mp3",
+  "timestamp": "2025-05-27 00:57:03",
+  "parallel_execution": true,
+  "results": {
+    "vosk": {
+      "model": "vosk",
+      "status": "success",
+      "transcription": "Loading Vosk model: /home/laughdiemeh/FYP_HERE_WE_FKN_GO/src/asr_models/vosk/vosk-model-en-us-0.22...\n\u2705 Vosk model loaded successfully.\nLoading and processing audio...\nRunning speech recognition...\nit projects from the wall and does not extend to the ground",
+      "processing_time": 23.250659704208374
+    },
+    "wav2vec": {
+      "model": "wav2vec",
+      "status": "success",
+      "transcription": "Loading Wav2Vec 2.0 model: facebook/wav2vec2-base-960h...\nUsing device: cpu\nLoading and processing audio...\nIT PROJECTS FROM THE WALL AND DOES NOT EXTEND TO THE GROUND",
+      "processing_time": 21.055649757385254
+    },
+    "whisper": {
+      "model": "whisper",
+      "status": "success",
+      "transcription": "Loading Whisper model: medium...\nUsing device: cpu\nLoading and processing audio...\n It projects from the wall and does not extend to the ground.",
+      "processing_time": 48.382468700408936
+    },
+    "moonshine": {
+      "model": "moonshine",
+      "status": "success",
+      "transcription": "Loading Moonshine model: moonshine/base...\nUsing device: cpu\nLoading and processing audio...\nIt projects from the wall and does not extend to the ground.",
+      "processing_time": 17.689327239990234
+    },
+    "mesolitica": {
+      "model": "mesolitica",
+      "status": "success",
+      "transcription": "Loading Mesolitica Wav2Vec2 model: mesolitica/wav2vec2-xls-r-300m-mixed...\nUsing device: cpu\nLoading and processing audio...\nit projects from the world and does not extend to the ground",
+      "processing_time": 23.62914538383484
+    }
+  }
+}

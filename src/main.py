@@ -2,7 +2,7 @@ import os
 import uuid
 import tempfile
 import numpy as np
-from pydub import AudioSegment
+import soundfile as sf
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException
@@ -103,14 +103,8 @@ async def transcribe_clip(clip_id: uuid.UUID, model: str = "wav2vec"):
         
         # 3) Save the processed audio to a temporary file
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            # Convert numpy array back to audio segment
-            audio = AudioSegment(
-                audio_data.tobytes(),
-                frame_rate=sample_rate,
-                sample_width=2,
-                channels=1
-            )
-            audio.export(temp_file.name, format="wav")
+            # Save numpy array directly to WAV file using soundfile
+            sf.write(temp_file.name, audio_data, sample_rate)
             temp_path = temp_file.name
         
         try:

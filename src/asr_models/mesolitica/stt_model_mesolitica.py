@@ -2,7 +2,6 @@ import sys
 import os
 import warnings
 import torch
-from tqdm import tqdm
 from transformers.models.wav2vec2 import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 # Import base transcriber and utilities
@@ -31,9 +30,6 @@ class MesoliticaTranscriber(BaseTranscriber):
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
                 audio = load_audio(audio_file)
-                print("Running speech recognition...")
-                for _ in tqdm(range(10), desc="Recognizing speech"):
-                    pass
                 inputs = self.processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
                 if torch.cuda.is_available():
                     inputs = {k: v.to(self.device) for k, v in inputs.items()}

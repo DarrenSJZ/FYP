@@ -2,9 +2,9 @@ import os
 from google.cloud import storage
 import tempfile
 import requests
-from pydub import AudioSegment
 import numpy as np
 import subprocess
+import librosa
 from typing import Optional
 
 def get_signed_url(bucket_name: str, object_name: str, expiration: int = 3600) -> str:
@@ -38,19 +38,8 @@ def download_and_process_gcs_audio(url: str) -> tuple[np.ndarray, int]:
         temp_file.write(response.content)
         temp_file.flush()
         
-        # Process the audio file
-        if url.lower().endswith('.mp3'):
-            audio = AudioSegment.from_mp3(temp_file.name)
-        else:
-            audio = AudioSegment.from_wav(temp_file.name)
-            
-        # Convert to mono and 16kHz
-        audio = audio.set_channels(1)
-        audio = audio.set_frame_rate(16000)
-        audio = audio.set_sample_width(2)
-        
-        # Convert to numpy array
-        audio_data = np.array(audio.get_array_of_samples(), dtype=np.float32) / 32768.0
+        # Load and process the audio file using librosa
+        audio_data, sr = librosa.load(temp_file.name, sr=16000, mono=True)
         
         # Clean up the temporary file
         os.unlink(temp_file.name)

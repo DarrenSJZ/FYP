@@ -18,8 +18,8 @@ class ASRModelRunner:
         
         # Define model configurations
         self.models = {
-            "deepspeech": {
-                "script": "run_deepspeech.sh",
+            "vosk": {
+                "script": "run_vosk.sh",
                 "args": []
             },
             "wav2vec": {
