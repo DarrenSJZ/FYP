@@ -143,6 +143,14 @@ vosk = [
     "websockets>=11,<15"
 ]
 
+allosaurus = [
+    "allosaurus>=1.0.0",
+    "numpy>=2.2.6",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+    "soundfile>=0.12.1"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
 

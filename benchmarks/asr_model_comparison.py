@@ -123,8 +123,8 @@ class ASRModelRunner:
 def main():
     parser = argparse.ArgumentParser(description='Run multiple ASR models on an audio file')
     parser.add_argument('audio_file', help='Path to the audio file to transcribe')
-    parser.add_argument('--output', '-o', default='benchmarks/results/asr_results.json',
-                      help='Output JSON file path (default: benchmarks/results/asr_results.json)')
+    parser.add_argument('--output', '-o', default='results/asr_results.json',
+                      help='Output JSON file path (default: results/asr_results.json)')
     parser.add_argument('--parallel', '-p', action='store_true',
                       help='Run models in parallel')
     
@@ -134,10 +134,18 @@ def main():
         print(f"Error: Audio file not found: {args.audio_file}")
         sys.exit(1)
     
-    runner = ASRModelRunner(args.audio_file, args.output, args.parallel)
+    # Ensure the results directory exists
+    results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results')
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    
+    # Make the output path relative to the script's directory
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), args.output)
+    
+    runner = ASRModelRunner(args.audio_file, output_path, args.parallel)
     results = runner.run_all_models()
     
-    print(f"\nResults have been saved to: {args.output}")
+    print(f"\nResults have been saved to: {output_path}")
     print("\nTranscription Results:")
     print("-" * 80)
     for model_name, result in results["results"].items():
