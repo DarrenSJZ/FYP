@@ -6,6 +6,7 @@ from collections import defaultdict
 import tempfile # For creating temporary WAV files
 import traceback # For detailed error printing
 import subprocess # For running ffmpeg commands
+import re
 
 # Import allosaurus
 try:
@@ -78,6 +79,24 @@ class AllosaurusTranscriber(BaseTranscriber):
         except Exception as e:
             raise RuntimeError(f"Error processing audio file: {str(e)}")
 
+    @staticmethod
+    def clean_transcription(text):
+        """Clean up transcription output by removing setup messages and keeping only the actual transcription"""
+        # Split by newlines and get the last non-empty line
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if not lines:
+            return text
+            
+        # For Allosaurus, we want the last line that contains phonemes
+        # Look for lines that contain IPA characters
+        ipa_pattern = re.compile(r'[a-zæəɪʊɛʌɔɑɒɨʉøœɶɯɤɜɞʏɐːɪʊɛːɔːɪʊeɪɔɪoʊəʊ]')
+        for line in reversed(lines):
+            if ipa_pattern.search(line):
+                return line
+                
+        # If no IPA pattern found, return the last line
+        return lines[-1]
+
     def transcribe(self, audio_file_path):
         processed_audio_path = None
         try:
@@ -96,8 +115,8 @@ class AllosaurusTranscriber(BaseTranscriber):
                 if os.path.exists(processed_audio_path):
                     os.remove(processed_audio_path)
                 
-                # Return just the phonemes
-                return phonemes.strip()
+                # Clean and return just the phonemes
+                return self.clean_transcription(phonemes)
 
         except Exception as e:
             if processed_audio_path and os.path.exists(processed_audio_path):

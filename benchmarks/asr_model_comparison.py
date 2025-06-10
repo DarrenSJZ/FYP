@@ -45,6 +45,75 @@ class ASRModelRunner:
             }
         }
 
+    @staticmethod
+    def clean_transcription(text: str, model_name: str) -> str:
+        """Clean up transcription output by removing setup messages and keeping only the actual transcription"""
+        # Split by newlines and get non-empty lines
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if not lines:
+            return text
+
+        # Model-specific cleaning patterns
+        patterns = {
+            "vosk": [
+                "Loading Vosk model:",
+                "✅ Vosk model loaded successfully.",
+                "Loading and processing audio...",
+                "Running speech recognition..."
+            ],
+            "wav2vec": [
+                "Loading Wav2Vec 2.0 model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "whisper": [
+                "Loading Whisper model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "moonshine": [
+                "Loading Moonshine model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "mesolitica": [
+                "Loading Mesolitica Wav2Vec2 model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "allosaurus": [
+                "SCRIPT_DIR:",
+                "PROJECT_ROOT:",
+                "Checking if Python",
+                "Python",
+                "Virtual environment",
+                "Activated Python",
+                "Checking if Allosaurus",
+                "Core Allosaurus",
+                "Allosaurus will download",
+                "Environment setup",
+                "-----------------------------------------------------",
+                "Using Allosaurus language ID:",
+                "Successfully loaded Allosaurus model"
+            ]
+        }
+
+        # Get the patterns for this model
+        model_patterns = patterns.get(model_name, [])
+        
+        # Filter out lines that match any of the patterns
+        filtered_lines = []
+        for line in lines:
+            if not any(pattern in line for pattern in model_patterns):
+                filtered_lines.append(line)
+
+        # Return the last non-empty line if we have filtered lines
+        if filtered_lines:
+            return filtered_lines[-1]
+        
+        # If no filtered lines, return the last line
+        return lines[-1]
+
     def run_model(self, model_name: str) -> Dict:
         """Run a single ASR model and return its results"""
         model_config = self.models[model_name]
@@ -71,11 +140,14 @@ class ASRModelRunner:
             )
             end_time = time.time()
             
+            # Clean up the transcription
+            cleaned_transcription = self.clean_transcription(result.stdout.strip(), model_name)
+            
             # Base result structure
             base_result = {
                 "model": model_name,
                 "status": "success",
-                "transcription": result.stdout.strip()
+                "transcription": cleaned_transcription
             }
             
             # Add diagnostic information if in diagnostic mode
