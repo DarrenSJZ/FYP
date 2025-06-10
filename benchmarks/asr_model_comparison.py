@@ -10,10 +10,11 @@ from typing import Dict, List, Optional
 import time
 
 class ASRModelRunner:
-    def __init__(self, audio_file: str, output_file: str, parallel: bool = False):
+    def __init__(self, audio_file: str, output_file: str, parallel: bool = False, diagnostic: bool = True):
         self.audio_file = audio_file
         self.output_file = output_file
         self.parallel = parallel
+        self.diagnostic = diagnostic
         self.script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src/asr_models')
         
         # Define model configurations
@@ -37,6 +38,10 @@ class ASRModelRunner:
             "mesolitica": {
                 "script": "run_mesolitica.sh",
                 "args": []
+            },
+            "allosaurus": {
+                "script": "run_allosaurus.sh",
+                "args": ["eng"]  # Using English by default
             }
         }
 
@@ -66,20 +71,38 @@ class ASRModelRunner:
             )
             end_time = time.time()
             
-            return {
+            # Base result structure
+            base_result = {
                 "model": model_name,
                 "status": "success",
-                "transcription": result.stdout.strip(),
-                "processing_time": end_time - start_time
+                "transcription": result.stdout.strip()
             }
             
+            # Add diagnostic information if in diagnostic mode
+            if self.diagnostic:
+                base_result.update({
+                    "processing_time": end_time - start_time,
+                    "command": " ".join(cmd),
+                    "stderr": result.stderr.strip()
+                })
+            
+            return base_result
+            
         except subprocess.CalledProcessError as e:
-            return {
+            error_result = {
                 "model": model_name,
                 "status": "error",
-                "error": e.stderr,
-                "processing_time": time.time() - start_time
+                "error": e.stderr
             }
+            
+            # Add diagnostic information if in diagnostic mode
+            if self.diagnostic:
+                error_result.update({
+                    "processing_time": time.time() - start_time,
+                    "command": " ".join(cmd)
+                })
+            
+            return error_result
 
     def run_all_models(self):
         """Run all ASR models and save results to JSON"""
@@ -106,6 +129,7 @@ class ASRModelRunner:
             "audio_file": self.audio_file,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "parallel_execution": self.parallel,
+            "diagnostic_mode": self.diagnostic,
             "results": results
         }
 
@@ -127,6 +151,10 @@ def main():
                       help='Output JSON file path (default: results/asr_results.json)')
     parser.add_argument('--parallel', '-p', action='store_true',
                       help='Run models in parallel')
+    parser.add_argument('--diagnostic', '-d', action='store_true', default=True,
+                      help='Run in diagnostic mode (default: True)')
+    parser.add_argument('--no-diagnostic', action='store_false', dest='diagnostic',
+                      help='Run in non-diagnostic mode (only transcriptions)')
     
     args = parser.parse_args()
     
@@ -142,7 +170,7 @@ def main():
     # Make the output path relative to the script's directory
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), args.output)
     
-    runner = ASRModelRunner(args.audio_file, output_path, args.parallel)
+    runner = ASRModelRunner(args.audio_file, output_path, args.parallel, args.diagnostic)
     results = runner.run_all_models()
     
     print(f"\nResults have been saved to: {output_path}")
@@ -153,7 +181,8 @@ def main():
         print("-" * 40)
         if result["status"] == "success":
             print(f"Transcription: {result['transcription']}")
-            print(f"Processing time: {result['processing_time']:.2f} seconds")
+            if args.diagnostic:
+                print(f"Processing time: {result['processing_time']:.2f} seconds")
         else:
             print(f"Error: {result['error']}")
 
