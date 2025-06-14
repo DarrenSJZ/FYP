@@ -10,10 +10,11 @@ from typing import Dict, List, Optional
 import time
 
 class ASRModelRunner:
-    def __init__(self, audio_file: str, output_file: str, parallel: bool = False):
+    def __init__(self, audio_file: str, output_file: str, parallel: bool = False, diagnostic: bool = True):
         self.audio_file = audio_file
         self.output_file = output_file
         self.parallel = parallel
+        self.diagnostic = diagnostic
         self.script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src/asr_models')
         
         # Define model configurations
@@ -37,8 +38,81 @@ class ASRModelRunner:
             "mesolitica": {
                 "script": "run_mesolitica.sh",
                 "args": []
+            },
+            "allosaurus": {
+                "script": "run_allosaurus.sh",
+                "args": ["eng"]  # Using English by default
             }
         }
+
+    @staticmethod
+    def clean_transcription(text: str, model_name: str) -> str:
+        """Clean up transcription output by removing setup messages and keeping only the actual transcription"""
+        # Split by newlines and get non-empty lines
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        if not lines:
+            return text
+
+        # Model-specific cleaning patterns
+        patterns = {
+            "vosk": [
+                "Loading Vosk model:",
+                "✅ Vosk model loaded successfully.",
+                "Loading and processing audio...",
+                "Running speech recognition..."
+            ],
+            "wav2vec": [
+                "Loading Wav2Vec 2.0 model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "whisper": [
+                "Loading Whisper model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "moonshine": [
+                "Loading Moonshine model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "mesolitica": [
+                "Loading Mesolitica Wav2Vec2 model:",
+                "Using device:",
+                "Loading and processing audio..."
+            ],
+            "allosaurus": [
+                "SCRIPT_DIR:",
+                "PROJECT_ROOT:",
+                "Checking if Python",
+                "Python",
+                "Virtual environment",
+                "Activated Python",
+                "Checking if Allosaurus",
+                "Core Allosaurus",
+                "Allosaurus will download",
+                "Environment setup",
+                "-----------------------------------------------------",
+                "Using Allosaurus language ID:",
+                "Successfully loaded Allosaurus model"
+            ]
+        }
+
+        # Get the patterns for this model
+        model_patterns = patterns.get(model_name, [])
+        
+        # Filter out lines that match any of the patterns
+        filtered_lines = []
+        for line in lines:
+            if not any(pattern in line for pattern in model_patterns):
+                filtered_lines.append(line)
+
+        # Return the last non-empty line if we have filtered lines
+        if filtered_lines:
+            return filtered_lines[-1]
+        
+        # If no filtered lines, return the last line
+        return lines[-1]
 
     def run_model(self, model_name: str) -> Dict:
         """Run a single ASR model and return its results"""
@@ -66,20 +140,41 @@ class ASRModelRunner:
             )
             end_time = time.time()
             
-            return {
+            # Clean up the transcription
+            cleaned_transcription = self.clean_transcription(result.stdout.strip(), model_name)
+            
+            # Base result structure
+            base_result = {
                 "model": model_name,
                 "status": "success",
-                "transcription": result.stdout.strip(),
-                "processing_time": end_time - start_time
+                "transcription": cleaned_transcription
             }
             
+            # Add diagnostic information if in diagnostic mode
+            if self.diagnostic:
+                base_result.update({
+                    "processing_time": end_time - start_time,
+                    "command": " ".join(cmd),
+                    "stderr": result.stderr.strip()
+                })
+            
+            return base_result
+            
         except subprocess.CalledProcessError as e:
-            return {
+            error_result = {
                 "model": model_name,
                 "status": "error",
-                "error": e.stderr,
-                "processing_time": time.time() - start_time
+                "error": e.stderr
             }
+            
+            # Add diagnostic information if in diagnostic mode
+            if self.diagnostic:
+                error_result.update({
+                    "processing_time": time.time() - start_time,
+                    "command": " ".join(cmd)
+                })
+            
+            return error_result
 
     def run_all_models(self):
         """Run all ASR models and save results to JSON"""
@@ -106,6 +201,7 @@ class ASRModelRunner:
             "audio_file": self.audio_file,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "parallel_execution": self.parallel,
+            "diagnostic_mode": self.diagnostic,
             "results": results
         }
 
@@ -123,10 +219,14 @@ class ASRModelRunner:
 def main():
     parser = argparse.ArgumentParser(description='Run multiple ASR models on an audio file')
     parser.add_argument('audio_file', help='Path to the audio file to transcribe')
-    parser.add_argument('--output', '-o', default='benchmarks/results/asr_results.json',
-                      help='Output JSON file path (default: benchmarks/results/asr_results.json)')
+    parser.add_argument('--output', '-o', default='results/asr_results.json',
+                      help='Output JSON file path (default: results/asr_results.json)')
     parser.add_argument('--parallel', '-p', action='store_true',
                       help='Run models in parallel')
+    parser.add_argument('--diagnostic', '-d', action='store_true', default=True,
+                      help='Run in diagnostic mode (default: True)')
+    parser.add_argument('--no-diagnostic', action='store_false', dest='diagnostic',
+                      help='Run in non-diagnostic mode (only transcriptions)')
     
     args = parser.parse_args()
     
@@ -134,10 +234,18 @@ def main():
         print(f"Error: Audio file not found: {args.audio_file}")
         sys.exit(1)
     
-    runner = ASRModelRunner(args.audio_file, args.output, args.parallel)
+    # Ensure the results directory exists
+    results_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results')
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    
+    # Make the output path relative to the script's directory
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), args.output)
+    
+    runner = ASRModelRunner(args.audio_file, output_path, args.parallel, args.diagnostic)
     results = runner.run_all_models()
     
-    print(f"\nResults have been saved to: {args.output}")
+    print(f"\nResults have been saved to: {output_path}")
     print("\nTranscription Results:")
     print("-" * 80)
     for model_name, result in results["results"].items():
@@ -145,7 +253,8 @@ def main():
         print("-" * 40)
         if result["status"] == "success":
             print(f"Transcription: {result['transcription']}")
-            print(f"Processing time: {result['processing_time']:.2f} seconds")
+            if args.diagnostic:
+                print(f"Processing time: {result['processing_time']:.2f} seconds")
         else:
             print(f"Error: {result['error']}")
 

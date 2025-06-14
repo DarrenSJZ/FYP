@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import os
-from tqdm import tqdm
 import warnings
 
 class BaseTranscriber(ABC):

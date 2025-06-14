@@ -73,3 +73,6 @@ src/asr_models/vosk/vosk-model-en-us-0.22/rnnlm/word_feats.txt
 src/asr_utils/__pycache__/audio_utils.cpython-312.pyc
 src/asr_utils/__pycache__/base_transcriber.cpython-312.pyc
 src/.env
+
+# New code
+BACKLOG.md
