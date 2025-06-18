@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "asr-project"
 version = "0.1.0"
 description = "ASR Project with multiple model implementations"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "aiohappyeyeballs==2.6.1",
     "aiohttp==3.11.18",
@@ -50,6 +50,7 @@ dependencies = [
     "pyasn1-modules==0.4.2",
     "pydantic==2.11.4",
     "pydantic-core==2.33.2",
+    "pydantic-settings>=2.9.1",
     "pyjwt==2.10.1",
     "pytest==8.3.5",
     "pytest-cov==4.1.0",
@@ -72,7 +73,7 @@ dependencies = [
     "urllib3==2.4.0",
     "uvicorn==0.34.2",
     "websockets>=11,<15",
-    "yarl==1.20.0"
+    "yarl==1.20.0",
 ]
 
 [project.optional-dependencies]
@@ -119,9 +120,9 @@ mesolitica = [
 moonshine = [
     "useful-moonshine @ git+https://github.com/usefulsensors/moonshine.git@2f6282347950c8d711bd7319287babb87ec5a92d",
     "numpy>=2.2.6",
-    "torch==2.6.0",
-    "torchaudio==2.6.0",
-    "torchvision==0.21.0",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+    "torchvision>=0.21.0",
     "librosa>=0.10.2",
     "soundfile>=0.12.1",
     "transformers>=4.30.0",
