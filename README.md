@@ -1,18 +1,13 @@
-# YouTube Clip Transcription and Annotation Platform
+# Advanced Transcription and Validation Platform
 
 ## Project Objectives
 
-This project aims to create a crowd-sourced transcription platform for YouTube videos, similar to OpenSubtitles but with a focus on accuracy and community validation. The platform will help create high-quality transcriptions for YouTube content through a combination of ASR models, LLM processing, and human validation.
+This project aims to create a high-quality transcription platform that combines multiple ASR (Automatic Speech Recognition) models with human validation to produce accurate, community-verified transcriptions. The platform leverages a microservices architecture with shared data to enable scalable, reliable transcription processing.
 
 ### Core Features
 
-1. **YouTube Clip Extraction**
-   - Browser extension for easy clip creation from YouTube videos
-   - Similar to Twitch's clipping functionality
-   - Enables users to select and save specific segments of videos
-
-2. **Multi-Model ASR Pipeline**
-   - Currently implements 5 different ASR models:
+1. **Multi-Model ASR Pipeline**
+   - Implements 5 different ASR models:
      - Wav2Vec
      - Whisper
      - DeepSpeech
@@ -21,13 +16,13 @@ This project aims to create a crowd-sourced transcription platform for YouTube v
    - Each model runs in its own isolated virtual environment
    - Models are containerized for consistent performance and easy deployment
 
-3. **LLM-Enhanced Transcription**
+2. **LLM-Enhanced Transcription**
    - ASR model outputs are processed through an LLM
    - Integration with Tavily search API for context-aware corrections
    - LLM helps clean and standardize transcriptions
    - Reduces common ASR errors and improves accuracy
 
-4. **Community Annotation Tool**
+3. **Community Validation Tool**
    - Interactive interface for human validation and correction
    - Smart autocomplete suggestions (similar to GitHub Copilot)
    - Tab-completion workflow:
@@ -35,19 +30,43 @@ This project aims to create a crowd-sourced transcription platform for YouTube v
      - Manual edits become new ground truth if suggestions are rejected
    - Community moderation system for validation
 
-5. **Ground Truth Management**
+4. **Ground Truth Management**
    - Validated transcriptions become the new ground truth
    - Community moderation ensures quality
    - Version control for transcription history
    - Confidence scoring based on validation count
 
-### Technical Implementation
+## Architecture
 
-The current implementation uses a microservices architecture:
-- FastAPI backend for handling clip processing and transcription
-- Isolated virtual environments for each ASR model
-- Google Cloud Storage for audio file management
-- Supabase for database and authentication
+### Microservices with Shared Data Pattern
+
+The platform implements a **microservices architecture with shared data**, which provides the benefits of service isolation while maintaining data consistency:
+
+#### Service Layer (Microservices)
+- **FastAPI Backend**: Main orchestration service for handling transcription requests and user interactions
+- **ASR Model Services**: Each ASR model operates as an independent service:
+  - Whisper Service
+  - Wav2Vec Service  
+  - Moonshine Service
+  - Mesolitica Service
+  - DeepSpeech Service
+- **LLM Processing Service**: Handles context-aware corrections and standardization
+- **Validation Service**: Manages the community validation workflow
+
+#### Shared Data Layer
+- **Google Cloud Storage (GCS)**: Centralized storage for audio files and processed data
+- **Supabase**: Shared database for:
+  - User authentication and management
+  - Transcription metadata and results
+  - Validation history and community feedback
+  - Ground truth versioning
+
+#### Benefits of This Architecture
+- **Service Independence**: Each ASR model can be updated, scaled, or replaced independently
+- **Data Consistency**: All services work with the same authoritative data sources
+- **Scalability**: Services can be scaled horizontally based on demand
+- **Fault Tolerance**: Individual service failures don't affect the entire system
+- **Technology Flexibility**: Different services can use different technologies and dependencies
 
 ### Future Goals
 
@@ -69,7 +88,7 @@ The current implementation uses a microservices architecture:
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - `uv` package manager (for faster dependency installation)
 - FFmpeg (for audio processing)
 - System dependencies:
@@ -100,8 +119,8 @@ The current implementation uses a microservices architecture:
 ### FastAPI Backend (`src/main.py`)
 
 The main FastAPI application provides endpoints for:
-- Clip retrieval and streaming
-- ASR model transcription
+- Audio file processing and transcription
+- ASR model orchestration
 - Integration with Supabase for data storage
 
 To run the backend:
@@ -112,8 +131,8 @@ uvicorn main:app --reload
 
 Available endpoints:
 - `GET /`: Health check
-- `GET /clip/{clip_id}`: Retrieve clip metadata and streaming URL
-- `POST /transcribe/{clip_id}`: Transcribe a clip using specified ASR model
+- `GET /audio/{audio_id}`: Retrieve audio metadata and processing status
+- `POST /transcribe/{audio_id}`: Transcribe audio using specified ASR model
 
 ### ASR Utilities (`src/asr_utils/`)
 
@@ -144,7 +163,7 @@ uv pip install ".[asr-utils]"
 
 ## ASR Models
 
-Each ASR model runs in its own isolated virtual environment. To use a specific model:
+Each ASR model runs as an independent microservice in its own isolated virtual environment. To use a specific model:
 
 1. Navigate to the model directory:
    ```bash
@@ -196,10 +215,5 @@ SUPABASE_KEY=your_supabase_key
 3. Format code:
    ```bash
    black .
-   ```
-
-4. Type checking:
-   ```bash
-   mypy .
    ```
 

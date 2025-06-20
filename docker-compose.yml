@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # Whisper ASR Service
+  whisper-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/whisper/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+      - whisper_cache:/root/.cache/whisper
+    networks:
+      - asr-network
+
+  # Wav2Vec ASR Service
+  wav2vec-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/wav2vec/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+      - huggingface_cache:/root/.cache/huggingface
+    networks:
+      - asr-network
+
+  # Moonshine ASR Service
+  moonshine-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/moonshine/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+    networks:
+      - asr-network
+
+  # Mesolitica ASR Service
+  mesolitica-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/mesolitica/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+      - huggingface_cache:/root/.cache/huggingface
+    networks:
+      - asr-network
+
+  # Vosk ASR Service
+  vosk-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/vosk/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+      - vosk_models:/app/models
+    networks:
+      - asr-network
+
+  # Allosaurus ASR Service
+  allosaurus-service:
+    build:
+      context: .
+      dockerfile: src/asr_models/allosaurus/Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./audio_files:/app/audio_files
+    networks:
+      - asr-network
+
+volumes:
+  whisper_cache:
+  huggingface_cache:
+  vosk_models:
+
+networks:
+  asr-network:
+    driver: bridge 
