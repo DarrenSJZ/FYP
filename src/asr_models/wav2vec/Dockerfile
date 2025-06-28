@@ -1,64 +1,56 @@
-# Multi-stage Dockerfile for Wav2Vec ASR Model
-FROM python:3.12.2-slim AS base
+# Optimized Dockerfile for Wav2Vec ASR Model
+FROM asr-base AS wav2vec-deps
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3-dev \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install wav2vec-specific dependencies from requirements file
+COPY src/asr_models/wav2vec/wav2vec_requirements.txt /app/requirements.txt
+RUN . /app/.venv/bin/activate && \
+    uv pip install -r /app/requirements.txt
 
-WORKDIR /app
+# Stage 2: Model download
+FROM wav2vec-deps AS model-download
 
-FROM base AS deps
-
-RUN pip install uv
-
-COPY pyproject.toml uv.lock ./
-COPY src/asr_utils ./src/asr_utils/
-
-# Create virtual environment and install dependencies using uv
-RUN uv venv && \
-    . .venv/bin/activate && \
-    uv pip install ".[wav2vec]"
-
-# Create pydub workaround for missing audioop module
-RUN mkdir -p $(python -c 'import site; print(site.getsitepackages()[0])')/pydub && \
-    echo '# Stub implementation for pyaudioop' > $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def max(fragment, width): return 0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def avg(fragment, width): return 0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def rms(fragment, width): return 0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def findfit(fragment, reference, width): return 0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def findmax(fragment, width): return 0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def findfactor(fragment, reference, width): return 1.0' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def lin2lin(fragment, width, newwidth): return fragment' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py && \
-    echo 'def ratecv(fragment, width, nchannels, inrate, outrate, state, weightA=1, weightB=0): return (fragment, (0, 0))' >> $(python -c 'import site; print(site.getsitepackages()[0])')/pydub/pyaudioop.py
-
-FROM deps AS model-download
-
-RUN mkdir -p /app/models
-RUN . .venv/bin/activate && \
-    python -c "from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor; processor = Wav2Vec2Processor.from_pretrained('facebook/wav2vec2-base-960h'); model = Wav2Vec2ForCTC.from_pretrained('facebook/wav2vec2-base-960h')"
-
-FROM base AS runtime
-
-COPY --from=deps /app/.venv /app/.venv
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY --from=deps /usr/local/lib/python3.12/site-packages/pydub /usr/local/lib/python3.12/site-packages/pydub
-COPY src/asr_models/wav2vec/stt_model_wav2vec.py ./
-COPY src/asr_utils ./src/asr_utils/
-COPY --from=model-download /root/.cache/huggingface /root/.cache/huggingface
-
+# Create user and set up cache directory
 RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
+    mkdir -p /home/app/.cache/huggingface && \
+    chown -R app:app /home/app
+
 USER app
 
+# Pre-download wav2vec model to cache
+RUN . /app/.venv/bin/activate && \
+    python -c "from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor; processor = Wav2Vec2Processor.from_pretrained('facebook/wav2vec2-base-960h'); model = Wav2Vec2ForCTC.from_pretrained('facebook/wav2vec2-base-960h')"
+
+# Stage 3: Final runtime image
+FROM asr-base AS runtime
+
+# Copy dependencies from wav2vec-deps stage
+COPY --from=wav2vec-deps /app/.venv /app/.venv
+
+# Copy pre-downloaded models from model-download stage  
+COPY --from=model-download /home/app/.cache/huggingface /home/app/.cache/huggingface
+
+# Copy application code for execution
+COPY src/asr_models/wav2vec/stt_model_wav2vec.py ./src/asr_models/wav2vec/
+COPY src/asr_models/wav2vec/wav2vec_service.py ./src/asr_models/wav2vec/
+COPY src/asr_utils ./src/asr_utils/
+
+# Create non-root user and set permissions
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app /home/app
+
+USER app
+
+# Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/app/.venv/bin:$PATH"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "from transformers import Wav2Vec2ForCTC; print('Wav2Vec model ready')" || exit 1
+# Expose HTTP port
+EXPOSE 8002
 
-ENTRYPOINT ["python", "stt_model_wav2vec.py"]
-CMD ["--help"] 
+# Health check for HTTP service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Default command - run HTTP service
+ENTRYPOINT ["python", "src/asr_models/wav2vec/wav2vec_service.py"] 
