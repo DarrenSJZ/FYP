@@ -13,7 +13,7 @@ COPY pyproject.toml ./
 RUN pip install uv && \
     uv venv && \
     . .venv/bin/activate && \
-    uv pip install fastapi uvicorn aiohttp pydantic
+    uv pip install fastapi uvicorn aiohttp pydantic python-multipart
 
 # Copy orchestrator code
 COPY src/orchestrator.py ./src/
