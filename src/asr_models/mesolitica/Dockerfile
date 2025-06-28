@@ -1,44 +1,56 @@
-# Multi-stage Dockerfile for Mesolitica ASR Model
-FROM python:3.12.2-slim AS base
+# Optimized Dockerfile for Mesolitica ASR Model
+FROM asr-base AS mesolitica-deps
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3-dev \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install mesolitica-specific dependencies from requirements file
+COPY src/asr_models/mesolitica/mesolitica_requirements.txt /app/requirements.txt
+RUN . /app/.venv/bin/activate && \
+    uv pip install -r /app/requirements.txt
 
-WORKDIR /app
+# Stage 2: Model download
+FROM mesolitica-deps AS model-download
 
-FROM base AS deps
-
-RUN pip install uv
-
-COPY pyproject.toml uv.lock ./
-COPY src/asr_utils ./src/asr_utils/
-
-# Create virtual environment and install dependencies using uv
-RUN uv venv && \
-    . .venv/bin/activate && \
-    uv pip install ".[mesolitica]"
-
-FROM base AS runtime
-
-COPY --from=deps /app/.venv /app/.venv
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY src/asr_models/mesolitica/stt_model_mesolitica.py ./
-COPY src/asr_utils ./src/asr_utils/
-
+# Create user and set up cache directory
 RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
+    mkdir -p /home/app/.cache/huggingface && \
+    chown -R app:app /home/app
+
 USER app
 
+# Pre-download mesolitica model to cache
+RUN . /app/.venv/bin/activate && \
+    python -c "from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor; processor = Wav2Vec2Processor.from_pretrained('mesolitica/wav2vec2-xls-r-300m-mixed'); model = Wav2Vec2ForCTC.from_pretrained('mesolitica/wav2vec2-xls-r-300m-mixed')"
+
+# Stage 3: Final runtime image
+FROM asr-base AS runtime
+
+# Copy dependencies from mesolitica-deps stage
+COPY --from=mesolitica-deps /app/.venv /app/.venv
+
+# Copy pre-downloaded models from model-download stage  
+COPY --from=model-download /home/app/.cache/huggingface /home/app/.cache/huggingface
+
+# Copy application code for execution
+COPY src/asr_models/mesolitica/stt_model_mesolitica.py ./src/asr_models/mesolitica/
+COPY src/asr_models/mesolitica/mesolitica_service.py ./src/asr_models/mesolitica/
+COPY src/asr_utils ./src/asr_utils/
+
+# Create non-root user and set permissions
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app /home/app
+
+USER app
+
+# Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/app/.venv/bin:$PATH"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "print('Mesolitica container ready')" || exit 1
+# Expose HTTP port
+EXPOSE 8004
 
-ENTRYPOINT ["python", "stt_model_mesolitica.py"]
-CMD ["--help"] 
+# Health check for HTTP service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8004/health || exit 1
+
+# Default command - run HTTP service
+ENTRYPOINT ["python", "src/asr_models/mesolitica/mesolitica_service.py"] 

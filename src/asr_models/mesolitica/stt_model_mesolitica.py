@@ -5,7 +5,9 @@ import torch
 from transformers.models.wav2vec2 import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 # Import base transcriber and utilities
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../asr_utils'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from path_utils import setup_asr_utils_path
+setup_asr_utils_path()
 from base_transcriber import BaseTranscriber
 from audio_utils import load_audio, get_device
 
