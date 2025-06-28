@@ -1,52 +1,57 @@
-# Multi-stage Dockerfile for Moonshine ASR Model
-FROM python:3.12.2-slim AS base
+# Optimized Dockerfile for Moonshine ASR Model
+FROM asr-base AS moonshine-deps
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3-dev \
-    gcc \
-    g++ \
-    git \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+# Install moonshine-specific dependencies from requirements file
+COPY src/asr_models/moonshine/moonshine_requirements.txt /app/requirements.txt
+RUN . /app/.venv/bin/activate && \
+    uv pip install -r /app/requirements.txt
 
-WORKDIR /app
+# Stage 2: Model download
+FROM moonshine-deps AS model-download
 
-FROM base AS deps
-
-RUN pip install uv
-
-COPY pyproject.toml uv.lock ./
-COPY src/asr_utils ./src/asr_utils/
-
-# Create virtual environment and install dependencies using uv
-RUN uv venv && \
-    . .venv/bin/activate && \
-    uv pip install ".[moonshine]"
-
-FROM deps AS model-download
-
-RUN mkdir -p /app/models
-# (Optional) Download default models here if needed
-
-FROM base AS runtime
-
-COPY --from=deps /app/.venv /app/.venv
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY src/asr_models/moonshine/stt_model_moonshine.py ./
-COPY src/asr_utils ./src/asr_utils/
-
+# Create user and set up cache directory
 RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
+    mkdir -p /home/app/.cache/moonshine && \
+    chown -R app:app /home/app
+
 USER app
 
+# Pre-download moonshine model to cache
+# TODO: Fix TensorFlow dependency issue before enabling model pre-download
+# RUN . /app/.venv/bin/activate && \
+#     python -c "import moonshine; moonshine.load_model('moonshine/base')"
+
+# Stage 3: Final runtime image
+FROM asr-base AS runtime
+
+# Copy dependencies from moonshine-deps stage
+COPY --from=moonshine-deps /app/.venv /app/.venv
+
+# Copy pre-downloaded models from model-download stage  
+COPY --from=model-download /home/app/.cache/moonshine /home/app/.cache/moonshine
+
+# Copy application code
+COPY src/asr_models/moonshine/stt_model_moonshine.py ./src/asr_models/moonshine/
+COPY src/asr_models/moonshine/moonshine_service.py ./src/asr_models/moonshine/
+COPY src/asr_utils ./src/asr_utils/
+
+# Create non-root user and set permissions
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app /home/app
+
+USER app
+
+# Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/app/.venv/bin:$PATH"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import useful_moonshine; print('Moonshine model ready')" || exit 1
+# Expose HTTP port
+EXPOSE 8003
 
-ENTRYPOINT ["python", "stt_model_moonshine.py"]
-CMD ["--help"] 
+# Health check for HTTP service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8003/health || exit 1
+
+# Default command - run HTTP service
+ENTRYPOINT ["python", "src/asr_models/moonshine/moonshine_service.py"] 

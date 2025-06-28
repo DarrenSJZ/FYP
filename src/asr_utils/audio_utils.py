@@ -56,7 +56,7 @@ def load_audio(file_path: str, target_sr: int = 16000) -> np.ndarray:
         audio_data = audio_data.astype(np.float32)
         
         # Normalize to [-1, 1]
-        if audio_data.max() > 1.0 or audio_data.min() < -1.0:
+        if np.max(audio_data) > 1.0 or np.min(audio_data) < -1.0:
             audio_data = audio_data / 32768.0  # For int16 audio
         
         return audio_data

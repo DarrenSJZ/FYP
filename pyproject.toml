@@ -77,10 +77,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+asr-base = [
+    # Core ML stack - used by ALL models
+    "numpy>=2.2.6",
+    "torch>=2.7.0", 
+    "torchaudio>=2.7.0",
+    "soundfile>=0.12.1",
+    
+    # Common utilities
+    "tqdm>=4.65.0",
+    
+    # Web service stack
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "python-multipart>=0.0.6"
+]
+
 asr-utils = [
-    "numpy>=1.24.0",
-    "torch>=2.0.0",
-    "torchaudio>=2.0.0",
+    "numpy>=2.2.6",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
     "tqdm>=4.65.0",
     "soundfile>=0.12.1"
 ]
@@ -132,7 +148,8 @@ moonshine = [
     "timm==0.6.12",
     "pretrainedmodels==0.7.4",
     "playsound3>=2.5.2",
-    "pydub>=0.25.1"
+    "pydub>=0.25.1",
+    "tensorflow>=2.16.1"
 ]
 
 vosk = [
