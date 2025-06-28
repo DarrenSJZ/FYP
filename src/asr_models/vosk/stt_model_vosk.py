@@ -12,22 +12,17 @@ from base_transcriber import BaseTranscriber
 from audio_utils import load_audio
 
 class VoskTranscriber(BaseTranscriber):
-    def __init__(self, model_path=None, rate=16000):
-        if model_path is None:
-            # Use default model path relative to this file
-            model_path = os.path.join(os.path.dirname(__file__), "vosk-model-en-us-0.22")
-        
-        self.model_path = model_path
+    def __init__(self, model_lang="en-us", rate=16000):
+        self.model_lang = model_lang
         if rate != 16000:
             raise ValueError("Vosk models only support a sampling rate of 16000 Hz.")
-        super().__init__(model_name=model_path, rate=rate)
+        super().__init__(model_name=f"vosk-{model_lang}", rate=rate)
 
     def _initialize_model(self):
-        print(f"Loading Vosk model: {self.model_name}...")
-        if not os.path.exists(self.model_path):
-            raise ValueError(f"No Vosk model found at {self.model_path}")
+        print(f"Loading Vosk model for language: {self.model_lang}...")
         try:
-            self.model = Model(self.model_path)
+            # Use Vosk's automatic model download by language
+            self.model = Model(lang=self.model_lang)
             self.recognizer = KaldiRecognizer(self.model, self.rate)
             print("✅ Vosk model loaded successfully.")
         except Exception as e:
@@ -79,11 +74,11 @@ class VoskTranscriber(BaseTranscriber):
 def main():
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
-        transcriber = VoskTranscriber()
+        transcriber = VoskTranscriber(model_lang="en-us")
         transcription = transcriber.transcribe(file_path)
         print(transcription)
     else:
-        transcriber = VoskTranscriber()
+        transcriber = VoskTranscriber(model_lang="en-us")
         transcriber.run_interactive()
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import sys
 import time
 import json
 import wave
+import numpy as np
 import uvicorn
 from fastapi import HTTPException, UploadFile, File
 
@@ -18,6 +19,7 @@ from asr_utils.service_utils import (
     create_fastapi_app, validate_audio_file, save_temp_file, cleanup_temp_file,
     create_health_response, create_transcription_response
 )
+from asr_utils.audio_utils import load_audio
 
 # Import VOSK
 try:
@@ -104,26 +106,34 @@ async def transcribe(
     if not model_ready:
         raise HTTPException(status_code=503, detail="VOSK model not ready")
     
-    # VOSK is strict about WAV format
-    validate_audio_file(file, allowed_formats=['.wav'])
+    # Accept any audio format like other services
+    validate_audio_file(file)
     
     temp_path = await save_temp_file(file)
+    processed_audio_path = None
     
     try:
         start_time_transcribe = time.time()
         
-        print(f"Transcribing: {temp_path}")
+        print(f"Loading and processing audio: {temp_path}")
         
-        # Open the audio file
-        wf = wave.open(temp_path, "rb")
+        # Load audio using audio_utils (handles any format)
+        audio_data = load_audio(temp_path)
         
-        # Check if audio is compatible (16kHz, mono)
-        if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getframerate() != 16000:
-            wf.close()
-            raise HTTPException(
-                status_code=400, 
-                detail="Audio file must be WAV format mono PCM 16kHz"
-            )
+        # Convert to WAV format for VOSK processing
+        processed_audio_path = temp_path + "_vosk.wav"
+        audio_data_int16 = (audio_data * 32768.0).astype(np.int16)
+        
+        with wave.open(processed_audio_path, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2) 
+            wf.setframerate(16000)
+            wf.writeframes(audio_data_int16.tobytes())
+        
+        print(f"Converted audio to WAV format: {processed_audio_path}")
+        
+        # Open the converted audio file
+        wf = wave.open(processed_audio_path, "rb")
         
         # Create recognizer
         rec = KaldiRecognizer(vosk_model, wf.getframerate())
@@ -152,7 +162,7 @@ async def transcribe(
         model_info_dict = {
             "model_lang": model_lang,
             "sample_rate": wf.getframerate(),
-            "audio_format": "WAV PCM 16kHz mono"
+            "audio_format": "WAV PCM 16kHz mono (converted)"
         }
         
         diagnostics = None
@@ -162,7 +172,9 @@ async def transcribe(
                 "audio_duration": wf.getnframes() / wf.getframerate(),
                 "sample_rate": wf.getframerate(),
                 "channels": wf.getnchannels(),
-                "sample_width": wf.getsampwidth()
+                "sample_width": wf.getsampwidth(),
+                "original_format": file.filename.split('.')[-1] if file.filename else "unknown",
+                "converted_to_wav": True
             }
         
         wf.close()
@@ -182,6 +194,8 @@ async def transcribe(
     
     finally:
         cleanup_temp_file(temp_path)
+        if processed_audio_path and os.path.exists(processed_audio_path):
+            cleanup_temp_file(processed_audio_path)
 
 
 if __name__ == "__main__":
