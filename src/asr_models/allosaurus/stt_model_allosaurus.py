@@ -12,14 +12,14 @@ import re
 try:
     from allosaurus.app import read_recognizer
 except ImportError:
-    print("Error: Allosaurus not found. Please install it with 'pip install allosaurus'")
+    print("Error: Allosaurus not found. Please install it with 'uv pip install allosaurus'")
     sys.exit(1)
 
 # Import soundfile for reading the converted WAV
 try:
     import soundfile as sf
 except ImportError:
-    print("Error: soundfile not found. Please install it ('pip install soundfile')")
+    print("Error: soundfile not found. Please install it ('uv pip install soundfile')")
     sys.exit(1)
 
 

@@ -1,50 +1,49 @@
-# Multi-stage Dockerfile for Allosaurus ASR Model
-FROM python:3.12.2-slim AS base
+# Optimized Dockerfile for Allosaurus ASR Model
+FROM asr-base AS allosaurus-deps
 
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    python3-dev \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install allosaurus-specific dependencies from requirements file
+COPY src/asr_models/allosaurus/allosaurus_requirements.txt /app/requirements.txt
+RUN . /app/.venv/bin/activate && \
+    uv pip install -r /app/requirements.txt
 
-WORKDIR /app
+# Stage 2: Model download
+FROM allosaurus-deps AS model-download
 
-FROM base AS deps
+# Download the default Allosaurus model so the image is ready for offline/edge use
+RUN . /app/.venv/bin/activate && \
+    python -c "import allosaurus; from allosaurus.app import read_recognizer; read_recognizer()"
 
-RUN pip install uv
+# Create user
+RUN useradd --create-home --shell /bin/bash app
 
-COPY pyproject.toml uv.lock ./
+# Stage 3: Final runtime image
+FROM asr-base AS runtime
+
+# Copy dependencies from allosaurus-deps stage
+COPY --from=allosaurus-deps /app/.venv /app/.venv
+
+# Copy application code for execution
+COPY src/asr_models/allosaurus/stt_model_allosaurus.py ./src/asr_models/allosaurus/
+COPY src/asr_models/allosaurus/allosaurus_service.py ./src/asr_models/allosaurus/
 COPY src/asr_utils ./src/asr_utils/
 
-# Create virtual environment and install dependencies using uv
-RUN uv venv && \
-    . .venv/bin/activate && \
-    uv pip install ".[allosaurus]"
-
-FROM deps AS model-download
-
-RUN mkdir -p /app/models
-RUN . .venv/bin/activate && \
-    python -c "import allosaurus; print('Allosaurus model ready')"
-
-FROM base AS runtime
-
-COPY --from=deps /app/.venv /app/.venv
-COPY --from=deps /usr/local/bin /usr/local/bin
-COPY src/asr_models/allosaurus/stt_model_allosaurus.py ./
-COPY src/asr_utils ./src/asr_utils/
-
+# Create non-root user and set permissions
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app
+
 USER app
 
+# Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/app/.venv/bin:$PATH"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import allosaurus; print('Allosaurus model ready')" || exit 1
+# Expose HTTP port
+EXPOSE 8006
 
-ENTRYPOINT ["python", "stt_model_allosaurus.py"]
-CMD ["--help"] 
+# Health check for HTTP service
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8006/health || exit 1
+
+# Default command - run HTTP service
+ENTRYPOINT ["python", "src/asr_models/allosaurus/allosaurus_service.py"]
