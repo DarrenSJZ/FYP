@@ -92,8 +92,20 @@ def clean_transcription(text: str) -> str:
     if not lines:
         return text
         
-    # Look for lines that contain IPA characters
-    ipa_pattern = re.compile(r'[a-zæəɪʊɛʌɔɑɒɨʉøœɶɯɤɜɞʏɐːɪʊɛːɔːɪʊeɪɔɪoʊəʊ]')
+    # Look for lines that contain IPA characters (comprehensive set)
+    ipa_symbols = (
+        # Vowels (from IPA chart)
+        r'iyɨʉɯuɪʏʊeøɘɵɤoɛœɜɞʌɔæɐɑɒəɶ'
+        # Consonants (pulmonic)
+        r'pbmɸβfvʋθðtdnszɾɹlʃʒɻʈɖɳʂʐɽɭcɟɲçʝjkɡŋxɣɰqɢɴχʁħʕʔhɦ'
+        # Non-pulmonic consonants
+        r'pʼtʼkʼsʼɓɗʄɠʛʘǀǃǂǁ'
+        # Common diacritics and suprasegmentals
+        r'ʰʲʷ˞ːˑˈˌ'
+        # Other common symbols
+        r'͡'
+    )
+    ipa_pattern = re.compile(f'[{ipa_symbols}]')
     for line in reversed(lines):
         if ipa_pattern.search(line):
             return line
@@ -165,11 +177,34 @@ async def transcribe(
             # Convert audio to WAV format
             processed_audio_path = process_audio_to_wav(temp_path)
             
-            # Run Allosaurus recognition
-            phonemes = allosaurus_model.recognize(processed_audio_path, model_lang_id)
+            # Run Allosaurus WITHOUT timing first (for compatibility)
+            phonemes_no_time = allosaurus_model.recognize(processed_audio_path, model_lang_id)
+            clean_phonemes_basic = clean_transcription(phonemes_no_time)
             
-            # Clean the transcription
-            clean_phonemes = clean_transcription(phonemes)
+            # Run Allosaurus WITH timing information
+            phonemes_with_time_raw = allosaurus_model.recognize(processed_audio_path, model_lang_id, timestamp=True)
+            
+            # Parse timing information
+            timed_phonemes = []
+            phonemes_only = []
+            
+            for line in phonemes_with_time_raw.strip().split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) >= 3:
+                    start_time = float(parts[0])
+                    duration = float(parts[1])
+                    phoneme = parts[2]
+                    end_time = start_time + duration
+                    timed_phonemes.append({
+                        'phoneme': phoneme,
+                        'start_time': start_time,
+                        'duration': duration,
+                        'end_time': end_time
+                    })
+                    phonemes_only.append(phoneme)
             
             processing_time = time.time() - start_time_transcribe
             
@@ -183,19 +218,24 @@ async def transcribe(
             if include_diagnostics:
                 diagnostics = {
                     "language_id": model_lang_id,
-                    "raw_output": phonemes,
-                    "cleaned_output": clean_phonemes,
+                    "raw_output": phonemes_no_time,
+                    "raw_output_timed": phonemes_with_time_raw,
+                    "cleaned_output": clean_phonemes_basic,
                     "sample_rate": target_sr,
-                    "ffmpeg_conversion": "WAV PCM 16kHz mono"
+                    "ffmpeg_conversion": "WAV PCM 16kHz mono",
+                    "timed_phonemes": timed_phonemes
                 }
             
-            return create_transcription_response(
-                transcription=clean_phonemes,
-                processing_time=processing_time,
-                model_name="allosaurus",
-                model_info=model_info_dict,
-                diagnostics=diagnostics
-            )
+            # Return custom response with timing data
+            return {
+                "transcription": clean_phonemes_basic,
+                "processing_time": processing_time,
+                "model": "allosaurus",
+                "model_info": model_info_dict,
+                "diagnostics": diagnostics,
+                "timed_phonemes": timed_phonemes,
+                "transcription_timed": ' '.join(phonemes_only)
+            }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
