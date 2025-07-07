@@ -2,7 +2,7 @@
 FROM asr-base AS allosaurus-deps
 
 # Install allosaurus-specific dependencies from requirements file
-COPY src/asr_models/allosaurus/allosaurus_requirements.txt /app/requirements.txt
+COPY backend/src/asr_models/allosaurus/allosaurus_requirements.txt /app/requirements.txt
 RUN . /app/.venv/bin/activate && \
     uv pip install -r /app/requirements.txt
 
@@ -23,9 +23,9 @@ FROM asr-base AS runtime
 COPY --from=allosaurus-deps /app/.venv /app/.venv
 
 # Copy application code for execution
-COPY src/asr_models/allosaurus/stt_model_allosaurus.py ./src/asr_models/allosaurus/
-COPY src/asr_models/allosaurus/allosaurus_service.py ./src/asr_models/allosaurus/
-COPY src/asr_utils ./src/asr_utils/
+COPY backend/src/asr_models/allosaurus/stt_model_allosaurus.py ./src/asr_models/allosaurus/
+COPY backend/src/asr_models/allosaurus/allosaurus_service.py ./src/asr_models/allosaurus/
+COPY backend/src/asr_utils ./src/asr_utils/
 
 # Create non-root user and set permissions
 RUN useradd --create-home --shell /bin/bash app && \

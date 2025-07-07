@@ -1,17 +1,15 @@
 #!/bin/bash
 
-# Set up environment for Vosk
+# Set up environment for Whisper
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO"
+PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO/backend"
 cd "$SCRIPT_DIR"
 
 # Check if --help flag is provided
 if [[ "$*" == *"--help"* ]]; then
-    echo "Usage: $0 [audio_file] [options]"
-    echo "Available options:"
-    echo "  --help     Show this help message"
-    echo "  --device   Specify device to use (cpu/cuda)"
-    echo "Example: $0 path/to/audio.wav --device cpu"
+    echo "Usage: $0 [model_name] [options]"
+    echo "Available models: tiny.en, tiny, base.en, base, small.en, small, medium.en, medium, large-v1, large-v2, large-v3, large, large-v3-turbo, turbo"
+    echo "Example: $0 base"
     exit 0
 fi
 
@@ -27,13 +25,13 @@ package_installed() {
 }
 
 # Check if virtual environment exists
-if [ ! -d "env_vosk" ]; then
-    echo "Creating virtual environment for Vosk..."
+if [ ! -d "env_whisper" ]; then
+    echo "Creating virtual environment for Whisper..."
     
     # Check if uv is available
     if command_exists uv; then
         echo "Using uv to create virtual environment..."
-        uv venv env_vosk
+        uv venv env_whisper
     else
         echo "Error: uv is required. Please install uv:"
         echo "curl -sSf https://install.os-release.org/py/uv/latest | python3"
@@ -41,15 +39,15 @@ if [ ! -d "env_vosk" ]; then
     fi
     
     # Activate the virtual environment
-    source env_vosk/bin/activate
+    source env_whisper/bin/activate
     
     # Install required packages
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install project with vosk dependencies
+    # Install project with whisper dependencies
     cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-    uv pip install ".[vosk]"
+    uv pip install ".[whisper]"
     cd "$SCRIPT_DIR"  # Return to script directory
     
     # Install system dependencies if needed
@@ -65,16 +63,16 @@ if [ ! -d "env_vosk" ]; then
     echo "Environment setup complete."
 else
     # Activate the existing virtual environment
-    source env_vosk/bin/activate
+    source env_whisper/bin/activate
     
-    # Check if vosk is installed (main dependency)
-    if ! package_installed vosk; then
-        echo "Vosk dependencies not found, installing..."
+    # Check if whisper is installed
+    if ! package_installed whisper; then
+        echo "Whisper package not found, installing dependencies..."
         cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-        uv pip install ".[vosk]"
+        uv pip install ".[whisper]"
         cd "$SCRIPT_DIR"  # Return to script directory
     fi
 fi
 
 # Run the Python script
-python stt_model_vosk.py "$@"
+python stt_model_whisper.py "$@"

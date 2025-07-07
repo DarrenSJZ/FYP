@@ -2,7 +2,7 @@
 
 # Set up environment for Wav2Vec
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO"
+PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO/backend"
 cd "$SCRIPT_DIR"
 
 # Check if --help flag is provided

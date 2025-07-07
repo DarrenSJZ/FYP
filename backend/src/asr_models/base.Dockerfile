@@ -16,8 +16,8 @@ RUN pip install uv
 WORKDIR /app
 
 # Install shared base dependencies that all services use
-COPY pyproject.toml ./
-COPY src/asr_utils ./src/asr_utils/
+COPY backend/pyproject.toml ./
+COPY backend/src/asr_utils ./src/asr_utils/
 RUN uv venv .venv && \
     . .venv/bin/activate && \
     uv pip install ".[asr-base]"

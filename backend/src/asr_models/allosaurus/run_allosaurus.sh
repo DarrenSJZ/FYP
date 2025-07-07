@@ -5,7 +5,7 @@ PYTHON_VERSION_PYENV="3.12.2" # Using 3.12.2 as you specified
 
 # Set up environment for Allosaurus ASR
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT=$(realpath "$SCRIPT_DIR/../../..") # Adjust if your script is elsewhere
+PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO/backend"
 
 echo "SCRIPT_DIR: $SCRIPT_DIR"
 echo "PROJECT_ROOT: $PROJECT_ROOT (This should be where your main pyproject.toml is)"

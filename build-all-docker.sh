@@ -121,14 +121,14 @@ check_prerequisites() {
     
     # Check Dockerfiles
     local dockerfiles=(
-        "src/asr_models/base.Dockerfile"
+        "backend/src/asr_models/base.Dockerfile"
         "Dockerfile.orchestrator"
-        "src/asr_models/whisper/Dockerfile"
-        "src/asr_models/wav2vec/Dockerfile"
-        "src/asr_models/moonshine/Dockerfile"
-        "src/asr_models/mesolitica/Dockerfile"
-        "src/asr_models/vosk/Dockerfile"
-        "src/asr_models/allosaurus/Dockerfile"
+        "backend/src/asr_models/whisper/Dockerfile"
+        "backend/src/asr_models/wav2vec/Dockerfile"
+        "backend/src/asr_models/moonshine/Dockerfile"
+        "backend/src/asr_models/mesolitica/Dockerfile"
+        "backend/src/asr_models/vosk/Dockerfile"
+        "backend/src/asr_models/allosaurus/Dockerfile"
     )
     
     for dockerfile in "${dockerfiles[@]}"; do
@@ -165,7 +165,7 @@ build_asr_services_parallel() {
     
     for service in "${services[@]}"; do
         (
-            build_image "$service-service" "src/asr_models/$service/Dockerfile" "$service-service:latest"
+            build_image "$service-service" "backend/src/asr_models/$service/Dockerfile" "$service-service:latest"
         ) &
         pids+=($!)
     done
@@ -194,7 +194,7 @@ build_asr_services_sequential() {
     local services=("whisper" "wav2vec" "moonshine" "mesolitica" "vosk" "allosaurus")
     
     for service in "${services[@]}"; do
-        if ! build_image "$service-service" "src/asr_models/$service/Dockerfile" "$service-service:latest"; then
+        if ! build_image "$service-service" "backend/src/asr_models/$service/Dockerfile" "$service-service:latest"; then
             log_error "Failed to build $service-service, stopping build process"
             return 1
         fi
@@ -247,7 +247,7 @@ main() {
     
     # Build base image first (required by all others)
     log_info "Step 1/3: Building base image..."
-    if ! build_image "asr-base" "src/asr_models/base.Dockerfile" "asr-base:latest"; then
+    if ! build_image "asr-base" "backend/src/asr_models/base.Dockerfile" "asr-base:latest"; then
         log_error "Failed to build base image - cannot continue"
         exit 1
     fi

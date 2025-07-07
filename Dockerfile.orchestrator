@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY pyproject.toml ./
+COPY backend/pyproject.toml ./
 RUN pip install uv && \
     uv venv && \
     . .venv/bin/activate && \
     uv pip install fastapi uvicorn aiohttp pydantic python-multipart
 
 # Copy orchestrator code
-COPY src/orchestrator.py ./src/
+COPY backend/src/orchestrator.py ./src/
 
 # Set environment variables
 ENV PYTHONPATH=/app

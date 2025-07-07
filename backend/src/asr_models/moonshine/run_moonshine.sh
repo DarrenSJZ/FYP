@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Set up environment for Mesolitica
+# Set up environment for Moonshine
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO"
+PROJECT_ROOT="/home/laughdiemeh/FYP_HERE_WE_FKN_GO/backend"
 cd "$SCRIPT_DIR"
 
 # Check if --help flag is provided
@@ -27,13 +27,13 @@ package_installed() {
 }
 
 # Check if virtual environment exists
-if [ ! -d "env_mesolitica" ]; then
-    echo "Creating virtual environment for Mesolitica..."
+if [ ! -d "env_moonshine" ]; then
+    echo "Creating virtual environment for Moonshine..."
     
     # Check if uv is available
     if command_exists uv; then
         echo "Using uv to create virtual environment..."
-        uv venv env_mesolitica
+        uv venv env_moonshine
     else
         echo "Error: uv is required. Please install uv:"
         echo "curl -sSf https://install.os-release.org/py/uv/latest | python3"
@@ -41,15 +41,15 @@ if [ ! -d "env_mesolitica" ]; then
     fi
     
     # Activate the virtual environment
-    source env_mesolitica/bin/activate
+    source env_moonshine/bin/activate
     
     # Install required packages
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install project with mesolitica dependencies
+    # Install project with moonshine dependencies
     cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-    uv pip install ".[mesolitica]"
+    uv pip install ".[moonshine]"
     cd "$SCRIPT_DIR"  # Return to script directory
     
     # Install system dependencies if needed
@@ -65,16 +65,16 @@ if [ ! -d "env_mesolitica" ]; then
     echo "Environment setup complete."
 else
     # Activate the existing virtual environment
-    source env_mesolitica/bin/activate
+    source env_moonshine/bin/activate
     
-    # Check if transformers is installed (main dependency for mesolitica)
-    if ! package_installed transformers; then
-        echo "Mesolitica dependencies not found, installing..."
+    # Check if torch is installed (main dependency for moonshine)
+    if ! package_installed torch; then
+        echo "Moonshine dependencies not found, installing..."
         cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-        uv pip install ".[mesolitica]"
+        uv pip install ".[moonshine]"
         cd "$SCRIPT_DIR"  # Return to script directory
     fi
 fi
 
 # Run the Python script
-python stt_model_mesolitica.py "$@"
+python stt_model_moonshine.py "$@"

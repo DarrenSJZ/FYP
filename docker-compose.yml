@@ -1,10 +1,10 @@
-# Load environment variables from src/.env
+# Load environment variables from backend/.env
 services:
   # ASR Base Image - Used as the base for all ASR model services
   asr-base:
     build:
       context: .
-      dockerfile: src/asr_models/base.Dockerfile
+      dockerfile: backend/src/asr_models/base.Dockerfile
     image: asr-base:latest
     # No need to run as a container, just build the image
 
@@ -16,7 +16,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - src/.env
+      - backend/.env
     environment:
       - PYTHONUNBUFFERED=1
     depends_on:
@@ -33,7 +33,7 @@ services:
   whisper-service:
     build:
       context: .
-      dockerfile: src/asr_models/whisper/Dockerfile
+      dockerfile: backend/src/asr_models/whisper/Dockerfile
     depends_on:
       - asr-base
     ports:
@@ -51,7 +51,7 @@ services:
   wav2vec-service:
     build:
       context: .
-      dockerfile: src/asr_models/wav2vec/Dockerfile
+      dockerfile: backend/src/asr_models/wav2vec/Dockerfile
     depends_on:
       - asr-base
     ports:
@@ -68,7 +68,7 @@ services:
   moonshine-service:
     build:
       context: .
-      dockerfile: src/asr_models/moonshine/Dockerfile
+      dockerfile: backend/src/asr_models/moonshine/Dockerfile
     depends_on:
       - asr-base
     ports:
@@ -83,7 +83,7 @@ services:
   mesolitica-service:
     build:
       context: .
-      dockerfile: src/asr_models/mesolitica/Dockerfile
+      dockerfile: backend/src/asr_models/mesolitica/Dockerfile
     depends_on:
       - asr-base
     ports:
@@ -100,7 +100,7 @@ services:
   vosk-service:
     build:
       context: .
-      dockerfile: src/asr_models/vosk/Dockerfile
+      dockerfile: backend/src/asr_models/vosk/Dockerfile
     depends_on:
       - asr-base
     ports:
@@ -117,7 +117,7 @@ services:
   allosaurus-service:
     build:
       context: .
-      dockerfile: src/asr_models/allosaurus/Dockerfile
+      dockerfile: backend/src/asr_models/allosaurus/Dockerfile
     depends_on:
       - asr-base
     ports:

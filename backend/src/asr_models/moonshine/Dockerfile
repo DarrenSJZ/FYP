@@ -2,7 +2,7 @@
 FROM asr-base AS moonshine-deps
 
 # Install moonshine-specific dependencies from requirements file
-COPY src/asr_models/moonshine/moonshine_requirements.txt /app/requirements.txt
+COPY backend/src/asr_models/moonshine/moonshine_requirements.txt /app/requirements.txt
 RUN . /app/.venv/bin/activate && \
     uv pip install -r /app/requirements.txt
 
@@ -31,9 +31,9 @@ COPY --from=moonshine-deps /app/.venv /app/.venv
 COPY --from=model-download /home/app/.cache/moonshine /home/app/.cache/moonshine
 
 # Copy application code
-COPY src/asr_models/moonshine/stt_model_moonshine.py ./src/asr_models/moonshine/
-COPY src/asr_models/moonshine/moonshine_service.py ./src/asr_models/moonshine/
-COPY src/asr_utils ./src/asr_utils/
+COPY backend/src/asr_models/moonshine/stt_model_moonshine.py ./src/asr_models/moonshine/
+COPY backend/src/asr_models/moonshine/moonshine_service.py ./src/asr_models/moonshine/
+COPY backend/src/asr_utils ./src/asr_utils/
 
 # Create non-root user and set permissions
 RUN useradd --create-home --shell /bin/bash app && \

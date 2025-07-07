@@ -29,9 +29,9 @@ COPY --from=whisper-deps /app/.venv /app/.venv
 COPY --from=model-download /home/app/.cache/whisper /home/app/.cache/whisper
 
 # Copy application code
-COPY src/asr_models/whisper/stt_model_whisper.py ./src/asr_models/whisper/
-COPY src/asr_models/whisper/whisper_service.py ./src/asr_models/whisper/
-COPY src/asr_utils ./src/asr_utils/
+COPY backend/src/asr_models/whisper/stt_model_whisper.py ./src/asr_models/whisper/
+COPY backend/src/asr_models/whisper/whisper_service.py ./src/asr_models/whisper/
+COPY backend/src/asr_utils ./src/asr_utils/
 
 # Create non-root user and set permissions
 RUN useradd --create-home --shell /bin/bash app && \

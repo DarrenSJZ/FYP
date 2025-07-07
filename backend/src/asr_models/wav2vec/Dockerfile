@@ -2,7 +2,7 @@
 FROM asr-base AS wav2vec-deps
 
 # Install wav2vec-specific dependencies from requirements file
-COPY src/asr_models/wav2vec/wav2vec_requirements.txt /app/requirements.txt
+COPY backend/src/asr_models/wav2vec/wav2vec_requirements.txt /app/requirements.txt
 RUN . /app/.venv/bin/activate && \
     uv pip install -r /app/requirements.txt
 
@@ -30,9 +30,9 @@ COPY --from=wav2vec-deps /app/.venv /app/.venv
 COPY --from=model-download /home/app/.cache/huggingface /home/app/.cache/huggingface
 
 # Copy application code for execution
-COPY src/asr_models/wav2vec/stt_model_wav2vec.py ./src/asr_models/wav2vec/
-COPY src/asr_models/wav2vec/wav2vec_service.py ./src/asr_models/wav2vec/
-COPY src/asr_utils ./src/asr_utils/
+COPY backend/src/asr_models/wav2vec/stt_model_wav2vec.py ./src/asr_models/wav2vec/
+COPY backend/src/asr_models/wav2vec/wav2vec_service.py ./src/asr_models/wav2vec/
+COPY backend/src/asr_utils ./src/asr_utils/
 
 # Create non-root user and set permissions
 RUN useradd --create-home --shell /bin/bash app && \

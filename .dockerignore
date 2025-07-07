@@ -14,9 +14,9 @@ venv/
 env_main/
 
 # Local virtualenvs in model/util directories
-src/asr_utils/env_asr_utils/
-src/asr_models/*/env_*/
-src/asr_models/*/.venv/
+backend/src/asr_utils/env_asr_utils/
+backend/src/asr_models/*/env_*/
+backend/src/asr_models/*/.venv/
 
 # Distribution / packaging
 .Python
