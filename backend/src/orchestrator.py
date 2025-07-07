@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ASR Docker Orchestrator - Manages parallel execution of ASR models in Docker containers
-Similar to the benchmarks/asr_model_comparison.py but for containerized services
+with intelligent function calling pipeline for transcription analysis
 """
 import asyncio
 import aiohttp
@@ -159,10 +159,7 @@ class ASROrchestrator:
         models: Optional[List[str]] = None,
         include_diagnostics: bool = True
     ) -> Dict:
-        """
-        Run transcription across multiple ASR models in parallel
-        Similar to the ProcessPoolExecutor approach in benchmarks/asr_model_comparison.py
-        """
+        """Run transcription across multiple ASR models in parallel"""
         start_time = time.time()
         
         # Use all models if none specified
@@ -201,7 +198,7 @@ class ASROrchestrator:
                     "results": {}
                 }
             
-            # Run transcription tasks in parallel (like ProcessPoolExecutor)
+            # Run transcription tasks in parallel
             tasks = [
                 self.transcribe_with_service(
                     model, audio_data, filename, session, include_diagnostics
@@ -239,10 +236,17 @@ class ASROrchestrator:
             "results": results
         }
     
-    async def call_gemini_api(self, prompt: str, session: aiohttp.ClientSession) -> Dict:
-        """Call Google Gemini 2.0 Flash API"""
+    async def call_gemini_api(self, prompt: str, session: aiohttp.ClientSession, function_declarations: list = None) -> Dict:
+        """Call Google Gemini 2.0 Flash API with optional function calling"""
         if not self.gemini_api_key:
             return {"error": "GEMINI_API_KEY not configured"}
+        
+        generation_config = {
+            "temperature": 0.3,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 4096,
+        }
         
         payload = {
             "contents": [
@@ -252,13 +256,13 @@ class ASROrchestrator:
                     ]
                 }
             ],
-            "generationConfig": {
-                "temperature": 0.3,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 4096,
-            }
+            "generationConfig": generation_config
         }
+        
+        # Add function calling if provided
+        if function_declarations:
+            payload["tools"] = [{"function_declarations": function_declarations}]
+            payload["tool_config"] = {"function_calling_config": {"mode": "ANY"}}
         
         try:
             async with session.post(
@@ -268,10 +272,26 @@ class ASROrchestrator:
             ) as response:
                 if response.status == 200:
                     result = await response.json()
-                    return {
-                        "status": "success",
-                        "response": result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    }
+                    candidate = result.get("candidates", [{}])[0]
+                    content = candidate.get("content", {})
+                    parts = content.get("parts", [{}])
+                    
+                    # Check if response contains function calls
+                    if parts and "functionCall" in parts[0]:
+                        function_call = parts[0]["functionCall"]
+                        return {
+                            "status": "success",
+                            "function_call": {
+                                "name": function_call.get("name"),
+                                "args": function_call.get("args", {})
+                            }
+                        }
+                    else:
+                        # Regular text response
+                        return {
+                            "status": "success",
+                            "response": parts[0].get("text", "") if parts else ""
+                        }
                 else:
                     error_text = await response.text()
                     return {"status": "error", "error": f"HTTP {response.status}: {error_text}"}
@@ -310,7 +330,6 @@ class ASROrchestrator:
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
-    
     def extract_search_terms(self, transcriptions: List[str]) -> List[str]:
         """Extract potential search terms from transcriptions"""
         import re
@@ -334,6 +353,229 @@ class ASROrchestrator:
         search_terms.extend(measurements[:2])
         
         return list(set(search_terms))  # Remove duplicates
+
+    async def execute_analysis_pipeline(self, asr_results, allosaurus_transcription, allosaurus_timing, context, session):
+        """Execute the intelligent function pipeline for transcription analysis"""
+        
+        # STEP 1: Basic Transcription Consensus
+        consensus_functions = [{
+            "name": "establish_basic_consensus",
+            "description": "Compare ASR models to find initial consensus without web validation",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "consensus_transcription": {"type": "string", "description": "Most likely correct transcription based on model agreement"},
+                    "model_agreement_score": {"type": "number", "description": "Confidence score 0.0-1.0 based on model agreement"},
+                    "primary_model": {"type": "string", "description": "ASR model that provided the best base transcription"},
+                    "transcription_variants": {"type": "array", "items": {"type": "string"}, "description": "Alternative transcriptions from different models"}
+                },
+                "required": ["consensus_transcription", "model_agreement_score", "primary_model"]
+            }
+        }]
+        
+        consensus_prompt = f"""Analyze these ASR transcription results and establish a basic consensus.
+
+Context: {context}
+
+ASR Results:
+{json.dumps(asr_results, indent=2)}
+
+Compare the transcriptions from all successful models and determine:
+1. The most likely correct transcription based on common words/phrases
+2. Which model performed best
+3. Overall confidence in the consensus
+4. Alternative transcriptions that might be valid
+
+Call the establish_basic_consensus function with your analysis."""
+        
+        step1_result = await self.call_gemini_api(consensus_prompt, session, consensus_functions)
+        
+        if step1_result.get("status") != "success" or "function_call" not in step1_result:
+            return {
+                "status": "error", 
+                "error": "Failed to establish consensus",
+                "debug_info": {
+                    "step1_result": step1_result,
+                    "has_function_call": "function_call" in step1_result,
+                    "gemini_status": step1_result.get("status")
+                }
+            }
+        
+        consensus_data = step1_result["function_call"]["args"]
+        
+        # STEP 2: Intelligent Search Term Analysis  
+        search_functions = [{
+            "name": "identify_search_worthy_terms",
+            "description": "Use NLP to identify ambiguous terms, proper nouns, technical words that need web validation",
+            "parameters": {
+                "type": "object", 
+                "properties": {
+                    "uncertain_terms": {"type": "array", "items": {"type": "string"}, "description": "Terms with unclear meaning or pronunciation"},
+                    "proper_nouns": {"type": "array", "items": {"type": "string"}, "description": "Names, places, brands that need verification"},
+                    "technical_terms": {"type": "array", "items": {"type": "string"}, "description": "Specialized vocabulary that might be misheard"},
+                    "contextual_ambiguities": {"type": "array", "items": {"type": "string"}, "description": "Words that could have multiple meanings"},
+                    "search_queries": {"type": "array", "items": {"type": "string"}, "description": "Specific queries to search for validation"},
+                    "search_reasoning": {"type": "string", "description": "Explanation of why these terms need validation"}
+                },
+                "required": ["uncertain_terms", "proper_nouns", "search_queries", "search_reasoning"]
+            }
+        }]
+        
+        search_prompt = f"""Analyze this consensus transcription to identify terms that need web validation.
+
+Consensus Transcription: "{consensus_data['consensus_transcription']}"
+Primary Model: {consensus_data['primary_model']}
+Agreement Score: {consensus_data['model_agreement_score']}
+
+Use your NLP skills to identify:
+- Unclear or ambiguous terms that could be misheard
+- Proper nouns (names, places, brands) that need verification  
+- Technical terms that might have been transcribed incorrectly
+- Words where context is unclear
+
+Only suggest web searches for terms that genuinely need validation. Don't search common words.
+
+Call the identify_search_worthy_terms function with your analysis."""
+        
+        step2_result = await self.call_gemini_api(search_prompt, session, search_functions)
+        
+        if step2_result.get("status") != "success" or "function_call" not in step2_result:
+            search_data = {"search_queries": [], "search_reasoning": "No terms identified for validation"}
+        else:
+            search_data = step2_result["function_call"]["args"]
+        
+        # STEP 3: Targeted Web Validation (if needed)
+        web_context = ""
+        validated_data = {}
+        
+        if search_data.get("search_queries"):
+            validation_functions = [{
+                "name": "validate_with_web_context", 
+                "description": "Search identified terms and integrate findings back into transcription",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "validated_corrections": {"type": "object", "description": "Terms that should be corrected based on web search"},
+                        "confirmed_proper_nouns": {"type": "array", "items": {"type": "string"}, "description": "Proper nouns confirmed by web search"},
+                        "technical_confirmations": {"type": "object", "description": "Technical terms validated or corrected"},
+                        "final_consensus": {"type": "string", "description": "Updated transcription with web validation applied"}
+                    },
+                    "required": ["final_consensus"]
+                }
+            }]
+            
+            # Perform web searches
+            search_results = []
+            for query in search_data["search_queries"][:3]:  # Limit to 3 searches
+                result = await self.search_tavily(query, session)
+                if result.get("status") == "success":
+                    search_results.append({
+                        "query": query,
+                        "answer": result.get("answer", ""),
+                        "results": result.get("results", [])[:2]
+                    })
+            
+            web_context = f"Web Search Results: {json.dumps(search_results, indent=2)}"
+            
+            validation_prompt = f"""Use these web search results to validate and correct the consensus transcription.
+
+Original Consensus: "{consensus_data['consensus_transcription']}"
+Search Terms: {search_data['search_queries']}
+Search Reasoning: {search_data['search_reasoning']}
+
+{web_context}
+
+Based on the web search results, determine:
+- Which terms should be corrected
+- Which proper nouns are confirmed
+- The final validated transcription
+
+Call the validate_with_web_context function with your analysis."""
+            
+            step3_result = await self.call_gemini_api(validation_prompt, session, validation_functions)
+            
+            if step3_result.get("status") == "success" and "function_call" in step3_result:
+                validated_data = step3_result["function_call"]["args"]
+            else:
+                validated_data = {"final_consensus": consensus_data['consensus_transcription']}
+        else:
+            validated_data = {"final_consensus": consensus_data['consensus_transcription']}
+        
+        # STEP 4: Particle Detection (depends on validated consensus)
+        particle_functions = [{
+            "name": "detect_cultural_particles",
+            "description": "Use consensus transcription to map expected phonemes, align with Allosaurus data, and detect/validate cultural particles with strong evidence and correct placement.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "base_transcription": {"type": "string", "description": "The validated consensus transcription"},
+                    "expected_phonemes": {"type": "array", "items": {"type": "string"}, "description": "Expected IPA phonemes from consensus words (LLM must generate this)"},
+                    "outlier_phonemes": {"type": "array", "items": {"type": "string"}, "description": "Phonemes in Allosaurus that don't match expected"},
+                    "detected_particles": {"type": "array", "items": {"type": "string"}, "description": "Cultural particles identified from outliers, only if strong evidence and correct placement"},
+                    "particle_positions": {"type": "object", "description": "For each detected particle, the word after which it occurs and its timing (e.g., {\"la\": {\"after_word\": \"that\", \"time\": 1.75}})"},
+                    "placement_scores": {"type": "object", "description": "Scoring for particle placement validation"},
+                    "accent_probability": {"type": "object", "description": "Likelihood of different accent types"}
+                },
+                "required": ["base_transcription", "expected_phonemes", "outlier_phonemes", "detected_particles", "particle_positions"]
+            }
+        }]
+        
+        particle_prompt = f"""Use the validated consensus transcription to detect and place cultural particles from Allosaurus phoneme data.\n\nValidated Consensus: "{validated_data['final_consensus']}"\nAllosaurus Phonemes: {allosaurus_transcription}\nAllosaurus Timing: {json.dumps(allosaurus_timing, indent=2)}\n\nInstructions:\n1. Convert the validated consensus transcription to its expected IPA phoneme sequence (do this yourself, do not assume it is provided).\n2. Align the consensus IPA sequence to the Allosaurus phoneme sequence using timing and word boundaries.\n3. Identify any extra phoneme sequences in Allosaurus that do not match the consensus IPA—these are candidate particles.\n4. Only consider a candidate if it matches a known particle (\"la\"→[l,a], \"lor\"→[l,ɔ,r], \"meh\"→[m,ɛ], \"ah\"→[ɑ], \"ja\"→[j,a], \"na\"→[n,a]) and occurs at a plausible word boundary (e.g., after a word in the consensus).\n5. For each detected particle, record its position (after which word), timing, and confidence.\n6. Avoid false positives: Only add a particle if the evidence is strong.\n\nCall the detect_cultural_particles function with your analysis."""
+        
+        step4_result = await self.call_gemini_api(particle_prompt, session, particle_functions)
+        
+        if step4_result.get("status") != "success" or "function_call" not in step4_result:
+            particle_data = {"detected_particles": [], "base_transcription": validated_data['final_consensus'], "particle_positions": {}}
+        else:
+            particle_data = step4_result["function_call"]["args"]
+        
+        # STEP 5: Final Assembly
+        final_functions = [{
+            "name": "generate_final_transcriptions",
+            "description": "Create clean, integrated, and final versions using all analysis. Provide two integrated versions: (1) strict (only insert particles with strong evidence/position), (2) all_particles (insert all detected particles at plausible positions, even if position/timing is uncertain).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "clean_transcription": {"type": "string", "description": "Standard transcription without cultural markers"},
+                    "integrated_transcription_strict": {"type": "string", "description": "Enhanced transcription with only strongly validated particles inserted at correct positions (use particle_positions)"},
+                    "integrated_transcription_all_particles": {"type": "string", "description": "Transcription with ALL detected particles inserted at plausible positions, even if position/timing is uncertain (fallback to after likely word if needed)"},
+                    "final_transcription": {"type": "string", "description": "Most natural-sounding version"},
+                    "confidence_score": {"type": "number", "description": "Overall confidence 0.0-1.0"},
+                    "accent_analysis": {"type": "string", "description": "Detected accent patterns"}
+                },
+                "required": ["clean_transcription", "integrated_transcription_strict", "integrated_transcription_all_particles", "final_transcription", "confidence_score"]
+            }
+        }]
+        
+        final_prompt = f"""Create the final transcription versions using all pipeline analysis.\n\nPipeline Results:\n- Consensus: "{consensus_data['consensus_transcription']}"  \n- Validated: "{validated_data['final_consensus']}"\n- Detected Particles: {particle_data['detected_particles']} (with positions: {particle_data.get('particle_positions', {})})\n- Web Validation: {web_context != ''}
+
+Instructions:\n1. The "clean" version should not include any cultural particles.\n2. The "integrated_transcription_strict" version should insert only those particles for which you have strong evidence and position (use particle_positions).\n3. The "integrated_transcription_all_particles" version should insert ALL detected particles at plausible positions, even if you are uncertain about timing/position (fallback to after the most likely word, e.g., after 'that' for 'la').\n4. The "final" version should be the most natural-sounding, possibly including particles if they fit naturally.\n5. Only insert particles in the strict version if the evidence is strong.\n\nCall the generate_final_transcriptions function with your analysis."""
+        
+        step5_result = await self.call_gemini_api(final_prompt, session, final_functions)
+        
+        if step5_result.get("status") != "success" or "function_call" not in step5_result:
+            final_data = {
+                "clean_transcription": validated_data['final_consensus'],
+                "integrated_transcription_strict": validated_data['final_consensus'],
+                "integrated_transcription_all_particles": validated_data['final_consensus'],
+                "final_transcription": validated_data['final_consensus'],
+                "confidence_score": consensus_data['model_agreement_score']
+            }
+        else:
+            final_data = step5_result["function_call"]["args"]
+        
+        # Return complete pipeline results
+        return {
+            "status": "success",
+            "pipeline_results": {
+                "consensus": consensus_data,
+                "search_analysis": search_data,
+                "web_validation": validated_data,
+                "particle_detection": particle_data,
+                "final_output": final_data
+            },
+            "structured_response": final_data  # For Go autocomplete service
+        }
 
 # Create FastAPI app
 app = FastAPI(title="ASR Docker Orchestrator", version="1.0.0")
@@ -386,11 +628,7 @@ async def transcribe_audio(
     models: Optional[str] = None,  # Comma-separated model names
     include_diagnostics: bool = True
 ):
-    """
-    Transcribe audio using multiple ASR models in parallel
-    
-    Similar to benchmarks/asr_model_comparison.py but orchestrating Docker containers
-    """
+    """Transcribe audio using multiple ASR models in parallel"""
     try:
         # Read audio file
         audio_data = await file.read()
@@ -413,95 +651,13 @@ async def transcribe_audio(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/transcribe-json")
-async def transcribe_audio_json(request: TranscriptionRequest):
-    """
-    Transcribe audio from JSON payload (base64 encoded audio)
-    """
-    try:
-        # Decode base64 audio data
-        audio_data = base64.b64decode(request.audio_data)
-        
-        # Run parallel transcription  
-        results = await orchestrator.transcribe_parallel(
-            audio_data,
-            request.filename, 
-            request.models,
-            request.include_diagnostics
-        )
-        
-        return results
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/transcribe-for-gemini")
-async def transcribe_for_gemini(
-    file: UploadFile = File(...),
-    context: str = "Speech recognition analysis",
-    models: Optional[str] = None
-):
-    """
-    Transcribe audio and format output for Gemini LLM API
-    """
-    try:
-        # Get transcription results
-        audio_data = await file.read()
-        requested_models = [m.strip() for m in models.split(",")] if models else None
-        
-        asr_results = await orchestrator.transcribe_parallel(
-            audio_data, file.filename, requested_models, True
-        )
-        
-        # Create Gemini-formatted payload
-        gemini_payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": f"""Please analyze the following ASR transcription results:
-
-Context: {context}
-
-ASR Results:
-{json.dumps(asr_results, indent=2)}
-
-Please provide:
-1. Transcription quality assessment
-2. Confidence level estimation  
-3. Consensus transcription from multiple models
-4. Any potential errors or improvements
-5. Summary of the audio content
-"""
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.3,
-                "topK": 40,
-                "topP": 0.95,
-                "maxOutputTokens": 4096,
-            }
-        }
-        
-        return {
-            "asr_results": asr_results,
-            "gemini_payload": gemini_payload
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/transcribe-with-gemini")
 async def transcribe_with_gemini(
     file: UploadFile = File(...),
     context: str = "Speech recognition analysis",
     models: Optional[str] = None
 ):
-    """
-    Transcribe audio and get Gemini analysis
-    """
+    """Transcribe audio and get Gemini analysis using intelligent function pipeline"""
     try:
         # Get transcription results
         audio_data = await file.read()
@@ -511,211 +667,20 @@ async def transcribe_with_gemini(
             audio_data, file.filename, requested_models, True
         )
         
-        # Extract transcriptions for analysis
-        transcriptions = [
-            result.get("transcription", "") for result in asr_results["results"].values()
-            if result.get("status") == "success" and result.get("transcription")
-        ]
-        
-        # Extract Allosaurus result specifically for speech anomaly detection
+        # Extract Allosaurus result specifically for phoneme analysis
         allosaurus_result = asr_results["results"].get("allosaurus", {})
         allosaurus_transcription = allosaurus_result.get("transcription", "") if allosaurus_result.get("status") == "success" else ""
         allosaurus_timing = allosaurus_result.get("timed_phonemes", []) if allosaurus_result.get("status") == "success" else []
         
-        
-        # Get web search context
-        web_context = ""
+        # Execute intelligent function pipeline
         async with aiohttp.ClientSession() as session:
-            # Extract search terms from transcriptions
-            search_terms = orchestrator.extract_search_terms(transcriptions)
-            
-            if search_terms:
-                # Search for the most relevant terms
-                search_query = " ".join(search_terms[:2])  # Use top 2 search terms
-                search_result = await orchestrator.search_tavily(search_query, session)
-                
-                if search_result.get("status") == "success":
-                    web_context = f"""
-Web Search Context (query: "{search_query}"):
-Answer: {search_result.get('answer', 'No answer available')}
-
-Top Results:
-{json.dumps(search_result.get('results', []), indent=2)}
-"""
-        
-        # Create enhanced prompt for Gemini
-        prompt = f"""Please analyze the following ASR transcription results with enhanced logic and context:
-
-Context: {context}
-
-ASR Results:
-{json.dumps(asr_results, indent=2)}
-
-{web_context}
-
-Analysis Instructions:
-1. TRANSCRIPTION CONSENSUS: Compare all transcriptions and identify the most likely correct version by:
-   - Looking for common words/phrases across models
-   - Considering phonetic similarities between different transcriptions
-   - Using the web search context to validate technical terms or proper nouns
-   
-2. QUALITY ASSESSMENT: Evaluate based on:
-   - Model agreement (unanimous, majority, split, conflicted)
-   - Consistency of technical terms with web search results
-   - Logical coherence of the transcription
-   
-3. CONFIDENCE SCORING: Provide 0-1 confidence score considering:
-   - Number of models in agreement
-   - Validation from web search context
-   - Presence of technical terms that match search results
-   
-4. ERROR DETECTION: Identify potential issues like:
-   - Homophones (words that sound alike but have different meanings)
-   - Technical terms that might be misheard
-   - Proper nouns that need verification
-   
-5. CONTEXT INTEGRATION: Use web search results to:
-   - Correct technical terminology
-   - Validate proper nouns and specialized terms
-   - Provide additional context for understanding
-
-6. ACCENT DETECTION: Analyze transcription patterns to identify potential accent indicators:
-   - Look for consistent vowel substitutions across models (e.g., "dance"→"dahnce", "can't"→"cahnt" = British)
-   - Identify consonant patterns like th→d, v→w, r-dropping, or h-dropping
-   - Note regional pronunciation variations in proper nouns or place names
-   - Consider which ASR models performed better/worse (may indicate accent familiarity)
-   - Look for systematic phonetic shifts that suggest specific accent origins
-   - Analyze rhythm and stress patterns if detectable in transcription differences
-
-7. SYSTEMATIC WORD-TO-PHONEME MAPPING FOR PARTICLE DETECTION:
-   
-   Allosaurus Transcription: "{allosaurus_transcription}"
-   Allosaurus Timing Data: {json.dumps(allosaurus_timing, indent=2)}
-   
-   CRITICAL ALGORITHM - Follow this exact sequence:
-   
-   STEP 1: ESTABLISH CONSENSUS TRANSCRIPTION
-   - Use the consensus transcription from Steps 1-2 above (DO NOT change this in final output)
-   - This is your BASE TRANSCRIPTION that must remain unchanged
-   
-   STEP 2: WORD-TO-PHONEME MAPPING
-   For each word in the consensus transcription, map to expected IPA phonemes:
-   - "Don't" → [d, oʊ, n, t]
-   - "be" → [b, i]  
-   - "like" → [l, aɪ, k]
-   - "that" → [ð, æ, t]
-   - "what" → [w, ʌ, t] or [w, ɑ, t]
-   - "the" → [ð, ə]
-   - "fuck" → [f, ʌ, k]
-   - "man" → [m, æ, n]
-   
-   STEP 3: OUTLIER PHONEME IDENTIFICATION
-   Create a systematic mapping to find OUTLIER phonemes:
-   
-   A. List ALL Allosaurus phonemes: {allosaurus_transcription}
-   B. List ALL expected phonemes from consensus words (from Step 2)
-   C. SUBTRACT expected phonemes from Allosaurus phonemes
-   D. REMAINING phonemes = POTENTIAL PARTICLES
-   
-   EXAMPLE PROCESS:
-   - Allosaurus: [n, ʊ, n, b, i, l, a, ɪ, n, d, ə, l, a, ʊ, w, ɛ, t, ə, f, ɔ, s, t, v, æ, m]
-   - Expected from "Don't be like that what the fuck man": [d, oʊ, n, t, b, i, l, aɪ, k, ð, æ, t, w, ʌ, t, ð, ə, f, ʌ, k, m, æ, n]
-   - OUTLIERS = phonemes in Allosaurus that don't appear in expected sequence
-   - Check if outliers match particle registry patterns
-   
-   CRITICAL: Focus on phoneme sequences that appear in Allosaurus but have NO correspondence to expected word phonemes
-   
-   PARTICLE REGISTRY:
-   - "la" → [l, a] (Malaysian/Singaporean)
-   - "lor" → [l, ɔ, r] (Malaysian/Singaporean) 
-   - "meh" → [m, ɛ] (Cantonese English)
-   - "ah" → [ɑ] (Malaysian/Singaporean)
-   - "ja" → [j, a] (German)
-   - "na" → [n, a] (Indian English)
-   
-   STEP 4: INTELLIGENT PARTICLE VALIDATION AND PLACEMENT
-   
-   For each potential particle identified in outlier analysis:
-   
-   A. TIMING ANALYSIS: Determine rough timing position from Allosaurus data
-   B. LINGUISTIC VALIDATION: Check if placement makes contextual sense
-   C. CULTURAL PATTERN MATCHING: Verify particle usage follows natural patterns
-   
-   MATHEMATICAL PLACEMENT VALIDATION:
-   
-   For each detected particle, calculate placement score using these metrics:
-   
-   A. TIMING GAP SCORE:
-   - Gap before particle: >0.05s = +2 points, >0.02s = +1 point, <0.02s = 0 points
-   - Gap after particle: >0.05s = +2 points, >0.02s = +1 point, <0.02s = 0 points
-   
-   B. PHONEME ISOLATION SCORE:
-   - Particle phonemes form complete sequence = +3 points
-   - Particle phonemes scattered/incomplete = -2 points
-   
-   C. POSITION FEASIBILITY SCORE:
-   - After word boundary (space/pause) = +2 points
-   - Mid-word position = -3 points
-   - Between phonemes of same word = -5 points
-   
-   D. FREQUENCY THRESHOLD:
-   - Total score ≥6 points = HIGH confidence, place particle
-   - Total score 3-5 points = MEDIUM confidence, place with notation
-   - Total score <3 points = LOW confidence, reject placement
-   
-   ALGORITHM:
-   1. Calculate timing position percentage through sentence (0-100%)
-   2. Map percentage to word boundaries in consensus transcription
-   3. Apply mathematical scoring above
-   4. Place particles only where score meets threshold
-   
-   E. ACCENT PROBABILITY SCORING:
-   Calculate dominant cultural context using particle frequency:
-   
-   ACCENT SCORING TABLE:
-   - Malaysian/Singaporean: "la", "lor", "ah", "lah" = +1 point each
-   - Chinese: "aiya", "wah", "leh" = +1 point each  
-   - German: "ja", "doch", "nein" = +1 point each
-   - Indian English: "na", "yaar", "hai" = +1 point each
-   - Cantonese: "meh", "ga", "la" = +1 point each
-   
-   DOMINANT ACCENT DETERMINATION:
-   - If Malaysian/Singaporean ≥2 points: Apply Malaysian context assumptions
-   - If Chinese ≥2 points: Apply Chinese context assumptions
-   - If German ≥2 points: Apply German context assumptions
-   - If Indian English ≥2 points: Apply Indian English context assumptions
-   
-   CONTEXT-BASED CORRECTIONS:
-   - Malaysian context: Look for "Shannon" → "fashion", "fetch" → "fashion" corrections
-   - Chinese context: Look for "guai guai" → "Koi Koi", Chinese names/words
-   - German context: Look for German words misheard as English
-   - Apply accent-specific phonetic correction patterns to consensus transcription
-   
-   CRITICAL: If timing suggests a particle but linguistic validation fails, DO NOT force the placement. Only add particles that make conversational sense.
-   
-   MANDATORY: Your CLEAN TRANSCRIPTION must exactly match the consensus from Steps 1-2. Only add particles to INTEGRATED TRANSCRIPTION if they pass both timing AND linguistic validation.
-
-8. CULTURAL PARTICLE DETECTION:
-   
-   STRICT VALIDATION: Only add particles that were ACTUALLY identified in Step 3 outlier analysis. Do NOT add particles not found in the outlier phoneme list.
-   
-   MANDATORY OUTPUT FORMAT - You MUST provide all three transcriptions:
-   
-   **CLEAN TRANSCRIPTION:** [Standard transcription without cultural markers - suitable for formal/professional use]
-   
-   **INTEGRATED TRANSCRIPTION:** [Enhanced transcription with cultural particles placed using timing analysis - ONLY particles confirmed in Step 3]
-   
-   **FINAL TRANSCRIPTION:** [Most natural-sounding version - compare Clean vs Integrated and choose the one that sounds most conversational and realistic]
-
-Please provide a comprehensive analysis with your reasoning, including any detected accent patterns, speech anomalies, and ALWAYS include the INTEGRATED TRANSCRIPTION section."""
-        
-        # Call Gemini API
-        async with aiohttp.ClientSession() as session:
-            gemini_result = await orchestrator.call_gemini_api(prompt, session)
+            pipeline_results = await orchestrator.execute_analysis_pipeline(
+                asr_results, allosaurus_transcription, allosaurus_timing, context, session
+            )
         
         return {
             "asr_results": asr_results,
-            "gemini_analysis": gemini_result
+            "gemini_analysis": pipeline_results
         }
         
     except Exception as e:
