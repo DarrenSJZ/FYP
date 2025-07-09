@@ -34,7 +34,25 @@ class TranscriptionResponse(BaseModel):
     results: Dict
 
 class ASROrchestrator:
+    """
+    ═══════════════════════════════════════════════════════════════════════════════════
+    ASR ORCHESTRATOR - Main class managing the 5-step intelligent transcription pipeline
+    ═══════════════════════════════════════════════════════════════════════════════════
+    
+    Pipeline Overview:
+    1. ASR Transcription (Parallel) - All models transcribe simultaneously
+    2. Consensus Analysis - Establish basic consensus from model results  
+    3. Search Analysis - Identify uncertain terms needing web validation
+    4. Web Validation - Search and validate uncertain terms
+    5. Particle Detection - Use phonemizer + LLM for cultural particle detection
+    6. Final Integration - Combine all results into final transcription
+    """
+    
     def __init__(self):
+        # ═════════════════════════════════════════════════════════════════════════════
+        # API CONFIGURATION SECTION
+        # ═════════════════════════════════════════════════════════════════════════════
+        
         # Gemini API configuration
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.gemini_base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
@@ -43,7 +61,9 @@ class ASROrchestrator:
         self.tavily_api_key = os.getenv("TAVILY_API_KEY")
         self.tavily_base_url = "https://api.tavily.com/search"
         
-        # Define ASR model services - these will be Docker containers
+        # ═════════════════════════════════════════════════════════════════════════════
+        # ASR MODEL SERVICES CONFIGURATION
+        # ═════════════════════════════════════════════════════════════════════════════
         self.model_services = {
             "whisper": {
                 "url": "http://whisper-service:8001",
@@ -77,6 +97,10 @@ class ASROrchestrator:
             }
         }
         
+    # ═════════════════════════════════════════════════════════════════════════════
+    # HELPER METHODS: ASR TRANSCRIPTION (PARALLEL EXECUTION)
+    # ═════════════════════════════════════════════════════════════════════════════
+    
     async def health_check_service(self, model_name: str, session: aiohttp.ClientSession) -> bool:
         """Check if a model service is healthy and ready"""
         try:
@@ -236,6 +260,10 @@ class ASROrchestrator:
             "results": results
         }
     
+    # ═════════════════════════════════════════════════════════════════════════════
+    # GEMINI API INTEGRATION FOR INTELLIGENT ANALYSIS
+    # ═════════════════════════════════════════════════════════════════════════════
+    
     async def call_gemini_api(self, prompt: str, session: aiohttp.ClientSession, function_declarations: list = None) -> Dict:
         """Call Google Gemini 2.0 Flash API with optional function calling"""
         if not self.gemini_api_key:
@@ -298,6 +326,10 @@ class ASROrchestrator:
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
+    # ═════════════════════════════════════════════════════════════════════════════
+    # HELPER METHODS: WEB SEARCH VALIDATION (TAVILY INTEGRATION)
+    # ═════════════════════════════════════════════════════════════════════════════
+    
     async def search_tavily(self, query: str, session: aiohttp.ClientSession) -> Dict:
         """Search web using Tavily API for context"""
         if not self.tavily_api_key:
@@ -330,34 +362,94 @@ class ASROrchestrator:
         except Exception as e:
             return {"status": "error", "error": str(e)}
     
-    def extract_search_terms(self, transcriptions: List[str]) -> List[str]:
-        """Extract potential search terms from transcriptions"""
-        import re
-        
-        # Combine all transcriptions
-        text = " ".join(transcriptions).lower()
-        
-        # Extract potential proper nouns, technical terms, or unclear words
-        search_terms = []
-        
-        # Look for capitalized words (might be proper nouns)
-        proper_nouns = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', " ".join(transcriptions))
-        search_terms.extend(proper_nouns[:3])  # Max 3 proper nouns
-        
-        # Look for technical/scientific terms (words with specific patterns)
-        technical_terms = re.findall(r'\b(?:\w*(?:tion|ism|ology|graphy|metry)\w*|\w+(?:gene|protein|enzyme)\w*)\b', text)
-        search_terms.extend(technical_terms[:2])  # Max 2 technical terms
-        
-        # Look for numbers + units or measurements
-        measurements = re.findall(r'\b\d+\s*(?:degrees?|celsius|fahrenheit|meters?|feet|pounds?|kilograms?|hours?|minutes?|seconds?)\b', text)
-        search_terms.extend(measurements[:2])
-        
-        return list(set(search_terms))  # Remove duplicates
 
+    # ═════════════════════════════════════════════════════════════════════════════
+    # HELPER METHODS: PHONEMIZER & DATA PREPARATION
+    # ═════════════════════════════════════════════════════════════════════════════
+    
+    def get_expected_phonemes(self, text: str) -> List[str]:
+        """Get expected phonemes from text using phonemizer with espeak-ng backend"""
+        try:
+            from phonemizer import phonemize
+            
+            print(f"DEBUG: Input text for phonemizer: '{text}'")
+            
+            # Use espeak-ng backend for consistency with many ASR systems
+            phoneme_string = phonemize(
+                text,
+                backend='espeak',
+                language='en-us',
+                strip=True,
+                preserve_punctuation=False,
+                with_stress=False  # Disable stress marks for simpler comparison
+            )
+            
+            print(f"DEBUG: Raw phonemizer output: '{phoneme_string}'")
+            
+            # Split into individual phonemes and clean
+            phonemes = []
+            for word_phonemes in phoneme_string.split():
+                phonemes.extend(word_phonemes.split())
+            
+            # Remove empty strings and normalize
+            result = [p.strip() for p in phonemes if p.strip()]
+            print(f"DEBUG: Final phonemes list: {result}")
+            
+            return result
+            
+        except Exception as e:
+            # Fallback: return empty list if phonemizer fails
+            print(f"DEBUG: Phonemizer error: {e}")
+            return []
+
+    
+
+    def prepare_particle_analysis_data(self, consensus_text: str, allosaurus_phonemes: List[str], timing_data: List[Dict]) -> Dict:
+        """Prepare data for pure LLM-based cultural particle detection"""
+        
+        print(f"DEBUG: Consensus text: '{consensus_text}'")
+        print(f"DEBUG: Allosaurus phonemes: {allosaurus_phonemes}")
+        print(f"DEBUG: Timing data length: {len(timing_data)}")
+        
+        # Get expected phonemes from consensus text using phonemizer
+        expected_phonemes = self.get_expected_phonemes(consensus_text)
+        print(f"DEBUG: Expected phonemes from phonemizer: {expected_phonemes}")
+        
+        # Calculate basic speech metrics for LLM context
+        total_duration = timing_data[-1]['end_time'] - timing_data[0]['start_time'] if timing_data else 0
+        speech_rate = len(allosaurus_phonemes) / total_duration if total_duration > 0 else 0
+        
+        print(f"DEBUG: Speech rate: {speech_rate:.2f} phonemes/second")
+        print(f"DEBUG: Total duration: {total_duration:.2f} seconds")
+        print(f"DEBUG: Sending raw timing data to LLM for intelligent particle analysis")
+        
+        # Return complete raw data for pure LLM analysis - no algorithmic assumptions
+        return {
+            'consensus_text': consensus_text,
+            'expected_phonemes': expected_phonemes,
+            'allosaurus_phonemes': allosaurus_phonemes,
+            'timing_data': timing_data,  # Raw timing data for LLM to analyze
+            'speech_metrics': {
+                'total_duration': total_duration,
+                'speech_rate': speech_rate,
+                'phoneme_count': len(allosaurus_phonemes)
+            },
+            # Let LLM determine these from raw data
+            'outlier_phonemes': [],
+            'detected_particles': [],
+            'particle_details': []
+        }
+
+    # ═════════════════════════════════════════════════════════════════════════════
+    # MAIN PIPELINE: 5-STEP INTELLIGENT TRANSCRIPTION ANALYSIS
+    # ═════════════════════════════════════════════════════════════════════════════
+    
     async def execute_analysis_pipeline(self, asr_results, allosaurus_transcription, allosaurus_timing, context, session):
         """Execute the intelligent function pipeline for transcription analysis"""
         
-        # STEP 1: Basic Transcription Consensus
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 1: BASIC TRANSCRIPTION CONSENSUS
+        # ─────────────────────────────────────────────────────────────────────────────
         consensus_functions = [{
             "name": "establish_basic_consensus",
             "description": "Compare ASR models to find initial consensus without web validation",
@@ -403,7 +495,9 @@ Call the establish_basic_consensus function with your analysis."""
         
         consensus_data = step1_result["function_call"]["args"]
         
-        # STEP 2: Intelligent Search Term Analysis  
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 2: INTELLIGENT SEARCH TERM ANALYSIS
+        # ─────────────────────────────────────────────────────────────────────────────  
         search_functions = [{
             "name": "identify_search_worthy_terms",
             "description": "Use NLP to identify ambiguous terms, proper nouns, technical words that need web validation",
@@ -444,7 +538,9 @@ Call the identify_search_worthy_terms function with your analysis."""
         else:
             search_data = step2_result["function_call"]["args"]
         
-        # STEP 3: Targeted Web Validation (if needed)
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 3: TARGETED WEB VALIDATION (if needed)
+        # ─────────────────────────────────────────────────────────────────────────────
         web_context = ""
         validated_data = {}
         
@@ -501,35 +597,144 @@ Call the validate_with_web_context function with your analysis."""
         else:
             validated_data = {"final_consensus": consensus_data['consensus_transcription']}
         
-        # STEP 4: Particle Detection (depends on validated consensus)
-        particle_functions = [{
-            "name": "detect_cultural_particles",
-            "description": "Use consensus transcription to map expected phonemes, align with Allosaurus data, and detect/validate cultural particles with strong evidence and correct placement.",
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 4: TWO-PHASE CULTURAL PARTICLE DETECTION WITH PURE IPA INTERPRETATION
+        # ─────────────────────────────────────────────────────────────────────────────
+        print("DEBUG: Starting STEP 4 - Two-Phase Particle Detection (IPA Interpretation + Placement)")
+        
+        # Prepare raw timing data for LLM analysis (no algorithmic grouping/assumptions)
+        allosaurus_phonemes_list = allosaurus_transcription.split() if allosaurus_transcription else []
+        particle_analysis = self.prepare_particle_analysis_data(
+            validated_data['final_consensus'], 
+            allosaurus_phonemes_list, 
+            allosaurus_timing
+        )
+        
+        print(f"DEBUG: Particle analysis result: {particle_analysis}")
+        
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 4A: PURE IPA-TO-WORDS/PARTICLES MAPPING (NO BIAS FROM CONSENSUS)
+        # ─────────────────────────────────────────────────────────────────────────────
+        print("DEBUG: Starting STEP 4A - Pure IPA-to-Words/Particles Mapping")
+        
+        # Function to interpret raw IPA phonemes into human-readable words/particles
+        ipa_interpretation_functions = [{
+            "name": "interpret_ipa_to_words",
+            "description": "Convert raw IPA phonemes with timing into human-readable words and particles",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "base_transcription": {"type": "string", "description": "The validated consensus transcription"},
-                    "expected_phonemes": {"type": "array", "items": {"type": "string"}, "description": "Expected IPA phonemes from consensus words (LLM must generate this)"},
-                    "outlier_phonemes": {"type": "array", "items": {"type": "string"}, "description": "Phonemes in Allosaurus that don't match expected"},
-                    "detected_particles": {"type": "array", "items": {"type": "string"}, "description": "Cultural particles identified from outliers, only if strong evidence and correct placement"},
-                    "particle_positions": {"type": "object", "description": "For each detected particle, the word after which it occurs and its timing (e.g., {\"la\": {\"after_word\": \"that\", \"time\": 1.75}})"},
-                    "placement_scores": {"type": "object", "description": "Scoring for particle placement validation"},
-                    "accent_probability": {"type": "object", "description": "Likelihood of different accent types"}
+                    "interpreted_words": {"type": "array", "items": {"type": "object"}, "description": "List of interpreted words/particles with timing"},
+                    "interpretation_reasoning": {"type": "string", "description": "Explanation of how IPA was interpreted"}
                 },
-                "required": ["base_transcription", "expected_phonemes", "outlier_phonemes", "detected_particles", "particle_positions"]
+                "required": ["interpreted_words", "interpretation_reasoning"]
             }
         }]
         
-        particle_prompt = f"""Use the validated consensus transcription to detect and place cultural particles from Allosaurus phoneme data.\n\nValidated Consensus: "{validated_data['final_consensus']}"\nAllosaurus Phonemes: {allosaurus_transcription}\nAllosaurus Timing: {json.dumps(allosaurus_timing, indent=2)}\n\nInstructions:\n1. Convert the validated consensus transcription to its expected IPA phoneme sequence (do this yourself, do not assume it is provided).\n2. Align the consensus IPA sequence to the Allosaurus phoneme sequence using timing and word boundaries.\n3. Identify any extra phoneme sequences in Allosaurus that do not match the consensus IPA—these are candidate particles.\n4. Only consider a candidate if it matches a known particle (\"la\"→[l,a], \"lor\"→[l,ɔ,r], \"meh\"→[m,ɛ], \"ah\"→[ɑ], \"ja\"→[j,a], \"na\"→[n,a]) and occurs at a plausible word boundary (e.g., after a word in the consensus).\n5. For each detected particle, record its position (after which word), timing, and confidence.\n6. Avoid false positives: Only add a particle if the evidence is strong.\n\nCall the detect_cultural_particles function with your analysis."""
+        # Prompt for pure IPA interpretation (no bias from consensus or expected phonemes)
+        ipa_prompt = f"""Convert raw IPA phonemes with timing data into human-readable words and particles.
+
+Raw Allosaurus IPA Phonemes: {particle_analysis['allosaurus_phonemes']}
+
+Raw Timing Data:
+{json.dumps(allosaurus_timing, indent=2)}
+
+Your task is to interpret what these IPA phonemes sound like in plain English:
+1. Group phonemes into words/particles based on timing and phonetic patterns
+2. Consider cultural particles like 'la', 'lor', 'ah', 'meh', etc.
+3. Don't worry about "correctness" - just interpret what the IPA actually represents
+4. Include timing information for each interpreted word/particle
+
+For each interpreted word/particle, provide:
+- "word": the interpreted word/particle
+- "start_time": when it starts
+- "end_time": when it ends
+- "phonemes": the IPA phonemes it contains
+
+Call the interpret_ipa_to_words function with your analysis."""
         
-        step4_result = await self.call_gemini_api(particle_prompt, session, particle_functions)
+        step4a_result = await self.call_gemini_api(ipa_prompt, session, ipa_interpretation_functions)
         
-        if step4_result.get("status") != "success" or "function_call" not in step4_result:
-            particle_data = {"detected_particles": [], "base_transcription": validated_data['final_consensus'], "particle_positions": {}}
+        if step4a_result.get("status") == "success" and "function_call" in step4a_result:
+            ipa_interpretation = step4a_result["function_call"]["args"]
+            print(f"DEBUG: IPA interpretation result: {ipa_interpretation}")
         else:
-            particle_data = step4_result["function_call"]["args"]
+            # Fallback: no interpretation
+            ipa_interpretation = {
+                "interpreted_words": [],
+                "interpretation_reasoning": "Failed to interpret IPA phonemes"
+            }
+            print("DEBUG: IPA interpretation failed, using fallback")
         
-        # STEP 5: Final Assembly
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 4B: PLACEMENT ANALYSIS WITH FULL CONTEXT (IPA + CONSENSUS + EXPECTED)
+        # ─────────────────────────────────────────────────────────────────────────────
+        print("DEBUG: Starting STEP 4B - Placement Analysis with Full Context")
+        
+        # Function to analyze placement using all available data
+        placement_analysis_functions = [{
+            "name": "analyze_particle_placement",
+            "description": "Analyze where particles should be placed by comparing IPA interpretation with consensus transcription",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "detected_particles": {"type": "array", "items": {"type": "string"}, "description": "Particles detected in the speech"},
+                    "particle_positions": {"type": "object", "description": "For each particle, the word after which it occurs"},
+                    "placement_reasoning": {"type": "string", "description": "Explanation of placement decisions"}
+                },
+                "required": ["detected_particles", "particle_positions", "placement_reasoning"]
+            }
+        }]
+        
+        # Prompt for placement analysis with full context
+        placement_prompt = f"""Analyze where cultural particles should be placed in the final transcription.
+
+Context Data:
+1. Consensus Transcription: "{validated_data['final_consensus']}"
+2. Expected Phonemes (from phonemizer): {particle_analysis['expected_phonemes']}
+3. Raw Allosaurus IPA: {particle_analysis['allosaurus_phonemes']}
+4. IPA Interpretation from Step 4A: {ipa_interpretation}
+
+Raw Timing Data:
+{json.dumps(allosaurus_timing, indent=2)}
+
+Your task:
+1. Compare what allosaurus heard (IPA interpretation) vs consensus transcription
+2. Identify particles that appear in allosaurus but not in consensus
+3. Determine precise placement based on timing and context
+4. Consider phonemizer expected phonemes as reference for word boundaries
+
+For example, if allosaurus heard "don't be like that la what the fuck man" but consensus is "don't be like that what the fuck man", then "la" should be placed after "that".
+
+Call the analyze_particle_placement function with your analysis."""
+        
+        step4b_result = await self.call_gemini_api(placement_prompt, session, placement_analysis_functions)
+        
+        if step4b_result.get("status") == "success" and "function_call" in step4b_result:
+            placement_data = step4b_result["function_call"]["args"]
+            particle_data = {
+                "base_transcription": validated_data['final_consensus'],
+                "expected_phonemes": particle_analysis['expected_phonemes'],
+                "outlier_phonemes": particle_analysis['outlier_phonemes'],
+                "detected_particles": placement_data.get('detected_particles', []),
+                "particle_positions": placement_data.get('particle_positions', {}),
+                "ipa_interpretation": ipa_interpretation,
+                "placement_reasoning": placement_data.get('placement_reasoning', '')
+            }
+        else:
+            # Fallback: no particles detected
+            particle_data = {
+                "base_transcription": validated_data['final_consensus'],
+                "expected_phonemes": particle_analysis['expected_phonemes'],
+                "outlier_phonemes": particle_analysis['outlier_phonemes'], 
+                "detected_particles": [],
+                "particle_positions": {},
+                "ipa_interpretation": ipa_interpretation
+            }
+        
+        # ─────────────────────────────────────────────────────────────────────────────
+        # STEP 5: FINAL TRANSCRIPTION ASSEMBLY
+        # ─────────────────────────────────────────────────────────────────────────────
         final_functions = [{
             "name": "generate_final_transcriptions",
             "description": "Create clean, integrated, and final versions using all analysis. Provide two integrated versions: (1) strict (only insert particles with strong evidence/position), (2) all_particles (insert all detected particles at plausible positions, even if position/timing is uncertain).",
@@ -578,6 +783,10 @@ Instructions:\n1. The "clean" version should not include any cultural particles.
         }
 
 # Create FastAPI app
+# ═══════════════════════════════════════════════════════════════════════════════════
+# FASTAPI WEB SERVICE - HTTP ENDPOINTS FOR ASR ORCHESTRATION
+# ═══════════════════════════════════════════════════════════════════════════════════
+
 app = FastAPI(title="ASR Docker Orchestrator", version="1.0.0")
 
 # Add CORS middleware
@@ -670,7 +879,7 @@ async def transcribe_with_gemini(
         # Extract Allosaurus result specifically for phoneme analysis
         allosaurus_result = asr_results["results"].get("allosaurus", {})
         allosaurus_transcription = allosaurus_result.get("transcription", "") if allosaurus_result.get("status") == "success" else ""
-        allosaurus_timing = allosaurus_result.get("timed_phonemes", []) if allosaurus_result.get("status") == "success" else []
+        allosaurus_timing = allosaurus_result.get("diagnostics", {}).get("timed_phonemes", []) if allosaurus_result.get("status") == "success" else []
         
         # Execute intelligent function pipeline
         async with aiohttp.ClientSession() as session:

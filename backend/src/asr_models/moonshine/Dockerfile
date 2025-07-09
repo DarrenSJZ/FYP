@@ -1,10 +1,9 @@
 # Optimized Dockerfile for Moonshine ASR Model
 FROM asr-base AS moonshine-deps
 
-# Install moonshine-specific dependencies from requirements file
-COPY backend/src/asr_models/moonshine/moonshine_requirements.txt /app/requirements.txt
+# Install moonshine-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install -r /app/requirements.txt
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[moonshine]"
 
 # Stage 2: Model download
 FROM moonshine-deps AS model-download

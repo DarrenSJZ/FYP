@@ -1,9 +1,9 @@
 # Optimized Dockerfile for Whisper ASR Model
 FROM asr-base AS whisper-deps
 
-# Install whisper-specific dependencies directly to base venv
+# Install whisper-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install ".[whisper]"
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[whisper]"
 
 # Stage 2: Model download
 FROM whisper-deps AS model-download

@@ -39,13 +39,13 @@ dependencies = [
     "iniconfig==2.1.0",
     "librosa==0.10.2",
     "multidict==6.4.3",
-    "numpy==2.2.6",
+    "numpy>=1.26.0,<2.2.0",
     "packaging==25.0",
     "pluggy==1.5.0",
     "postgrest==1.0.1",
     "propcache==0.3.1",
     "proto-plus==1.26.1",
-    "protobuf==6.30.2",
+    "protobuf>=3.20.3,<6.0.0,!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5",
     "pyasn1==0.6.1",
     "pyasn1-modules==0.4.2",
     "pydantic==2.11.4",
@@ -74,12 +74,13 @@ dependencies = [
     "uvicorn==0.34.2",
     "websockets>=11,<15",
     "yarl==1.20.0",
+    "phonemizer>=3.2.1",
 ]
 
 [project.optional-dependencies]
 asr-base = [
     # Core ML stack - used by ALL models
-    "numpy>=2.2.6",
+    "numpy>=1.26.0,<2.2.0",
     "torch>=2.7.0", 
     "torchaudio>=2.7.0",
     "soundfile>=0.12.1",
@@ -94,7 +95,7 @@ asr-base = [
 ]
 
 asr-utils = [
-    "numpy>=2.2.6",
+    "numpy>=1.26.0,<2.2.0",
     "torch>=2.7.0",
     "torchaudio>=2.7.0",
     "tqdm>=4.65.0",
@@ -103,12 +104,14 @@ asr-utils = [
 
 whisper = [
     "openai-whisper==20240930",
-    "numpy>=2.2.6",
     "torch>=2.7.0",
     "torchaudio>=2.7.0",
     "tiktoken==0.9.0",
     "regex==2024.11.6",
-    "more-itertools==10.7.0"
+    "more-itertools==10.7.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "python-multipart>=0.0.6" 
 ]
 
 wav2vec = [
@@ -116,10 +119,7 @@ wav2vec = [
     "huggingface-hub==0.32.0",
     "tokenizers==0.21.1",
     "safetensors==0.5.3",
-    "hf-xet==1.1.2",
-    "numpy>=2.2.6",
-    "torch>=2.7.0",
-    "torchaudio>=2.7.0"
+    "hf-xet==1.1.2" 
 ]
 
 mesolitica = [
@@ -127,20 +127,13 @@ mesolitica = [
     "huggingface-hub==0.32.0",
     "tokenizers==0.21.1",
     "safetensors==0.5.3",
-    "hf-xet==1.1.2",
-    "numpy>=2.2.6",
-    "torch>=2.7.0",
-    "torchaudio>=2.7.0"
+    "hf-xet==1.1.2" 
 ]
 
 moonshine = [
     "useful-moonshine @ git+https://github.com/usefulsensors/moonshine.git@2f6282347950c8d711bd7319287babb87ec5a92d",
-    "numpy>=2.2.6",
-    "torch>=2.7.0",
-    "torchaudio>=2.7.0",
     "torchvision>=0.21.0",
     "librosa>=0.10.2",
-    "soundfile>=0.12.1",
     "transformers>=4.30.0",
     "efficientnet-pytorch==0.7.1",
     "einops==0.8.0",
@@ -154,19 +147,12 @@ moonshine = [
 
 vosk = [
     "vosk>=0.3.45",
-    "numpy>=2.2.6",
-    "tqdm>=4.65.0",
     "playsound3>=3.2.3",
-    "soundfile>=0.12.1",
-    "websockets>=11,<15"
+    "websockets>=11,<15"   
 ]
 
 allosaurus = [
     "allosaurus>=1.0.0",
-    "numpy>=2.2.6",
-    "torch>=2.7.0",
-    "torchaudio>=2.7.0",
-    "soundfile>=0.12.1"
 ]
 
 [tool.hatch.build.targets.wheel]

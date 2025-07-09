@@ -20,7 +20,7 @@ COPY backend/pyproject.toml ./
 COPY backend/src/asr_utils ./src/asr_utils/
 RUN uv venv .venv && \
     . .venv/bin/activate && \
-    uv pip install ".[asr-base]"
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[asr-base]"
 
 # The base venv (/app/.venv) now contains all common dependencies
 # Services will clone this venv and add their specific dependencies

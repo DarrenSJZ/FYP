@@ -1,10 +1,9 @@
 # Optimized Dockerfile for Wav2Vec ASR Model
 FROM asr-base AS wav2vec-deps
 
-# Install wav2vec-specific dependencies from requirements file
-COPY backend/src/asr_models/wav2vec/wav2vec_requirements.txt /app/requirements.txt
+# Install wav2vec-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install -r /app/requirements.txt
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[wav2vec]"
 
 # Stage 2: Model download
 FROM wav2vec-deps AS model-download

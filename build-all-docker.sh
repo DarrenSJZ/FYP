@@ -139,7 +139,7 @@ check_prerequisites() {
     
     # Check essential files
     local essential_files=(
-        "pyproject.toml"
+        "backend/pyproject.toml"
         "docker-compose.yml"
     )
     
@@ -266,11 +266,13 @@ main() {
         fi
     fi
     
-    # Build orchestrator service
+    # Build orchestrator service using docker-compose
     if [ "$BUILD_ORCHESTRATOR" = true ]; then
-        log_info "Step 3/3: Building orchestrator service..."
-        if ! build_image "orchestrator" "Dockerfile.orchestrator" "orchestrator:latest"; then
-            log_warning "Failed to build orchestrator service"
+        log_info "Step 3/3: Building orchestrator service with docker-compose..."
+        if docker compose up --build -d orchestrator; then
+            log_success "Orchestrator service built and started successfully"
+        else
+            log_warning "Failed to build orchestrator service with docker-compose"
             log_info "ASR services are still functional without orchestrator"
         fi
     else
@@ -284,9 +286,10 @@ main() {
     show_summary
     
     log_info "Next steps:"
-    echo "  • Run services: docker-compose up"
-    echo "  • Run specific service: docker-compose up whisper-service"
-    echo "  • View logs: docker-compose logs [service-name]"
+    echo "  • Start all services: docker compose up -d"
+    echo "  • Start specific ASR service: docker compose up -d whisper-service"
+    echo "  • View orchestrator logs: docker compose logs -f orchestrator"
+    echo "  • Test endpoint: curl http://localhost:8000/health"
 }
 
 # Run main function

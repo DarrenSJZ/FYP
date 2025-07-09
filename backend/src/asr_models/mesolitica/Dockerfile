@@ -1,10 +1,9 @@
 # Optimized Dockerfile for Mesolitica ASR Model
 FROM asr-base AS mesolitica-deps
 
-# Install mesolitica-specific dependencies from requirements file
-COPY backend/src/asr_models/mesolitica/mesolitica_requirements.txt /app/requirements.txt
+# Install mesolitica-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install -r /app/requirements.txt
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[mesolitica]"
 
 # Stage 2: Model download
 FROM mesolitica-deps AS model-download

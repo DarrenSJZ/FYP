@@ -1,10 +1,9 @@
 # Optimized Dockerfile for Allosaurus ASR Model
 FROM asr-base AS allosaurus-deps
 
-# Install allosaurus-specific dependencies from requirements file
-COPY backend/src/asr_models/allosaurus/allosaurus_requirements.txt /app/requirements.txt
+# Install allosaurus-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install -r /app/requirements.txt
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[allosaurus]"
 
 # Stage 2: Model download
 FROM allosaurus-deps AS model-download

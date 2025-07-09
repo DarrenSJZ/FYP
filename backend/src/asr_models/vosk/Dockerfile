@@ -1,10 +1,9 @@
 # Optimized Dockerfile for Vosk ASR Model
 FROM asr-base AS vosk-deps
 
-# Install vosk-specific dependencies from requirements file
-COPY backend/src/asr_models/vosk/vosk_requirements.txt /app/requirements.txt
+# Install vosk-specific dependencies from pyproject.toml (already in base)
 RUN . /app/.venv/bin/activate && \
-    uv pip install -r /app/requirements.txt
+    UV_HTTP_TIMEOUT=1800 uv pip install ".[vosk]"
 
 # Stage 2: Model download
 FROM vosk-deps AS model-download
