@@ -19,6 +19,8 @@ RUN pip install uv && \
 
 # Copy orchestrator code
 COPY backend/src/orchestrator.py ./src/
+# Copy prompt logic
+COPY backend/src/prompts ./src/prompts
 
 # Set environment variables
 ENV PYTHONPATH=/app
