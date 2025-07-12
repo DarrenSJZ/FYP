@@ -15,7 +15,11 @@ class ASRModelRunner:
         self.output_file = output_file
         self.parallel = parallel
         self.diagnostic = diagnostic
-        self.script_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src/asr_models')
+        # Set script_dir to backend/src/asr_models relative to project root
+        self.script_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'backend', 'src', 'asr_models'
+        )
         
         # Define model configurations
         self.models = {
