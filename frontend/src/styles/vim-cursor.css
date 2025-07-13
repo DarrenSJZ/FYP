@@ -1,0 +1,50 @@
+/* VIM Block Cursor Styles */
+.vim-block-cursor {
+  caret-color: transparent;
+}
+
+/* Force LTR text direction */
+textarea, input[type="text"] {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  writing-mode: horizontal-tb !important;
+}
+
+.vim-block-cursor:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Block cursor effect using text shadow and background */
+.vim-normal-mode {
+  position: relative;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    transparent calc(var(--cursor-position, 0) * 1ch),
+    hsl(var(--primary)) calc(var(--cursor-position, 0) * 1ch),
+    hsl(var(--primary)) calc((var(--cursor-position, 0) + 1) * 1ch),
+    transparent calc((var(--cursor-position, 0) + 1) * 1ch)
+  );
+}
+
+/* Visual mode selection highlighting */
+.vim-visual-selection {
+  background-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--primary-foreground));
+}
+
+/* Animation for block cursor */
+@keyframes vim-cursor-blink {
+  0%, 50% { 
+    opacity: 1; 
+  }
+  51%, 100% { 
+    opacity: 0.5; 
+  }
+}
+
+.vim-cursor-block {
+  animation: vim-cursor-blink 1s infinite;
+}

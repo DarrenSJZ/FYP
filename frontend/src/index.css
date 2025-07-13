@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Kanagawa Lotus Theme (Light) */
+    --background: 44 51% 84%;         /* #f2ecbc - lotus cream background */
+    --foreground: 38 16% 39%;         /* #625750 - lotus ink for warm dark text */
+
+    --card: 44 47% 79%;               /* #e7dba0 - lotus secondary background */
+    --card-foreground: 38 16% 39%;    
+
+    --popover: 44 47% 79%;
+    --popover-foreground: 38 16% 39%;
+
+    --primary: 221 35% 45%;           /* #4d699b - lotus blue primary */
+    --primary-foreground: 44 51% 84%;
+
+    --secondary: 232 16% 52%;         /* #766b90 - lotus violet */
+    --secondary-foreground: 38 16% 39%;
+
+    --muted: 44 43% 73%;              /* #e4d794 - lotus muted background */
+    --muted-foreground: 50 12% 41%;   /* #716e61 - lotus gray */
+
+    --accent: 44 100% 24%;            /* #cc6d00 - lotus orange accent */
+    --accent-foreground: 44 51% 84%;
+
+    --destructive: 351 77% 55%;       /* #c84053 - lotus red */
+    --destructive-foreground: 44 51% 84%;
+
+    --border: 44 38% 67%;             /* #d5cea3 - lotus border */
+    --input: 44 38% 67%;
+    --ring: 221 35% 45%;
+
+    --radius: 0.375rem;
+
+    --sidebar-background: 44 51% 84%;
+    --sidebar-foreground: 240 9% 34%;
+    --sidebar-primary: 221 35% 45%;
+    --sidebar-primary-foreground: 44 51% 84%;
+    --sidebar-accent: 44 43% 73%;
+    --sidebar-accent-foreground: 240 9% 34%;
+    --sidebar-border: 44 38% 67%;
+    --sidebar-ring: 221 35% 45%;
+  }
+
+  .dark {
+    /* Kanagawa Wave Theme (Dark) */
+    --background: 240 10% 15%;        /* #1f1f28 - wave grey-purple background */
+    --foreground: 39 21% 84%;         /* #dcd7ba - fuji white (warm off-white) */
+
+    --card: 240 9% 21%;               /* #2a2a37 - wave dark card */
+    --card-foreground: 39 21% 84%;
+
+    --popover: 240 9% 21%;
+    --popover-foreground: 39 21% 84%;
+
+    --primary: 213 46% 64%;           /* #7e9cd8 - crystal blue */
+    --primary-foreground: 240 10% 15%;
+
+    --secondary: 249 20% 59%;         /* #957fb8 - oni violet */
+    --secondary-foreground: 39 21% 84%;
+
+    --muted: 240 9% 27%;              /* #363646 - wave muted */
+    --muted-foreground: 39 19% 67%;   /* #c8c093 - old white for better contrast */
+
+    --accent: 44 78% 71%;             /* #e6c384 - carp yellow */
+    --accent-foreground: 240 10% 15%;
+
+    --destructive: 2 78% 67%;         /* #e46876 - wave red */
+    --destructive-foreground: 39 21% 87%;
+
+    --border: 240 9% 27%;
+    --input: 240 9% 27%;
+    --ring: 44 78% 71%;
+
+    --sidebar-background: 240 10% 15%;
+    --sidebar-foreground: 39 21% 84%;
+    --sidebar-primary: 44 78% 71%;
+    --sidebar-primary-foreground: 240 10% 15%;
+    --sidebar-accent: 240 9% 27%;
+    --sidebar-accent-foreground: 39 21% 84%;
+    --sidebar-border: 240 9% 27%;
+    --sidebar-ring: 44 78% 71%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "fyp-here-we-fkn-go",
+  "version": "1.0.0",
+  "description": "ASR and VIM editor project with backend and frontend",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:preview": "cd frontend && npm run preview",
+    "backend:install": "cd backend && uv sync",
+    "backend:dev": "cd backend && python src/main.py",
+    "dev": "concurrently \"npm run frontend:dev\" \"npm run backend:dev\"",
+    "build": "npm run frontend:build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@replit/codemirror-vim": "^6.3.0",
+    "@uiw/react-codemirror": "^4.24.0"
+  }
+}

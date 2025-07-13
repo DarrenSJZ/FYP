@@ -217,3 +217,64 @@ docker-compose up --scale whisper-service=3
 - Comprehensive health monitoring and error handling
 
 **Status: 🎉 ALL SERVICES OPERATIONAL AND OPTIMIZED**
+
+---
+
+## 🎨 Frontend - Accentric Editor
+
+### Overview
+A powerful VIM-enabled text editor interface for transcription editing and ASR output processing, built with React and modern web technologies.
+
+### Features
+- ✅ **VIM Mode Support** - Full VIM modal editing with CodeMirror 6
+- ✅ **Custom Kanagawa Theming** - Light and dark modes matching project design
+- ✅ **Audio Upload & Transcription** - Direct integration with backend ASR services  
+- ✅ **Real-time Theme Switching** - Seamless light/dark mode transitions
+- ✅ **Modern React Architecture** - Built with Vite, TypeScript, and Tailwind CSS
+
+### Tech Stack
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **CodeMirror 6** with VIM extension for professional text editing
+- **Tailwind CSS** for responsive styling
+- **Next Themes** for theme management
+- **Lucide React** for modern icons
+
+### Quick Start
+```bash
+# Install dependencies
+npm install
+
+# Start frontend development server
+npm run frontend:dev
+
+# Start both frontend and backend together
+npm run dev
+```
+
+### Development
+```bash
+# Frontend only
+cd frontend
+npm run dev
+
+# Build frontend
+npm run frontend:build
+
+# Preview production build
+npm run frontend:preview
+```
+
+### Architecture
+- **Workspace Structure** - Monorepo with frontend and backend workspaces
+- **Theme Integration** - Custom CodeMirror themes map to CSS custom properties
+- **Component Architecture** - Modular React components for editor, ribbon, audio upload
+- **State Management** - React hooks for VIM mode, themes, and transcription state
+
+### API Integration
+- **Audio Upload** endpoints for transcription processing
+- **Real-time Results** display from backend ASR services
+- **VIM Editor** for post-processing and editing transcribed text
+- **Multi-model Support** - Switch between different ASR models and analysis modes
+
+**Status: 🎉 FRONTEND FULLY INTEGRATED AND OPERATIONAL**
