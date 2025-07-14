@@ -13,6 +13,7 @@ import { DockerStatus as ConnectionStatus } from "@/components/DockerStatus";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { dockerAPI } from "@/lib/api";
 
 export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "accent" | "particles";
 
@@ -231,22 +232,18 @@ const Index = () => {
 
   const handlePracticeMode = async () => {
     try {
-      // TODO: Replace with actual API call to fetch random dataset item
-      const mockDatasetItem = {
-        transcription: "Hello, how are you doing today? I hope you're having a great time learning about accents and particles.",
-        audioUrl: "https://example.com/sample-audio.mp3", // Will be URL from cloud dataset
-        metadata: {
-          accent: "american",
-          speaker: "dataset_speaker_123"
-        }
-      };
+      // Fetch random dataset item from backend
+      const randomClip = await dockerAPI.getRandomClip();
       
-      setTranscriptionText(mockDatasetItem.transcription);
-      setPracticeAudioUrl(mockDatasetItem.audioUrl);
+      setTranscriptionText(randomClip.sentence);
+      setPracticeAudioUrl(randomClip.audio_url);
       setAudioFile(undefined); // No file for practice mode
       setCurrentStage("validation");
     } catch (error) {
       console.error('Failed to fetch practice dataset:', error);
+      // Fallback to error message in transcription text
+      setTranscriptionText('Failed to load practice audio. Please check your backend connection and try again.');
+      setCurrentStage("validation");
     }
   };
 

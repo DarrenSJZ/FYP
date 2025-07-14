@@ -101,3 +101,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+#CLAUDE MD
+CLAUDE.md
