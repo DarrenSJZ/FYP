@@ -20,6 +20,9 @@ export function VimToggle({ isVimEnabled, vimMode, onVimToggle }: VimToggleProps
           <span className="text-sm font-medium text-muted-foreground">VIM</span>
         </div>
 
+        {/* Separator */}
+        <div className="h-6 w-px bg-border" />
+
         {/* ON/OFF Labels and Switch */}
         <div className="flex items-center gap-2">
           <span className={`text-xs font-medium transition-colors duration-200 ${
@@ -31,7 +34,10 @@ export function VimToggle({ isVimEnabled, vimMode, onVimToggle }: VimToggleProps
           <Switch
             checked={isVimEnabled}
             onCheckedChange={onVimToggle}
-            className="data-[state=checked]:bg-primary transition-all duration-300"
+            className="transition-all duration-300"
+            style={{
+              backgroundColor: isVimEnabled ? 'hsl(var(--sage-green))' : 'hsl(var(--dusty-rose))'
+            }}
           />
           
           <span className={`text-xs font-medium transition-colors duration-200 ${

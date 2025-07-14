@@ -14,6 +14,7 @@ interface TextEditorProps {
   onVimModeChange: (mode: VimMode) => void;
   isVimEnabled: boolean;
   initialContent?: string;
+  onChange?: (value: string) => void;
 }
 
 export function TextEditor({
@@ -22,16 +23,18 @@ export function TextEditor({
   onVimModeChange,
   isVimEnabled,
   initialContent = "",
+  onChange,
 }: TextEditorProps) {
   const [value, setValue] = useState(initialContent);
   const { theme } = useTheme();
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<EditorView | null>(null);
 
-  const onChange = useCallback((val: string) => {
+  const handleChange = useCallback((val: string) => {
     setValue(val);
-  }, []);
+    onChange?.(val);
+  }, [onChange]);
 
-  // Create Kanagawa-themed CodeMirror themes
+  // Kanagawa-themed CodeMirror themes (controlled by separate ThemeToggle component)
   const kanagawaLotus = createTheme({
     theme: 'light',
     settings: {
@@ -102,6 +105,9 @@ export function TextEditor({
       });
       exts.push(vimExt);
     }
+
+    // Add line wrapping and fixed width
+    exts.push(EditorView.lineWrapping);
     
     return exts;
   }, [isVimEnabled]);
@@ -166,18 +172,18 @@ export function TextEditor({
 
   return (
     <div className="w-full">
-      <div className="w-full relative rounded-lg overflow-hidden border border-border">
+      <div className="w-[1200px] relative rounded-lg overflow-hidden border border-border">
         <CodeMirror
           ref={editorRef}
           value={value}
-          height="500px"
+          height="120px"
           placeholder={
             isVimEnabled
               ? "-- VIM MODE -- Press 'i' to insert, 'v' for visual mode"
               : "Start typing your transcription here..."
           }
           extensions={extensions}
-          onChange={onChange}
+          onChange={handleChange}
           theme={theme === 'dark' ? kanagawaWave : kanagawaLotus}
           autoFocus={isVimEnabled}
           basicSetup={{

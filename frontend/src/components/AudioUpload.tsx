@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
 interface AudioUploadProps {
-  onTranscriptionComplete: (transcription: string) => void;
+  onTranscriptionComplete: (transcription: string, file?: File) => void;
   selectedModel?: string;
   selectedAnalysis?: string;
 }
@@ -121,7 +121,7 @@ export function AudioUpload({
         transcription = result.transcription;
       }
       
-      onTranscriptionComplete(transcription);
+      onTranscriptionComplete(transcription, uploadedFile || undefined);
       
     } catch (error) {
       console.error('Transcription failed:', error);
@@ -158,7 +158,7 @@ export function AudioUpload({
         >
           <div className="flex flex-col items-center gap-4">
             <div className="p-4 rounded-full bg-muted">
-              <Upload className="h-8 w-8 text-muted-foreground" />
+              <Upload className="h-8 w-8 text-[hsl(var(--chip-brown))]" />
             </div>
             <div>
               <p className="text-lg font-medium">Upload Audio File</p>
@@ -222,15 +222,6 @@ export function AudioUpload({
             </div>
           )}
 
-          {/* Selected Options */}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">
-              Model: {selectedModel}
-            </Badge>
-            <Badge variant="secondary">
-              Analysis: {selectedAnalysis}
-            </Badge>
-          </div>
 
           {/* Transcription Progress */}
           {isTranscribing && (

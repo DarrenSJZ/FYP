@@ -18,11 +18,11 @@ All colors MUST be HSL.
     --popover: 44 47% 79%;
     --popover-foreground: 38 16% 39%;
 
-    --primary: 221 35% 45%;           /* #4d699b - lotus blue primary */
-    --primary-foreground: 44 51% 84%;
+    --primary: 44 78% 51%;           /* #e6c384 - lotus gold primary */
+    --primary-foreground: 38 16% 39%;/* #625750 - lotus ink for text */
 
     --secondary: 232 16% 52%;         /* #766b90 - lotus violet */
-    --secondary-foreground: 38 16% 39%;
+    --secondary-foreground: 44 51% 84%; /* Use light foreground for better contrast */
 
     --muted: 44 43% 73%;              /* #e4d794 - lotus muted background */
     --muted-foreground: 50 12% 41%;   /* #716e61 - lotus gray */
@@ -35,18 +35,30 @@ All colors MUST be HSL.
 
     --border: 44 38% 67%;             /* #d5cea3 - lotus border */
     --input: 44 38% 67%;
-    --ring: 221 35% 45%;
+    --ring: 44 78% 51%;              /* #e6c384 - gold ring */
 
     --radius: 0.375rem;
 
+    /* Additional Kanagawa Blues */
+    --crystal-blue: 44 100% 64%;     /* #f9e4b7 - light gold */
+    --spring-blue: 44 100% 51%;      /* #f6c867 - gold highlight */
+    --light-blue: 44 100% 84%;       /* #fff6dc - pale gold */
+    --dragon-blue: 44 43% 73%;       /* #e4d794 - muted gold */
+
+    /* Custom Muted Colors */
+    --sage-green: 95 25% 51%;         /* #80A163 - muted sage green */
+    --soft-teal: 183 26% 63%;         /* #88B4B7 - soft tealish blue */
+    --dusty-rose: 349 45% 42%;        /* #A04450 - darker red for light mode */
+    --chip-brown: 38 32% 55%;           /* #a68a64 - warm medium brown for chips/buttons */
+
     --sidebar-background: 44 51% 84%;
     --sidebar-foreground: 240 9% 34%;
-    --sidebar-primary: 221 35% 45%;
+    --sidebar-primary: 44 78% 51%;   /* #e6c384 - gold sidebar accent */
     --sidebar-primary-foreground: 44 51% 84%;
     --sidebar-accent: 44 43% 73%;
     --sidebar-accent-foreground: 240 9% 34%;
     --sidebar-border: 44 38% 67%;
-    --sidebar-ring: 221 35% 45%;
+    --sidebar-ring: 44 78% 51%;      /* #e6c384 - gold sidebar ring */
   }
 
   .dark {
@@ -63,7 +75,7 @@ All colors MUST be HSL.
     --primary: 213 46% 64%;           /* #7e9cd8 - crystal blue */
     --primary-foreground: 240 10% 15%;
 
-    --secondary: 249 20% 59%;         /* #957fb8 - oni violet */
+    --secondary: 232 16% 52%;         /* #766b90 - lotus violet (restored for dark mode) */
     --secondary-foreground: 39 21% 84%;
 
     --muted: 240 9% 27%;              /* #363646 - wave muted */
@@ -78,6 +90,18 @@ All colors MUST be HSL.
     --border: 240 9% 27%;
     --input: 240 9% 27%;
     --ring: 44 78% 71%;
+
+    /* Additional Kanagawa Blues - Dark variants */
+    --crystal-blue: 213 46% 64%;      /* #7E9CD8 - same crystal blue (works in dark) */
+    --spring-blue: 193 38% 54%;       /* #5FB3C3 - slightly darker spring blue */
+    --light-blue: 182 35% 63%;        /* #8BC4C5 - darker light blue */
+    --dragon-blue: 205 19% 61%;       /* #7A95A4 - lighter dragon blue for dark mode */
+
+    /* Custom Muted Colors - Dark variants */
+    --sage-green: 95 25% 61%;         /* #90B173 - lighter sage green for dark mode */
+    --soft-teal: 183 26% 73%;         /* #98C4C7 - lighter soft teal for dark mode */
+    --dusty-rose: 12 23% 60%;         /* #BA8C86 - darker dusty rose for dark mode */
+    --chip-brown: 213 46% 64%;      /* #7e9cd8 - crystal blue for chips/buttons in dark theme */
 
     --sidebar-background: 240 10% 15%;
     --sidebar-foreground: 39 21% 84%;
