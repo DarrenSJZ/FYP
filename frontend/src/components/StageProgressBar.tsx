@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 import type { WorkflowStage } from "@/pages/Index";
 
 interface StageProgressBarProps {
@@ -11,7 +11,8 @@ interface StageProgressBarProps {
 const stages = [
   { id: "validation" as WorkflowStage, label: "Validation", number: 1 },
   { id: "accent" as WorkflowStage, label: "Accent Selection", number: 2 },
-  { id: "particle-detection" as WorkflowStage, label: "Particle Detection", number: 3 },
+  { id: "particle-placement" as WorkflowStage, label: "Particle Placement", number: 3 },
+  { id: "comparison" as WorkflowStage, label: "Final Comparison", number: 4 },
 ];
 
 export function StageProgressBar({ 
@@ -38,7 +39,7 @@ export function StageProgressBar({
           // Theme-aware color classes
           const isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           // Color variables
-          const currentColor = isDark ? 'bg-primary border-primary text-primary' : 'bg-accent border-accent text-accent-foreground';
+          const currentColor = isDark ? 'bg-primary border-primary text-primary-foreground' : 'bg-accent border-accent text-accent-foreground';
           const completedColor = isDark ? 'bg-primary border-primary text-primary-foreground' : 'bg-muted border-accent text-accent-foreground';
           const lineColor = isDark ? 'bg-primary' : 'bg-accent';
 
@@ -47,7 +48,7 @@ export function StageProgressBar({
               {/* Stage Circle */}
               <div
                 className={cn(
-                  "relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200",
+                  "relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-200 aspect-square",
                   status === "completed" && completedColor,
                   status === "current" && currentColor,
                   status === "upcoming" && "bg-muted border-muted-foreground/30 text-muted-foreground",
@@ -58,6 +59,8 @@ export function StageProgressBar({
               >
                 {status === "completed" ? (
                   <Check className="w-5 h-5" />
+                ) : status === "current" ? (
+                  <MapPin className="w-5 h-5" />
                 ) : (
                   <span className="text-sm font-semibold">{stage.number}</span>
                 )}

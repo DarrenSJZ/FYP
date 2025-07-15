@@ -23,7 +23,7 @@ export function StageNavigation({
   showNext = true,
 }: StageNavigationProps) {
   return (
-    <div className="flex justify-between items-center pb-6 border-b border-border">
+    <div className="w-full flex justify-between items-center pb-6 border-b border-border">
       {/* Back Button */}
       {showBack ? (
         <Button

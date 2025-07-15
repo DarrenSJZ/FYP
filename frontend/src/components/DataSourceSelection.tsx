@@ -13,7 +13,7 @@ export function DataSourceSelection({ onModeSelect, onBack }: DataSourceSelectio
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 py-12">
       {/* Header */}
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-4 flex flex-col items-center">
         <div className="flex justify-center">
           <Badge variant="outline" className="px-4 py-2 text-sm">
             Choose Your Mode

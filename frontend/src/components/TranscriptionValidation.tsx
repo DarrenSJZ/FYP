@@ -119,7 +119,7 @@ export function TranscriptionValidation({
   }, [audioFile]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-8">
+    <div className="w-full max-w-4xl mx-auto space-y-8 flex flex-col items-center justify-center">
       {/* Stage Header - At the tippity top */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Transcription Validation</h2>
@@ -136,12 +136,14 @@ export function TranscriptionValidation({
       />
 
       {/* Navigation - Third */}
-      <StageNavigation
-        onBack={onBack}
-        onNext={onNext}
-        nextText="Next"
-        nextDisabled={!hasValidated}
-      />
+      <div className="w-full">
+        <StageNavigation
+          onBack={onBack}
+          onNext={onNext}
+          nextText="Next"
+          nextDisabled={!hasValidated}
+        />
+      </div>
 
       {/* Duolingo-style Audio Button - Above transcription */}
       {true && (

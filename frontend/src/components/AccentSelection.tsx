@@ -156,12 +156,14 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
       />
 
       {/* Navigation - Third */}
-      <StageNavigation
-        onBack={onBack}
-        onNext={onNext}
-        nextText="Next"
-        nextDisabled={!selectedAccent}
-      />
+      <div className="w-full">
+        <StageNavigation
+          onBack={onBack}
+          onNext={handleContinue}
+          nextText="Next"
+          nextDisabled={!selectedAccent}
+        />
+      </div>
 
       {/* Transcription Preview - Minimal */}
       <div className="space-y-3">

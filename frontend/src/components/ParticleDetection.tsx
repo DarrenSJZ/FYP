@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, Zap, Target, AlertCircle, CheckCircle2, GripVertical, RotateCcw } from "lucide-react";
+import { ArrowRight, Brain, Zap, Target, CheckCircle2, GripVertical, RotateCcw } from "lucide-react";
 import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
 import type { WorkflowStage } from "@/pages/Index";
@@ -70,11 +70,10 @@ export function ParticleDetection({
   const [placedParticles, setPlacedParticles] = useState<PlacedParticle[]>([]);
   const [draggedParticle, setDraggedParticle] = useState<PotentialParticle | null>(null);
   const [dragOverPosition, setDragOverPosition] = useState<number | null>(null);
-  const [llmSuggestion, setLlmSuggestion] = useState<string>("");
-  const [isGeneratingLLM, setIsGeneratingLLM] = useState(false);
-
-  // Split transcription into words
-  const words = particleData.primary.trim().split(/\s+/);
+  const [draggedFromPlacement, setDraggedFromPlacement] = useState<boolean>(false);
+  const [nearbyPositions, setNearbyPositions] = useState<number[]>([]);
+  // Split transcription into words and punctuation
+  const words = particleData.primary.trim().split(/(\s+|[.,!?;:])/).filter(token => token.trim() !== '');
 
   // Get relevant particles for the selected accent
   const getRelevantParticles = () => {
@@ -94,14 +93,26 @@ export function ParticleDetection({
     particle => !placedParticles.some(placed => placed.particle.particle === particle.particle)
   );
 
-  const handleDragStart = (e: React.DragEvent, particle: PotentialParticle) => {
+  const handleDragStart = (e: React.DragEvent, particle: PotentialParticle, fromPlacement: boolean = false) => {
     setDraggedParticle(particle);
+    setDraggedFromPlacement(fromPlacement);
     e.dataTransfer.effectAllowed = "move";
+    
+    // Show all drop zones when dragging starts
+    setNearbyPositions([...Array(words.length + 1).keys()]);
   };
 
   const handleDragEnd = () => {
+    // If particle was dragged from placement but not dropped anywhere, remove it
+    if (draggedFromPlacement && draggedParticle) {
+      setPlacedParticles(prev => prev.filter(
+        placed => placed.particle.particle !== draggedParticle.particle
+      ));
+    }
     setDraggedParticle(null);
     setDragOverPosition(null);
+    setDraggedFromPlacement(false);
+    setNearbyPositions([]);
   };
 
   const handleDragOver = (e: React.DragEvent, position: number) => {
@@ -132,6 +143,8 @@ export function ParticleDetection({
     }
     setDraggedParticle(null);
     setDragOverPosition(null);
+    setDraggedFromPlacement(false);
+    setNearbyPositions([]);
   };
 
   const handleRemoveParticle = (particleToRemove: PotentialParticle) => {
@@ -158,83 +171,78 @@ export function ParticleDetection({
       }
     }
     
-    return result.join(" ");
-  };
-
-  const generateLLMSuggestion = async () => {
-    setIsGeneratingLLM(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // Join with spaces, but handle punctuation correctly
+    return result.reduce((acc, current, index) => {
+      if (index === 0) return current;
       
-      const finalSentence = reconstructSentence();
-      const suggestion = `Based on the ${selectedAccent.name} accent and particle placement, the AI suggests: "${finalSentence}"`;
-      setLlmSuggestion(suggestion);
-    } catch (error) {
-      console.error("Error generating LLM suggestion:", error);
-    } finally {
-      setIsGeneratingLLM(false);
-    }
+      // Check if current token is punctuation
+      const isPunctuation = /^[.,!?;:]+$/.test(current);
+      
+      if (isPunctuation) {
+        // No space before punctuation
+        return acc + current;
+      } else {
+        // Space before regular words and particles
+        return acc + " " + current;
+      }
+    }, "");
   };
 
   const handleContinue = () => {
     const selectedParticles = placedParticles.map(p => p.particle);
-    onParticlesSelected(selectedParticles, llmSuggestion);
+    onParticlesSelected(selectedParticles, reconstructSentence());
   };
 
   const handleReset = () => {
     setPlacedParticles([]);
-    setLlmSuggestion("");
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12">
-      {/* Stage Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Particle Placement</h2>
-        <p className="text-muted-foreground">
-          Drag discourse particles into the sentence where you think they belong
-        </p>
-      </div>
+    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12 flex flex-col items-center justify-center">
+        {/* Stage Header */}
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Particle Placement</h2>
+          <p className="text-muted-foreground">
+            Drag discourse particles into the sentence where you think they belong
+          </p>
+        </div>
 
       {/* Progress Bar */}
       <StageProgressBar
-        currentStage="particle-detection"
+        currentStage="particle-placement"
         completedStages={completedStages}
         onStageClick={onStageClick}
       />
 
       {/* Navigation */}
-      <StageNavigation
-        onBack={onBack}
-        onNext={onNext}
-        nextText="Continue"
-        nextDisabled={placedParticles.length === 0}
-      />
+      <div className="w-full">
+        <StageNavigation
+          onBack={onBack}
+          onNext={handleContinue}
+          nextText="Next"
+          nextDisabled={placedParticles.length === 0}
+        />
+      </div>
 
-      {/* Selected Accent Context */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Selected Accent: {selectedAccent.name}
-          </CardTitle>
-          <CardDescription>
-            Available particles for {selectedAccent.description}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {relevantParticles.map((particle, index) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {particle}
-              </Badge>
-            ))}
+      {/* Original Sentence Header */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Brain className="h-5 w-5 text-muted-foreground" />
+          <h3 className="text-lg font-medium text-muted-foreground">
+            {placedParticles.length > 0 ? "Modified Sentence" : "Original Sentence"}
+          </h3>
+        </div>
+        <div className="w-full max-w-4xl">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <p className="text-lg leading-relaxed font-medium text-foreground">
+              {placedParticles.length > 0 ? reconstructSentence() : particleData.primary}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Drag and Drop Interface */}
-      <Card>
+      <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5" />
@@ -250,14 +258,8 @@ export function ParticleDetection({
             <div className="flex flex-wrap items-center gap-2">
               {/* Drop zone before first word */}
               <div
-                className={`min-w-8 h-12 rounded-lg border-2 border-dashed transition-all duration-200 ${
-                  dragOverPosition === 0 
-                    ? "border-primary bg-primary/10" 
-                    : "border-muted-foreground/30 hover:border-muted-foreground/50"
-                }`}
-                onDragOver={(e) => handleDragOver(e, 0)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, 0)}
+                data-drop-zone="0"
+                className="flex items-center gap-2 flex-wrap"
               >
                 {/* Show particles placed at position 0 */}
                 {placedParticles
@@ -265,8 +267,12 @@ export function ParticleDetection({
                   .map((placed, index) => (
                     <div
                       key={index}
-                      className="inline-flex items-center gap-1 bg-yellow-200 dark:bg-yellow-800 px-2 py-1 rounded-md text-sm font-medium cursor-pointer hover:bg-yellow-300 dark:hover:bg-yellow-700"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, placed.particle, true)}
+                      onDragEnd={handleDragEnd}
+                      className="inline-flex items-center gap-1 bg-yellow-200 dark:bg-yellow-800 px-2 py-1 rounded-md text-sm font-medium cursor-move hover:bg-yellow-300 dark:hover:bg-yellow-700"
                       onClick={() => handleRemoveParticle(placed.particle)}
+                      title="Click to remove or drag to move"
                     >
                       {placed.particle.particle}
                       <Badge variant="secondary" className="text-xs ml-1">
@@ -274,26 +280,38 @@ export function ParticleDetection({
                       </Badge>
                     </div>
                   ))}
-              </div>
-
-              {/* Words and drop zones */}
-              {words.map((word, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  {/* Word bubble */}
-                  <div className="bg-background border-2 border-border rounded-lg px-4 py-2 shadow-sm">
-                    <span className="font-medium">{word}</span>
-                  </div>
-                  
-                  {/* Drop zone after this word */}
+                
+                {/* Drop zone - only show when dragging and no particles placed here */}
+                {draggedParticle && placedParticles.filter(p => p.position === 0).length === 0 && (
                   <div
                     className={`min-w-8 h-12 rounded-lg border-2 border-dashed transition-all duration-200 ${
-                      dragOverPosition === index + 1 
+                      dragOverPosition === 0 
                         ? "border-primary bg-primary/10" 
                         : "border-muted-foreground/30 hover:border-muted-foreground/50"
                     }`}
-                    onDragOver={(e) => handleDragOver(e, index + 1)}
+                    onDragOver={(e) => handleDragOver(e, 0)}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, index + 1)}
+                    onDrop={(e) => handleDrop(e, 0)}
+                  />
+                )}
+              </div>
+
+              {/* Words and drop zones */}
+              {words.map((word, index) => {
+                const isPunctuation = /^[.,!?;:]+$/.test(word);
+                return (
+                  <div key={index} className="flex items-center gap-2">
+                    {/* Word bubble */}
+                    <div className={`bg-background border-2 border-border rounded-lg shadow-sm ${
+                      isPunctuation ? 'px-2 py-2' : 'px-4 py-2'
+                    }`}>
+                      <span className="font-medium">{word}</span>
+                    </div>
+                  
+                  {/* Drop zone after this word */}
+                  <div
+                    data-drop-zone={index + 1}
+                    className="flex items-center gap-2 flex-wrap"
                   >
                     {/* Show particles placed at this position */}
                     {placedParticles
@@ -301,8 +319,12 @@ export function ParticleDetection({
                       .map((placed, pIndex) => (
                         <div
                           key={pIndex}
-                          className="inline-flex items-center gap-1 bg-yellow-200 dark:bg-yellow-800 px-2 py-1 rounded-md text-sm font-medium cursor-pointer hover:bg-yellow-300 dark:hover:bg-yellow-700"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, placed.particle, true)}
+                          onDragEnd={handleDragEnd}
+                          className="inline-flex items-center gap-1 bg-yellow-200 dark:bg-yellow-800 px-2 py-1 rounded-md text-sm font-medium cursor-move hover:bg-yellow-300 dark:hover:bg-yellow-700"
                           onClick={() => handleRemoveParticle(placed.particle)}
+                          title="Click to remove or drag to move"
                         >
                           {placed.particle.particle}
                           <Badge variant="secondary" className="text-xs ml-1">
@@ -310,16 +332,35 @@ export function ParticleDetection({
                           </Badge>
                         </div>
                       ))}
+                    
+                    {/* Drop zone - only show when dragging and no particles placed here */}
+                    {draggedParticle && placedParticles.filter(p => p.position === index + 1).length === 0 && (
+                      <div
+                        className={`min-w-8 h-12 rounded-lg border-2 border-dashed transition-all duration-200 ${
+                          dragOverPosition === index + 1 
+                            ? "border-primary bg-primary/10" 
+                            : "border-muted-foreground/30 hover:border-muted-foreground/50"
+                        }`}
+                        onDragOver={(e) => handleDragOver(e, index + 1)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, index + 1)}
+                      />
+                    )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Available particles to drag */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold">Available Particles</h4>
+            
+            {/* Line separator */}
+            <div className="border-t border-border my-4"></div>
+            
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold">AI Detected Particles</h4>
               <Button
                 variant="outline"
                 size="sm"
@@ -360,62 +401,26 @@ export function ParticleDetection({
                 <p>All particles have been placed!</p>
               </div>
             )}
+            
+            {/* Line separator */}
+            <div className="border-t border-border my-4"></div>
+            
+            {/* Accent Info */}
+            <div className="mb-4">
+              <h4 className="font-semibold text-base mb-3">{selectedAccent.name} Accent Particles</h4>
+              <div className="flex flex-wrap gap-2">
+                {relevantParticles.map((particle, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    {particle}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Current Reconstruction */}
-      {placedParticles.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              Current Reconstruction
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-              <p className="text-lg font-medium">{reconstructSentence()}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* LLM Suggestion Generation */}
-      {placedParticles.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              AI Suggestion
-            </CardTitle>
-            <CardDescription>
-              Generate an AI-suggested transcription with your particle placement
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Button
-                onClick={generateLLMSuggestion}
-                disabled={isGeneratingLLM}
-                className="w-full"
-              >
-                {isGeneratingLLM ? "Generating..." : "Generate AI Suggestion"}
-              </Button>
-              
-              {llmSuggestion && (
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="font-medium text-green-900 dark:text-green-100">AI Suggestion</span>
-                  </div>
-                  <p className="text-sm text-green-800 dark:text-green-200">{llmSuggestion}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Continue Button */}
       <div className="flex justify-center pt-4">
@@ -431,13 +436,9 @@ export function ParticleDetection({
       </div>
 
       {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground max-w-2xl mx-auto">
+      <div className="text-center text-sm text-muted-foreground">
         <p>
-          <strong>Instructions:</strong> Drag particles from the "Available Particles" section into the drop zones (dashed boxes) 
-          between words in the sentence above. Click on placed particles to remove them.
-        </p>
-        <p className="mt-2">
-          The confidence percentages show how certain the AI is about detecting each particle.
+          Drag particles into the dashed boxes between words. Click or drag placed particles to remove them.
         </p>
       </div>
     </div>
