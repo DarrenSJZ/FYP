@@ -144,19 +144,25 @@ export function TranscriptionValidation({
       />
 
       {/* Duolingo-style Audio Button - Above transcription */}
-      {(audioFile || audioUrl) && (
+      {true && (
         <div className="flex justify-center">
           <Button
             onClick={handlePlayPause}
+            disabled={!audioFile && !audioUrl}
             className={`
               px-6 py-4 rounded-2xl transition-all duration-200 
-              ${isPlaying 
-                ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
-                : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
+              ${!audioFile && !audioUrl 
+                ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
+                : isPlaying 
+                  ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
+                  : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
               }
               shadow-lg hover:shadow-xl border-b-4 
-              ${isPlaying ? 'border-accent/70' : 'border-primary/70'}
-              active:border-b-2 active:translate-y-0.5
+              ${!audioFile && !audioUrl 
+                ? 'border-muted/70' 
+                : isPlaying ? 'border-accent/70' : 'border-primary/70'
+              }
+              ${!audioFile && !audioUrl ? '' : 'active:border-b-2 active:translate-y-0.5'}
             `}
           >
             <div className="flex items-center gap-3">

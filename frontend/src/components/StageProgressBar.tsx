@@ -11,7 +11,7 @@ interface StageProgressBarProps {
 const stages = [
   { id: "validation" as WorkflowStage, label: "Validation", number: 1 },
   { id: "accent" as WorkflowStage, label: "Accent Selection", number: 2 },
-  { id: "particles" as WorkflowStage, label: "Particles", number: 3 },
+  { id: "particle-detection" as WorkflowStage, label: "Particle Detection", number: 3 },
 ];
 
 export function StageProgressBar({ 

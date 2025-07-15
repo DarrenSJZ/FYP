@@ -7,15 +7,17 @@ import { TextEditor } from "@/components/TextEditor";
 import { AudioUpload } from "@/components/AudioUpload";
 import { TranscriptionValidation } from "@/components/TranscriptionValidation";
 import { AccentSelection, type AccentOption } from "@/components/AccentSelection";
+import { ParticleDetection, type ParticleDetectionData, type PotentialParticle } from "@/components/ParticleDetection";
 import { DataSourceSelection } from "@/components/DataSourceSelection";
 import { StageNavigation } from "@/components/StageNavigation";
 import { DockerStatus as ConnectionStatus } from "@/components/DockerStatus";
+import { UserProfile } from "@/components/UserProfile";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Volume2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dockerAPI } from "@/lib/api";
 
-export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "accent" | "particles";
+export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "accent" | "particle-detection";
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
@@ -27,6 +29,8 @@ const Index = () => {
   const [currentStage, setCurrentStage] = useState<WorkflowStage>("mode-selection");
   const [audioFile, setAudioFile] = useState<File | undefined>(undefined);
   const [selectedAccent, setSelectedAccent] = useState<AccentOption | null>(null);
+  const [particleData, setParticleData] = useState<ParticleDetectionData | null>(null);
+  const [selectedParticles, setSelectedParticles] = useState<PotentialParticle[]>([]);
   const [practiceMode, setPracticeMode] = useState<'practice' | 'upload' | null>(null);
   const [practiceAudioUrl, setPracticeAudioUrl] = useState<string | undefined>(undefined);
   const [completedStages, setCompletedStages] = useState<Set<WorkflowStage>>(new Set());
@@ -100,8 +104,8 @@ const Index = () => {
         return completedStages.has("editor");
       case "accent":
         return completedStages.has("accent");
-      case "particles":
-        return completedStages.has("particles");
+      case "particle-detection":
+        return completedStages.has("particle-detection");
       default:
         return false;
     }
@@ -153,10 +157,61 @@ const Index = () => {
     }
   }, [currentStage, completedStages]);
 
-  const handleAccentSelected = (accent: AccentOption) => {
+  const handleAccentSelected = async (accent: AccentOption) => {
     setSelectedAccent(accent);
     setCompletedStages(prev => new Set([...prev, "accent"]));
-    setCurrentStage("particles");
+    
+    // Here we would typically call the backend to get particle detection data
+    // For now, using mock data based on the provided example
+    const mockParticleData: ParticleDetectionData = {
+      status: "success",
+      primary: transcriptionText,
+      alternatives: {
+        whisper: transcriptionText,
+        wav2vec: transcriptionText.toUpperCase(),
+        moonshine: transcriptionText,
+        mesolitica: transcriptionText.toLowerCase(),
+        vosk: transcriptionText.toLowerCase()
+      },
+      potential_particles: [
+        {
+          confidence: 0.7,
+          character_position: 21,
+          particle: "oh",
+          word_index: 4,
+          ipa: "ɔ",
+          region: "universal"
+        },
+        {
+          confidence: 0.6,
+          character_position: 24,
+          word_index: 5,
+          ipa: "ɪ",
+          particle: "eh",
+          region: "universal"
+        }
+      ],
+      metadata: {
+        confidence: 0.9,
+        processing_time: 5.451543092727661,
+        models_used: 6
+      }
+    };
+    
+    setParticleData(mockParticleData);
+    setCurrentStage("particle-detection");
+  };
+
+  const handleParticlesSelected = (particles: PotentialParticle[], llmSuggestion?: string) => {
+    setSelectedParticles(particles);
+    setCompletedStages(prev => new Set([...prev, "particle-detection"]));
+    
+    // Here you would typically submit the final data to the backend
+    console.log("Selected particles:", particles);
+    console.log("LLM suggestion:", llmSuggestion);
+    
+    // For now, just complete the workflow
+    handleNext();
   };
 
   const handleBack = () => {
@@ -177,7 +232,7 @@ const Index = () => {
       case "accent":
         setCurrentStage("validation");
         break;
-      case "particles":
+      case "particle-detection":
         setCurrentStage("accent");
         break;
       default:
@@ -200,9 +255,9 @@ const Index = () => {
         setCurrentStage("validation");
         break;
       case "accent":
-        setCurrentStage("particles");
+        setCurrentStage("particle-detection");
         break;
-      case "particles":
+      case "particle-detection":
         // Final stage - reset everything and start over
         setCompletedStages(new Set());
         setHasEditedTranscription(false);
@@ -210,6 +265,8 @@ const Index = () => {
         setAudioFile(undefined);
         setPracticeAudioUrl(undefined);
         setSelectedAccent(null);
+        setParticleData(null);
+        setSelectedParticles([]);
         setPracticeMode(null);
         setCurrentStage("mode-selection");
         break;
@@ -263,6 +320,8 @@ const Index = () => {
         <div className="flex items-center gap-3">
           <ConnectionStatus />
           <ThemeToggleButton />
+          <div className="h-6 w-px bg-muted-foreground/50" />
+          <UserProfile />
         </div>
       </header>
 
@@ -329,19 +388,25 @@ const Index = () => {
               />
               
               {/* Duolingo-style Audio Player - Above ribbon */}
-              {(audioFile || practiceAudioUrl) && (
+              {true && (
                 <div className="flex justify-center">
                   <Button
                     onClick={handleAudioPlayPause}
+                    disabled={!audioFile && !practiceAudioUrl}
                     className={`
                       px-6 py-4 rounded-2xl transition-all duration-200 
-                      ${isAudioPlaying 
-                        ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
-                        : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
+                      ${!audioFile && !practiceAudioUrl 
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
+                        : isAudioPlaying 
+                          ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
+                          : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
                       }
                       shadow-lg hover:shadow-xl border-b-4 
-                      ${isAudioPlaying ? 'border-accent/70' : 'border-primary/70'}
-                      active:border-b-2 active:translate-y-0.5
+                      ${!audioFile && !practiceAudioUrl 
+                        ? 'border-muted/70' 
+                        : isAudioPlaying ? 'border-accent/70' : 'border-primary/70'
+                      }
+                      ${!audioFile && !practiceAudioUrl ? '' : 'active:border-b-2 active:translate-y-0.5'}
                     `}
                   >
                     <div className="flex items-center gap-3">
@@ -400,16 +465,16 @@ const Index = () => {
             />
           )}
 
-          {currentStage === "particles" && (
-            <div className="text-center py-12 space-y-6">
-              <h2 className="text-2xl font-semibold mb-4">Particle Placement</h2>
-              <p className="text-muted-foreground">Stage 3: Particle placement coming soon...</p>
-              <StageNavigation
-                onBack={handleBack}
-                onNext={handleNext}
-                nextText="Start Over"
-              />
-            </div>
+          {currentStage === "particle-detection" && selectedAccent && particleData && (
+            <ParticleDetection
+              particleData={particleData}
+              selectedAccent={selectedAccent}
+              onParticlesSelected={handleParticlesSelected}
+              onBack={handleBack}
+              onNext={handleNext}
+              completedStages={completedStages}
+              onStageClick={handleStageClick}
+            />
           )}
         </div>
       </div>

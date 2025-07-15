@@ -1,12 +1,12 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { vim, getCM } from "@replit/codemirror-vim";
+import { vim, getCM, Vim } from "@replit/codemirror-vim";
 import { createTheme } from "@uiw/codemirror-themes";
 import { tags as t } from "@lezer/highlight";
 import { useTheme } from "next-themes";
 import { EditorView } from "@codemirror/view";
 
-type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "COMMAND";
+type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "V-BLOCK" | "COMMAND";
 
 interface TextEditorProps {
   fontSize: number;
@@ -117,58 +117,78 @@ export function TextEditor({
     setValue(initialContent);
   }, [initialContent]);
 
-  // Monitor VIM mode changes using getCM
+  // Monitor VIM mode changes using proper VIM API - with flicker prevention
   useEffect(() => {
-    if (!isVimEnabled || !editorRef.current?.view) return;
-
-    const checkVimMode = () => {
-      try {
-        const view = editorRef.current?.view;
-        if (!view) return;
-
-        // Use getCM to access the CM5 compatibility layer
-        const cm = getCM(view);
-        if (cm) {
-          let currentMode: VimMode = "NORMAL";
-          
-          // Check different ways to detect VIM mode
-          if (cm.state.keyMap === 'vim-insert') {
-            currentMode = "INSERT";
-          } else if (cm.state.vim && cm.state.vim.mode) {
-            // Try to access vim state directly
-            const mode = cm.state.vim.mode;
-            if (mode === "insert") {
-              currentMode = "INSERT";
-            } else if (mode === "visual") {
-              currentMode = "VISUAL";
-            } else if (mode === "visual-line") {
-              currentMode = "V-LINE";
-            } else if (mode === "command") {
-              currentMode = "COMMAND";
-            } else {
-              currentMode = "NORMAL";
-            }
-          }
-
-          if (currentMode !== vimMode) {
-            onVimModeChange(currentMode);
-          }
-        }
-      } catch (error) {
-        console.debug("VIM mode detection error:", error);
-      }
-    };
-
-    // Set initial mode to NORMAL when VIM is enabled
-    if (vimMode !== "NORMAL") {
+    if (!isVimEnabled) {
       onVimModeChange("NORMAL");
+      return;
     }
 
-    // Set up interval to check mode changes
-    const interval = setInterval(checkVimMode, 200);
-    
-    return () => clearInterval(interval);
-  }, [isVimEnabled, vimMode, onVimModeChange]);
+    // Set initial mode to NORMAL when VIM is enabled
+    onVimModeChange("NORMAL");
+
+    let lastReportedMode: VimMode = "NORMAL";
+
+    try {
+      const view = editorRef.current?.view;
+      if (!view) return;
+
+      // Use getCM to access the CM5 compatibility layer
+      const cm = getCM(view);
+      if (!cm) return;
+
+      const updateMode = (newMode: VimMode) => {
+        if (newMode !== lastReportedMode) {
+          lastReportedMode = newMode;
+          onVimModeChange(newMode);
+        }
+      };
+
+      // Use vim-mode-change event - better for visual modes
+      const handleVimModeChange = (modeInfo: any) => {
+        let currentMode: VimMode = "NORMAL";
+        
+        if (modeInfo.mode) {
+          const mode = modeInfo.mode.toLowerCase();
+          switch (mode) {
+            case "insert":
+              currentMode = "INSERT";
+              break;
+            case "visual":
+              currentMode = "VISUAL";
+              break;
+            case "visual-line":
+              currentMode = "V-LINE";
+              break;
+            case "visual-block":
+              currentMode = "V-BLOCK";
+              break;
+            case "command":
+              currentMode = "COMMAND";
+              break;
+            default:
+              currentMode = "NORMAL";
+          }
+        }
+
+        updateMode(currentMode);
+      };
+
+      // Listen to vim-mode-change events using CodeMirror's signal system
+      if (cm && typeof cm.on === 'function') {
+        cm.on('vim-mode-change', handleVimModeChange);
+
+        return () => {
+          if (cm.off) {
+            cm.off('vim-mode-change', handleVimModeChange);
+          }
+        };
+      }
+      
+    } catch (error) {
+      console.error("VIM mode detection setup error:", error);
+    }
+  }, [isVimEnabled, onVimModeChange]); // Removed vimMode from deps to prevent loops
 
   return (
     <div className="w-full">

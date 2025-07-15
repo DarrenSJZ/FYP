@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 
-from storage import get_signed_url, download_and_process_gcs_audio, run_in_model_env
+from deprecated.python_files.storage import get_signed_url, download_and_process_gcs_audio, run_in_model_env
 
 # ─── Load environment ─────────────────────────────────────────────────────────
 load_dotenv()  # picks up SUPABASE_URL and SUPABASE_KEY from .env

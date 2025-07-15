@@ -2,7 +2,7 @@ import { Terminal } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
-type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "COMMAND";
+type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "V-BLOCK" | "COMMAND";
 
 interface VimToggleProps {
   isVimEnabled: boolean;
@@ -55,7 +55,15 @@ export function VimToggle({ isVimEnabled, vimMode, onVimToggle }: VimToggleProps
         }`}>
           <Badge 
             variant="default"
-            className="text-xs bg-primary text-primary-foreground whitespace-nowrap ml-1"
+            className="text-xs text-white whitespace-nowrap ml-1 border-0"
+            style={{
+              backgroundColor: 
+                vimMode === "NORMAL" ? "#7492C9" :
+                vimMode === "INSERT" ? "#8F7EB2" :
+                vimMode === "VISUAL" || vimMode === "V-LINE" || vimMode === "V-BLOCK" ? "#96C5C7" :
+                vimMode === "COMMAND" ? "#8DAF69" :
+                "#7492C9" // Default to NORMAL color
+            }}
           >
             {vimMode}
           </Badge>
