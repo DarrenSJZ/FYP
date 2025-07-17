@@ -6,7 +6,7 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { TextEditor } from "@/components/TextEditor";
 import { AudioUpload } from "@/components/AudioUpload";
 import { TranscriptionValidation } from "@/components/TranscriptionValidation";
-import { TranscriptionChoiceStage } from "@/components/TranscriptionChoiceStage";
+import { PronounConsolidationStage } from "@/components/PronounConsolidationStage";
 import { AccentSelection, type AccentOption } from "@/components/AccentSelection";
 import { ParticleDetection, type ParticleDetectionData, type PotentialParticle } from "@/components/ParticleDetection";
 import { TranscriptionComparison } from "@/components/TranscriptionComparison";
@@ -19,7 +19,7 @@ import { Play, Pause, Volume2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dockerAPI } from "@/lib/api";
 
-export type WorkflowStage = "mode-selection" | "upload" | "validation" | "transcription-choice" | "editor" | "accent" | "particle-placement" | "comparison";
+export type WorkflowStage = "mode-selection" | "upload" | "validation" | "pronoun-consolidation" | "editor" | "accent" | "particle-placement" | "comparison";
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
@@ -300,7 +300,7 @@ const Index = () => {
   const handleTranscriptionChoiceSelected = (selectedOption: 'option_a' | 'option_b', selectedTranscription: string) => {
     setSelectedTranscriptionChoice(selectedOption);
     setTranscriptionText(selectedTranscription);
-    setCompletedStages(prev => new Set([...prev, "transcription-choice"]));
+    setCompletedStages(prev => new Set([...prev, "pronoun-consolidation"]));
     setCurrentStage("accent");
   };
 
@@ -728,7 +728,7 @@ const Index = () => {
           )}
 
           {currentStage === "transcription-choice" && cachedResults.consensusData?.transcription_choices && (
-            <TranscriptionChoiceStage
+            <PronounConsolidationStage
               audioFile={audioFile}
               audioUrl={practiceAudioUrl}
               transcriptionChoices={cachedResults.consensusData.transcription_choices}

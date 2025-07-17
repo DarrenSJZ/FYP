@@ -104,7 +104,14 @@ export function TranscriptionComparison({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 mb-8 flex flex-col items-center justify-center">
+    <div className="w-full max-w-6xl mx-auto space-y-8 pt-20 mb-8 flex flex-col items-center justify-center">
+      {/* Progress Bar */}
+      <StageProgressBar
+        currentStage="comparison"
+        completedStages={completedStages}
+        onStageClick={onStageClick}
+      />
+
       {/* Stage Header */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Transcription Comparison</h2>
@@ -113,25 +120,20 @@ export function TranscriptionComparison({
         </p>
       </div>
 
-      {/* Progress Bar */}
-      <StageProgressBar
-        currentStage="comparison"
-        completedStages={completedStages}
-        onStageClick={onStageClick}
-      />
-
       {/* Navigation */}
       <div className="w-full">
         <StageNavigation
           onBack={onBack}
-          showNext={false}
+          onNext={handleSubmit}
+          nextText="Finish"
+          nextDisabled={!selectedOption || isSubmitting}
         />
       </div>
 
       {/* Conditional Rendering for Comparison Options */}
       {isExactMatch ? (
         <div
-          className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 w-full ${
+          className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 w-full max-w-6xl ${
             selectedOption === 'ai' 
               ? 'border-primary bg-primary/5' 
               : 'border-border hover:border-primary/50'
@@ -153,11 +155,11 @@ export function TranscriptionComparison({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="w-full max-w-6xl flex flex-col md:flex-row gap-6 items-stretch">
           {/* AI Generated Option (Step 5) */}
           {hasAiTranscription && (
             <div
-              className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
+              className={`flex-1 cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
                 selectedOption === 'ai' 
                   ? 'border-primary bg-primary/5' 
                   : 'border-border hover:border-primary/50'
@@ -180,9 +182,16 @@ export function TranscriptionComparison({
             </div>
           )}
 
+          {/* OR Separator */}
+          <div className="flex items-center justify-center md:px-4">
+            <div className="bg-background px-3 py-1 rounded-full border border-border shadow-sm">
+              <span className="text-sm font-medium text-muted-foreground">OR</span>
+            </div>
+          </div>
+
           {/* User Option */}
           <div
-            className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
+            className={`flex-1 cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
               selectedOption === 'user' 
                 ? 'border-primary bg-primary/5' 
                 : 'border-border hover:border-primary/50'
@@ -206,6 +215,10 @@ export function TranscriptionComparison({
         </div>
       )}
 
+      
+
+      <div className="w-full border-t border-border my-4"></div>
+
       {/* Submit Button */}
       <div className="flex justify-center pt-4">
         <Button
@@ -220,7 +233,7 @@ export function TranscriptionComparison({
       </div>
 
       {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground py-8">
+      <div className="text-center text-sm text-muted-foreground py-4">
         <p>
           {hasAiTranscription ? 'The AI Generated Transcript represents the final integration of all pipeline steps.' : 'Select the transcription that best represents the audio.'}
         </p>

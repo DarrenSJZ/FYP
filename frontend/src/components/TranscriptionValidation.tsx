@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Volume2, Edit3, Play, Pause, Speaker } from "lucide-react";
+import { CheckCircle, XCircle, Volume2, Edit3, Play, Pause, Speaker, Lightbulb } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
@@ -125,7 +125,14 @@ export function TranscriptionValidation({
   }, [audioFile]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-8 flex flex-col items-center justify-center">
+    <div className="w-full max-w-6xl mx-auto space-y-8 flex flex-col items-center justify-center">
+      {/* Progress Bar - Second */}
+      <StageProgressBar
+        currentStage="validation"
+        completedStages={completedStages}
+        onStageClick={onStageClick}
+      />
+
       {/* Stage Header - At the tippity top */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Transcription Validation</h2>
@@ -133,13 +140,6 @@ export function TranscriptionValidation({
           Please verify if the transcription below matches the audio
         </p>
       </div>
-
-      {/* Progress Bar - Second */}
-      <StageProgressBar
-        currentStage="validation"
-        completedStages={completedStages}
-        onStageClick={onStageClick}
-      />
 
       {/* Navigation - Third */}
       <div className="w-full">
@@ -189,19 +189,20 @@ export function TranscriptionValidation({
       )}
 
       {/* Transcription Display - Boxed */}
-      <div className="text-center space-y-6">
-        <h3 className="text-lg font-medium text-muted-foreground">Generated Transcription</h3>
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-            <p className="text-lg leading-relaxed text-left">
-              {originalTranscription || "No transcription available"}
-            </p>
-          </div>
+      <div className="w-full max-w-2xl mx-auto space-y-2">
+        <div className="flex items-center gap-3 mb-2">
+          <Lightbulb className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold">Generated Transcription</h3>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Review the automatically generated transcription above
-        </p>
+        <p className="text-sm text-muted-foreground pb-4">Review the automatically generated transcription above</p>
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <p className="text-lg leading-relaxed text-left">
+            {originalTranscription || "No transcription available"}
+          </p>
+        </div>
       </div>
+      <div className="w-full flex justify-between items-center pb-6 border-b border-border"></div>
+      
 
       {/* Validation Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -10,9 +10,10 @@ interface StageProgressBarProps {
 
 const stages = [
   { id: "validation" as WorkflowStage, label: "Validation", number: 1 },
-  { id: "accent" as WorkflowStage, label: "Accent Selection", number: 2 },
-  { id: "particle-placement" as WorkflowStage, label: "Particle Placement", number: 3 },
-  { id: "comparison" as WorkflowStage, label: "Final Comparison", number: 4 },
+  { id: "pronoun-consolidation" as WorkflowStage, label: "Pronoun Consolidation", number: 2 },
+  { id: "accent" as WorkflowStage, label: "Accent Selection", number: 3 },
+  { id: "particle-placement" as WorkflowStage, label: "Particle Placement", number: 4 },
+  { id: "comparison" as WorkflowStage, label: "Final Comparison", number: 5 },
 ];
 
 export function StageProgressBar({ 
@@ -31,7 +32,7 @@ export function StageProgressBar({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full">
       <div className="flex items-center justify-center gap-8">
         {stages.map((stage, index) => {
           const status = getStageStatus(stage.id);

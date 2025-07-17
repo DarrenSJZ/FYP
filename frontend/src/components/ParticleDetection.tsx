@@ -91,12 +91,17 @@ export function ParticleDetection({
 
   // Get relevant particles for the selected accent
   const getRelevantParticles = () => {
-    const accentKey = selectedAccent.discourseParticles || "unknown";
+    const accentKey = selectedAccent.discourseParticles || "unknown" || "none";
     
     // If unknown, return all particles from all regions
     if (accentKey === "unknown") {
       const allParticles = Object.values(DISCOURSE_PARTICLES).flat();
       return [...new Set(allParticles)]; // Remove duplicates
+    } 
+
+    if (accentKey === "none"){
+      const allParticles = Object.values(DISCOURSE_PARTICLES).flat();
+      return ["N/A"];
     }
     
     return DISCOURSE_PARTICLES[accentKey as keyof typeof DISCOURSE_PARTICLES] || DISCOURSE_PARTICLES.unknown;
@@ -243,6 +248,13 @@ export function ParticleDetection({
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12 flex flex-col items-center justify-center">
+        {/* Progress Bar */}
+      <StageProgressBar
+        currentStage="particle-placement"
+        completedStages={completedStages}
+        onStageClick={onStageClick}
+      />
+
         {/* Stage Header */}
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold">Particle Placement</h2>
@@ -250,13 +262,6 @@ export function ParticleDetection({
             Drag discourse particles into the sentence where you think they belong
           </p>
         </div>
-
-      {/* Progress Bar */}
-      <StageProgressBar
-        currentStage="particle-placement"
-        completedStages={completedStages}
-        onStageClick={onStageClick}
-      />
 
       {/* Navigation */}
       <div className="w-full">
@@ -325,6 +330,7 @@ export function ParticleDetection({
           </div>
         </div>
       </div>
+      <div className="w-full border-t border-border my-4"></div>
 
       {/* Mode indicators */}
       {selectedAccent.discourseParticles === "unknown" && (
@@ -339,7 +345,7 @@ export function ParticleDetection({
       )}
       
       {/* Drag and Drop Interface */}
-      <Card className="rounded-2xl">
+      <Card className="w-full rounded-2xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Zap className="h-5 w-5" />
@@ -531,11 +537,13 @@ export function ParticleDetection({
       </CardContent>
     </Card>
 
+      <div className="w-full flex justify-between items-center pb-6 border-b border-border"></div>
+
       {/* Continue Button */}
       <div className="flex justify-center pt-4">
         <Button
           onClick={handleContinue}
-          disabled={!useNoneOption && placedParticles.length === 0}
+          disabled={(!useNoneOption && placedParticles.length === 0) && unusedParticles.length > 0}
           size="lg"
           className="gap-2 px-8"
         >

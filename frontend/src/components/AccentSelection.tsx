@@ -134,6 +134,13 @@ const otherAccentOptions: AccentOption[] = [
     examples: ["auto-detect", "AI-guided", "unsure"],
     region: "Auto-detect",
     discourseParticles: "unknown"
+  },
+  {
+    id: "none",
+    name: "None",
+    description: "No specific accent or particles",
+    region: "None",
+    discourseParticles: "none"
   }
 ];
 
@@ -167,8 +174,15 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
     //   cachedDataExists: !!cachedResults?.particleDataByAccent?.[accentKey]
     // });
     
-    // ALWAYS make API call for accent-specific particle filtering
-    // (cached data doesn't have accent filtering, we need fresh accent-specific results)
+    // Check if this accent has already been processed for the current file
+    const fileHasChanged = hasFileChanged?.(audioFile);
+    const isAlreadyProcessed = hasProcessedAccent && currentAccent?.id === selectedAccent.id && !fileHasChanged;
+
+    if (isAlreadyProcessed) {
+      console.log(`Accent ${selectedAccent.name} already processed for this file. Skipping API call.`);
+      onAccentSelected(selectedAccent);
+      return;
+    }
     
     console.log(`Making API call for accent-specific particle filtering: ${accentKey}`);
     setIsProcessing(true);
@@ -298,7 +312,16 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-8 pt-12 pb-12">
+    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12">
+      {/* Progress Bar - Second */}
+      <div className="w-full">
+        <StageProgressBar
+          currentStage="accent"
+          completedStages={completedStages}
+          onStageClick={onStageClick}
+        />
+      </div>
+
       {/* Stage Header - At the tippity top */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Accent Selection</h2>
@@ -306,13 +329,6 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
           Based on the transcription, which accent do you think the speaker has?
         </p>
       </div>
-
-      {/* Progress Bar - Second */}
-      <StageProgressBar
-        currentStage="accent"
-        completedStages={completedStages}
-        onStageClick={onStageClick}
-      />
 
       {/* Debug Info */}
       {/* {process.env.NODE_ENV === 'development' && (
@@ -376,7 +392,7 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Globe className="h-5 w-5" />
-          <h3 className="text-lg font-semibold">Transcription</h3>
+          <h3 className="text-lg font-semibold">Current Transcription</h3>
         </div>
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm max-h-32 overflow-y-auto">
           <p className="text-sm leading-relaxed">
@@ -392,7 +408,7 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
           {accentOptions.map((accent) => (
             <div
               key={accent.id}
-              className={`cursor-pointer transition-all duration-200 p-4 rounded-lg border-2 ${
+              className={`cursor-pointer transition-all duration-200 p-4 rounded-xl border-2 ${
                 selectedAccent?.id === accent.id
                   ? "border-primary bg-primary/5"
                   : "border-border hover:border-primary/50 hover:bg-muted/30"
@@ -433,7 +449,7 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
           ))}
           
           {/* Other Accents Dropdown - Minimal */}
-          <div className="cursor-pointer transition-all duration-200 p-4 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-muted/30">
+          <div className="cursor-pointer transition-all duration-200 p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-muted/30">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <div className="flex items-center justify-between w-full">
@@ -483,6 +499,8 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
           </div>
         </div>
       </div>
+
+      <div className="w-full flex justify-between items-center pb-6 border-b border-border"></div>
 
       {/* Continue Button */}
       <div className="flex justify-center pt-4">
