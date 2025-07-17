@@ -6,41 +6,56 @@ import json
 def get_particle_detection_prompt(discourse_particles, allosaurus_phonemes, timing_summary, timing_data, consensus_transcript):
     """Generate IPA particle detection prompt"""
     words = consensus_transcript.split()
-    return f"""Analyze IPA phonemes to identify potential discourse particles with confidence scores.
+    
+    # Extract region name and particles for cleaner prompt
+    region_name = list(discourse_particles.keys())[0] if discourse_particles else "unknown"
+    particle_list = list(discourse_particles.values())[0] if discourse_particles else []
+    
+    # Defensive: ensure timing_data is a list of dicts
+    if not isinstance(timing_data, list):
+        timing_data = []
+    elif any(not isinstance(item, dict) for item in timing_data):
+        timing_data = [item for item in timing_data if isinstance(item, dict)]
 
-**Reference Particles by Region**:
-{json.dumps(discourse_particles, indent=2)}
+    return f"""Analyze IPA phonemes to identify *potential* discourse particles. Your goal is to suggest plausible particle occurrences for human review, even if phonetic matches are not perfect.
+
+**Target Particles**: {particle_list}
+**Accent/Region**: {region_name}
 
 **Consensus Transcript**: "{consensus_transcript}"
 **Word Count**: {len(words)} words
 **Words**: {words}
 
 **IPA Phonemes**:
-{allosaurus_phonemes}
+{' '.join(allosaurus_phonemes)}
 
-**Timing Reference**:
+**Timing Reference (Summary)**:
 {timing_summary}
 
-**Task**:
-- Scan the IPA sequence for consecutive phoneme sequences that could match particles from the reference lists
-- Be liberal in detecting potential particles - even partial matches should be considered
-- For each potential particle, provide:
-  - <particle>: the matched particle from reference (or closest match)
-  - <ipa>: the source IPA phoneme sequence  
-  - <confidence>: confidence score (0.0-1.0) based on phonetic match quality
-  - <word_index>: word position to insert after (0-based index, max {len(words)})
-  - <character_position>: exact character position in transcript string
-  - <region>: which regional set it belongs to (southeast_asian, british, indian, universal)
+**Timing Data (Detailed)**:
+{json.dumps(timing_data, indent=2)}
 
-**Guidance**:
-- BE GENEROUS with potential matches - look for sounds that could be particles
-- Consider phonetic variations and pronunciation differences
-- Even words already in the transcript might have particle-like usage (e.g., "man" as discourse marker)
-- Assign confidence based on phonetic similarity (0.3+ for loose matches, 0.7+ for clear matches)
+**Task**:
+- ONLY suggest particles from the target particles list above: {particle_list}
+- Scan the IPA sequence for consecutive phoneme sequences that *plausibly* represent these particles.
+- **Be lenient with phonetic variations**: For example, 'la' might appear as 'lɑ', 'lə', or even a reduced form. Focus on sequences that are phonetically *similar enough* to the target particle.
+- For each *potential* particle, provide:
+  - <particle>: the EXACT particle from target list (e.g., 'la', 'lor')
+  - <ipa>: the source IPA phoneme sequence that you believe represents the particle
+  - <confidence>: confidence score (0.0-1.0) based on phonetic similarity (higher for closer matches, lower for more varied but plausible matches)
+  - <word_index>: word position to insert after (0-based index, max {len(words)}). 0 means before the first word.
+  - <character_position>: exact character index in transcript string where the particle should be inserted.
+  - <region>: "{region_name}"
+
+**IMPORTANT CONSIDERATIONS FOR SUGGESTIONS**:
+- **Human Validation**: Your suggestions will be reviewed by a human. It is better to suggest a plausible particle that might be incorrect than to miss a real one.
+- **Distinguishing from main content**: While phonetic overlap can occur, discourse particles are typically short, unstressed, and do not carry significant semantic meaning within the sentence. Prioritize sequences that *function* as particles rather than being integral parts of words.
+- DO NOT invent new particles or suggest words not in the target list.
+- If no strong matches are found, still suggest 1–3 of the most plausible candidates from the target list, even if confidence is low or the match is uncertain.
+- Your output will be reviewed by a human, so it is better to suggest possible candidates than to return an empty list.
 - Calculate word_index as 0-based position (0=before first word, 1=after first word, etc.)
-- Calculate character_position as exact character index in transcript string
+- Calculate character_position as exact character index in transcript string.
 - Example: For transcript "Don't be like that" - inserting after "like" would be word_index=2, character_position=14
-- Return at least 1-2 potential particles with varying confidence scores when phonemes are present
 
 Call the find_discourse_particles function with your analysis."""
 

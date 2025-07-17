@@ -21,13 +21,16 @@ def get_final_transcription_prompt(consensus_data, search_data, validated_data, 
 
 **Particle Detection**:
 - Detected particles: {particle_data.get('detected_particles', [])}
-- Base transcription: "{particle_data['base_transcription']}"
+- Base transcription: "{particle_data.get('base_transcription', '')}"
 - IPA interpretation: {particle_data.get('ipa_interpretation', {})}
 
+**Timing Data (Detailed)**:
+{json.dumps(particle_data.get('timing_data', []), indent=2)}
 
 **Task**:
 - Synthesize all analysis into the highest quality final transcription
-- Integrate detected particles where linguistically appropriate
+- Integrate detected particles where linguistically and phonetically appropriate
+- Use the detailed timing data above to inform the most accurate and natural placement of each particle in the final sentence
 - Ensure transcription accuracy while preserving natural speech patterns
 - Provide confidence assessment and rationale for decisions
 
@@ -35,6 +38,6 @@ def get_final_transcription_prompt(consensus_data, search_data, validated_data, 
 - Prioritize validated transcription as the base
 - Add particles only where they improve transcription quality
 - Maintain natural speech flow and readability
-- Consider context and speaker intent
+- Consider context, speaker intent, and phoneme timing for placement
 
 Call the generate_final_transcription function with your analysis."""

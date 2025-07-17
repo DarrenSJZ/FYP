@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,31 +11,41 @@ import type { PotentialParticle } from "./ParticleDetection";
 
 interface TranscriptionComparisonProps {
   originalTranscription: string;
-  llmTranscription: string;
   userTranscription: string;
   selectedAccent: AccentOption;
   selectedParticles: PotentialParticle[];
-  onTranscriptionSelected: (selection: 'llm' | 'user', finalTranscription: string) => void;
+  onTranscriptionSelected: (selection: 'ai' | 'user', finalTranscription: string) => void;
   onBack: () => void;
   completedStages: Set<WorkflowStage>;
   onStageClick?: (stage: WorkflowStage) => void;
+  aiGeneratedTranscription?: string; // AI-generated transcription from Step 5
 }
 
 export function TranscriptionComparison({
   originalTranscription,
-  llmTranscription,
   userTranscription,
   selectedAccent,
   selectedParticles,
   onTranscriptionSelected,
   onBack,
   completedStages,
-  onStageClick
+  onStageClick,
+  aiGeneratedTranscription
 }: TranscriptionComparisonProps) {
-  const [selectedOption, setSelectedOption] = useState<'llm' | 'user' | null>(null);
+  const [selectedOption, setSelectedOption] = useState<'ai' | 'user' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleOptionSelect = (option: 'llm' | 'user') => {
+  const hasAiTranscription = aiGeneratedTranscription && aiGeneratedTranscription.trim().length > 0;
+  const isExactMatch = hasAiTranscription && aiGeneratedTranscription === userTranscription;
+
+  // Automatically select AI if exact match
+  useEffect(() => {
+    if (isExactMatch) {
+      setSelectedOption('ai');
+    }
+  }, [isExactMatch]);
+
+  const handleOptionSelect = (option: 'ai' | 'user') => {
     setSelectedOption(option);
   };
 
@@ -45,7 +55,42 @@ export function TranscriptionComparison({
     setIsSubmitting(true);
     
     try {
-      const finalTranscription = selectedOption === 'llm' ? llmTranscription : userTranscription;
+      let finalTranscription = selectedOption === 'ai' ? aiGeneratedTranscription : userTranscription;
+      
+      // If user made manual particle selections, send them back to backend for final transcription
+      if (selectedOption === 'user' && selectedParticles.length > 0) {
+        const storedFileName = sessionStorage.getItem('uploadedFileName');
+        if (storedFileName) {
+          try {
+            // Prepare human particle data
+            const humanParticleData = {
+              particles: selectedParticles,
+              positions: {}, // Could be enhanced to include positions
+              accent: selectedAccent.discourseParticles
+            };
+            
+            // Make second call to backend with human particles
+            const formData = new FormData();
+            // Note: We'd need to store the actual file, not just the name
+            // For now, we'll use the stored particle data and human selections
+            formData.append('human_particles', JSON.stringify(humanParticleData));
+            formData.append('context', 'Human particle integration');
+            
+            console.log('Sending human particles to backend:', humanParticleData);
+            
+            // TODO: Implement actual second API call when we have the audio file stored
+            // const response = await fetch('http://localhost:8000/transcribe-with-gemini', {
+            //   method: 'POST',
+            //   body: formData,
+            // });
+            // const result = await response.json();
+            // finalTranscription = result.primary || finalTranscription;
+            
+          } catch (error) {
+            console.error('Failed to send human particles to backend:', error);
+          }
+        }
+      }
       
       // Simulate database submission
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -59,12 +104,12 @@ export function TranscriptionComparison({
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12 flex flex-col items-center justify-center">
+    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 mb-8 flex flex-col items-center justify-center">
       {/* Stage Header */}
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Transcription Comparison</h2>
         <p className="text-muted-foreground">
-          Choose the best transcription to save to the database
+          {hasAiTranscription ? 'Choose between the AI-generated transcript and your manual placement' : 'Choose the best transcription to save to the database'}
         </p>
       </div>
 
@@ -79,61 +124,105 @@ export function TranscriptionComparison({
       <div className="w-full">
         <StageNavigation
           onBack={onBack}
-          onNext={handleSubmit}
-          nextText={isSubmitting ? "Submitting..." : "Next"}
-          nextDisabled={!selectedOption || isSubmitting}
+          showNext={false}
         />
       </div>
 
-      {/* Comparison Options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* LLM Option */}
+      {/* Conditional Rendering for Comparison Options */}
+      {isExactMatch ? (
         <div
-          className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
-            selectedOption === 'llm' 
+          className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 w-full ${
+            selectedOption === 'ai' 
               ? 'border-primary bg-primary/5' 
               : 'border-border hover:border-primary/50'
           }`}
-          onClick={() => handleOptionSelect('llm')}
+          onClick={() => handleOptionSelect('ai')}
         >
           <div className="flex items-center gap-2 mb-4">
-            <Brain className="h-5 w-5" />
-            <span className="font-semibold">AI-Generated</span>
-            {selectedOption === 'llm' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
+            <Sparkles className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-primary">Perfect Match!</span>
+            {selectedOption === 'ai' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
           </div>
           <div className="bg-card border border-border rounded-xl p-4">
             <p className="text-sm leading-relaxed">
-              {llmTranscription}
+              Your manual placement perfectly matches the AI-generated transcription.
+            </p>
+            <p className="text-sm leading-relaxed mt-2 font-medium">
+              {aiGeneratedTranscription}
             </p>
           </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* AI Generated Option (Step 5) */}
+          {hasAiTranscription && (
+            <div
+              className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
+                selectedOption === 'ai' 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-primary/50'
+              }`}
+              onClick={() => handleOptionSelect('ai')}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-primary">AI Generated Transcript</span>
+                {selectedOption === 'ai' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
+              </div>
+              <div className="bg-card border border-border rounded-xl p-4">
+                <p className="text-sm leading-relaxed">
+                  {aiGeneratedTranscription}
+                </p>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                Final AI integration of all pipeline steps
+              </div>
+            </div>
+          )}
 
-        {/* User Option */}
-        <div
-          className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
-            selectedOption === 'user' 
-              ? 'border-primary bg-primary/5' 
-              : 'border-border hover:border-primary/50'
-          }`}
-          onClick={() => handleOptionSelect('user')}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <User className="h-5 w-5" />
-            <span className="font-semibold">Your Manual Placement</span>
-            {selectedOption === 'user' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
-          </div>
-          <div className="bg-card border border-border rounded-xl p-4">
-            <p className="text-sm leading-relaxed">
-              {userTranscription}
-            </p>
+          {/* User Option */}
+          <div
+            className={`cursor-pointer transition-all duration-200 p-6 rounded-2xl border-2 ${
+              selectedOption === 'user' 
+                ? 'border-primary bg-primary/5' 
+                : 'border-border hover:border-primary/50'
+            }`}
+            onClick={() => handleOptionSelect('user')}
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <User className="h-5 w-5" />
+              <span className="font-semibold">Your Manual Placement</span>
+              {selectedOption === 'user' && <CheckCircle2 className="h-5 w-5 text-primary ml-auto" />}
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4">
+              <p className="text-sm leading-relaxed">
+                {userTranscription}
+              </p>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Manual particle placement
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Submit Button */}
+      <div className="flex justify-center pt-4">
+        <Button
+          onClick={handleSubmit}
+          disabled={!selectedOption || isSubmitting}
+          size="lg"
+          className="gap-2 px-8"
+        >
+          {isSubmitting ? "Submitting..." : "Submit"}
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground">
+      <div className="text-center text-sm text-muted-foreground py-8">
         <p>
-          Select the transcription that best represents the audio.
+          {hasAiTranscription ? 'The AI Generated Transcript represents the final integration of all pipeline steps.' : 'Select the transcription that best represents the audio.'}
         </p>
       </div>
     </div>

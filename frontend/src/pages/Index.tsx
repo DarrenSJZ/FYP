@@ -38,8 +38,65 @@ const Index = () => {
   const [completedStages, setCompletedStages] = useState<Set<WorkflowStage>>(new Set());
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [hasEditedTranscription, setHasEditedTranscription] = useState(false);
+  
+  // Cache for API results to avoid redundant calls
+  const [cachedResults, setCachedResults] = useState<{
+    consensusData?: any;
+    particleDataByAccent?: { [accentKey: string]: ParticleDetectionData };
+    lastProcessedFile?: { name: string; size: number; lastModified: number };
+    practiceAudioId?: string;
+  }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
+
+  // Helper function to check if file has changed
+  const hasFileChanged = (file?: File) => {
+    if (!file || !cachedResults.lastProcessedFile) return true;
+    
+    const currentFile = {
+      name: file.name,
+      size: file.size,
+      lastModified: file.lastModified
+    };
+    
+    const lastFile = cachedResults.lastProcessedFile;
+    return (
+      currentFile.name !== lastFile.name ||
+      currentFile.size !== lastFile.size ||
+      currentFile.lastModified !== lastFile.lastModified
+    );
+  };
+
+  // Helper function to clear cache
+  const clearCache = () => {
+    setCachedResults({});
+    setAudioFile(undefined);
+    setTranscriptionText("");
+    setSelectedAccent(null);
+    setParticleData(null);
+    setSelectedParticles([]);
+    setUserTranscription("");
+    setCompletedStages(new Set());
+    setPracticeAudioUrl(undefined);
+    
+    // Clear session storage as well
+    sessionStorage.removeItem('particleData');
+    sessionStorage.removeItem('uploadedFileName');
+    sessionStorage.removeItem('uploadedFileBlob');
+    
+    console.log('Cache and all related state cleared, including session storage');
+  };
+
+  // Helper function to update cache for accent-specific particle data
+  const updateCacheForAccent = (accentKey: string, particleData: any) => {
+    setCachedResults(prev => ({
+      ...prev,
+      particleDataByAccent: {
+        ...prev.particleDataByAccent,
+        [accentKey]: particleData
+      }
+    }));
+  };
 
   const handleVimToggle = () => {
     setIsVimEnabled(!isVimEnabled);
@@ -121,9 +178,51 @@ const Index = () => {
     }
   };
 
-  const handleTranscriptionComplete = (text: string, file?: File) => {
+  const handleTranscriptionComplete = async (text: string, file?: File, consensusData?: any) => {
     setTranscriptionText(text);
     setAudioFile(file);
+    
+    // Cache the consensus data and file info - always cache if we have the data
+    if (consensusData) {
+      setCachedResults(prev => ({
+        ...prev,
+        consensusData,
+        lastProcessedFile: file ? {
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified
+        } : prev.lastProcessedFile
+      }));
+
+      // Initialize autocomplete service
+      try {
+        const autocompleteData = {
+          final_transcription: consensusData.primary,
+          confidence_score: consensusData.metadata?.confidence || 0,
+          detected_particles: consensusData.potential_particles || [],
+          asr_alternatives: consensusData.alternatives || {},
+        };
+
+        const audioIdForAutocomplete = file?.name || 'unknown';
+
+        const initResponse = await fetch('http://localhost:8007/initialize?audio_id=' + audioIdForAutocomplete, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(autocompleteData),
+        });
+        
+        if (initResponse.ok) {
+          console.log('Autocomplete service initialized successfully for audio_id:', audioIdForAutocomplete);
+        } else {
+          console.error('Failed to initialize autocomplete service:', initResponse.status, initResponse.statusText);
+        }
+      } catch (error) {
+        console.error('Failed to initialize autocomplete service:', error);
+      }
+    }
+    
     setCompletedStages(prev => new Set([...prev, "upload"]));
     setCurrentStage("validation");
   };
@@ -137,8 +236,38 @@ const Index = () => {
     }
   };
 
-  const handleEditRequest = () => {
+  const handleEditRequest = async () => {
+    console.log('DEBUG: handleEditRequest called');
+    console.log('DEBUG: cachedResults.consensusData exists:', !!cachedResults.consensusData);
+    
     setHasEditedTranscription(completedStages.has("editor")); // Enable if already completed
+    
+    // Initialize autocomplete service with consensus data
+    if (cachedResults.consensusData) {
+      try {
+        console.log('DEBUG: About to initialize autocomplete with:', {
+          audio_filename: cachedResults.consensusData.audio_filename,
+          primary: cachedResults.consensusData.primary?.substring(0, 50)
+        });
+        
+        const response = await fetch('http://localhost:8000/initialize-autocomplete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(cachedResults.consensusData),
+        });
+        
+        if (response.ok) {
+          console.log('Autocomplete service initialized successfully');
+        } else {
+          console.error('Failed to initialize autocomplete service:', response.status);
+        }
+      } catch (error) {
+        console.error('Error initializing autocomplete service:', error);
+      }
+    }
+    
     setCurrentStage("editor");
   };
 
@@ -161,48 +290,153 @@ const Index = () => {
     }
   }, [currentStage, completedStages]);
 
+  // Initialize cache from session storage on mount
+  useEffect(() => {
+    const storedParticleData = sessionStorage.getItem('particleData');
+    const storedFileName = sessionStorage.getItem('uploadedFileName');
+    const storedFileBlob = sessionStorage.getItem('uploadedFileBlob');
+    
+    if (storedParticleData && !cachedResults.consensusData) {
+      try {
+        const result = JSON.parse(storedParticleData);
+        setCachedResults(prev => ({
+          ...prev,
+          consensusData: result
+        }));
+      } catch (error) {
+        console.error('Failed to restore cache from session storage:', error);
+      }
+    }
+
+    // Restore audio file if we have the data but no current file
+    if (storedFileName && storedFileBlob && !audioFile) {
+      try {
+        fetch(storedFileBlob)
+          .then(response => response.blob())
+          .then(blob => {
+            const restoredFile = new File([blob], storedFileName, { type: blob.type || 'audio/wav' });
+            setAudioFile(restoredFile);
+            
+            // Also restore the file metadata for cache tracking
+            setCachedResults(prev => ({
+              ...prev,
+              lastProcessedFile: {
+                name: restoredFile.name,
+                size: restoredFile.size,
+                lastModified: restoredFile.lastModified
+              }
+            }));
+            
+            console.log('Restored audio file from session storage:', storedFileName);
+          })
+          .catch(error => {
+            console.error('Failed to restore audio file:', error);
+          });
+      } catch (error) {
+        console.error('Failed to restore audio file from blob data:', error);
+      }
+    }
+  }, []); // Only run once on mount
+
+  // Restore file from cache when navigating back to upload stage
+  useEffect(() => {
+    if (currentStage === "upload" && cachedResults.consensusData && !audioFile) {
+      const storedFileName = sessionStorage.getItem('uploadedFileName');
+      const storedFileBlob = sessionStorage.getItem('uploadedFileBlob');
+      const storedParticleData = sessionStorage.getItem('particleData');
+      
+      // Only restore if ALL required session storage data exists
+      if (storedFileName && storedFileBlob && storedParticleData) {
+        console.log('Restoring file during navigation back to upload stage...');
+        fetch(storedFileBlob)
+          .then(response => response.blob())
+          .then(blob => {
+            const restoredFile = new File([blob], storedFileName, { type: blob.type || 'audio/wav' });
+            setAudioFile(restoredFile);
+            console.log('Restored file during navigation:', storedFileName);
+          })
+          .catch(error => {
+            console.error('Failed to restore file during navigation:', error);
+          });
+      } else {
+        console.log('File restoration skipped - session storage data missing or incomplete');
+      }
+    }
+  }, [currentStage, cachedResults.consensusData, audioFile]);
+
+  // Restore transcription state when navigating back to upload stage with cached data
+  useEffect(() => {
+    if (currentStage === "upload" && cachedResults.consensusData && !transcriptionText) {
+      setTranscriptionText(cachedResults.consensusData.primary || '');
+      setCompletedStages(prev => new Set([...prev, "upload"]));
+    }
+  }, [currentStage, cachedResults.consensusData, transcriptionText]);
+
+  // Fail-safe: Ensure cache is synchronized when navigating to any stage
+  useEffect(() => {
+    const storedParticleData = sessionStorage.getItem('particleData');
+    const storedFileName = sessionStorage.getItem('uploadedFileName');
+    const storedFileBlob = sessionStorage.getItem('uploadedFileBlob');
+    
+    // Only restore if ALL session storage data exists (prevents partial restoration after file removal)
+    if (storedParticleData && storedFileName && storedFileBlob && !cachedResults.consensusData) {
+      try {
+        const result = JSON.parse(storedParticleData);
+        console.log('Fail-safe: Restoring cache from session storage during navigation');
+        setCachedResults(prev => ({
+          ...prev,
+          consensusData: result
+        }));
+      } catch (error) {
+        console.error('Fail-safe cache restoration failed:', error);
+      }
+    }
+  }, [currentStage, cachedResults.consensusData]);
+
   const handleAccentSelected = async (accent: AccentOption) => {
     setSelectedAccent(accent);
     setCompletedStages(prev => new Set([...prev, "accent"]));
     
-    // Here we would typically call the backend to get particle detection data
-    // For now, using mock data based on the provided example
-    const mockParticleData: ParticleDetectionData = {
-      status: "success",
-      primary: transcriptionText,
-      alternatives: {
-        whisper: transcriptionText,
-        wav2vec: transcriptionText.toUpperCase(),
-        moonshine: transcriptionText,
-        mesolitica: transcriptionText.toLowerCase(),
-        vosk: transcriptionText.toLowerCase()
-      },
-      potential_particles: [
-        {
-          confidence: 0.7,
-          character_position: 21,
-          particle: "oh",
-          word_index: 4,
-          ipa: "ɔ",
-          region: "universal"
-        },
-        {
-          confidence: 0.6,
-          character_position: 24,
-          word_index: 5,
-          ipa: "ɪ",
-          particle: "eh",
-          region: "universal"
-        }
-      ],
-      metadata: {
-        confidence: 0.9,
-        processing_time: 5.451543092727661,
-        models_used: 6
-      }
-    };
+    // Get the particle data from session storage (stored during transcription)
+    const storedParticleData = sessionStorage.getItem('particleData');
     
-    setParticleData(mockParticleData);
+    if (storedParticleData) {
+      try {
+        const parsedData = JSON.parse(storedParticleData);
+        parsedData.primary = transcriptionText; // Use the latest transcription
+        setParticleData(parsedData);
+      } catch (error) {
+        console.error('Failed to parse stored particle data:', error);
+        // Fallback to a basic structure
+        const fallbackData: ParticleDetectionData = {
+          status: "success",
+          primary: transcriptionText,
+          alternatives: {},
+          potential_particles: [],
+          metadata: {
+            confidence: 0.8,
+            processing_time: 0,
+            models_used: 0
+          }
+        };
+        setParticleData(fallbackData);
+      }
+    } else {
+      // If no stored data, create basic fallback
+      const fallbackData: ParticleDetectionData = {
+        status: "success",
+        primary: transcriptionText,
+        alternatives: {},
+        potential_particles: [],
+        metadata: {
+          confidence: 0.8,
+          processing_time: 0,
+          models_used: 0
+        }
+      };
+      setParticleData(fallbackData);
+    }
+    
     setCurrentStage("particle-placement");
   };
 
@@ -213,7 +447,7 @@ const Index = () => {
     setCurrentStage("comparison");
   };
 
-  const handleTranscriptionSelected = (selection: 'llm' | 'user', finalTranscription: string) => {
+  const handleTranscriptionSelected = (selection: 'ai' | 'user', finalTranscription: string) => {
     setCompletedStages(prev => new Set([...prev, "comparison"]));
     
     // Here you would typically submit the final data to the backend/database
@@ -261,7 +495,14 @@ const Index = () => {
         // Handled by mode selection
         break;
       case "upload":
-        // Handled by upload completion
+        // If we have cached consensus data, proceed to validation
+        if (cachedResults.consensusData) {
+          // Restore transcription text if not already set
+          if (!transcriptionText && cachedResults.consensusData.primary) {
+            setTranscriptionText(cachedResults.consensusData.primary);
+          }
+          setCurrentStage("validation");
+        }
         break;
       case "validation":
         setCurrentStage("accent");
@@ -287,6 +528,7 @@ const Index = () => {
         setSelectedParticles([]);
         setUserTranscription("");
         setPracticeMode(null);
+        clearCache(); // Clear cached results when starting over
         setCurrentStage("mode-selection");
         break;
       default:
@@ -314,6 +556,39 @@ const Index = () => {
       setTranscriptionText(randomClip.sentence);
       setPracticeAudioUrl(randomClip.audio_url);
       setAudioFile(undefined); // No file for practice mode
+      
+      // Initialize autocomplete service for practice mode
+      try {
+        const practiceAudioId = `practice_${Date.now()}`;
+        const autocompleteData = {
+          final_transcription: randomClip.sentence,
+          confidence_score: 1.0,
+          detected_particles: [],
+          asr_alternatives: {},
+        };
+
+        const initResponse = await fetch('http://localhost:8007/initialize?audio_id=' + practiceAudioId, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(autocompleteData),
+        });
+        
+        if (initResponse.ok) {
+          console.log('Autocomplete service initialized successfully for practice mode:', practiceAudioId);
+          // Store the practice audio ID for later use in the editor
+          setCachedResults(prev => ({
+            ...prev,
+            practiceAudioId: practiceAudioId
+          }));
+        } else {
+          console.error('Failed to initialize autocomplete service for practice mode:', initResponse.status, initResponse.statusText);
+        }
+      } catch (error) {
+        console.error('Failed to initialize autocomplete service for practice mode:', error);
+      }
+      
       setCurrentStage("validation");
     } catch (error) {
       console.error('Failed to fetch practice dataset:', error);
@@ -364,16 +639,31 @@ const Index = () => {
                 <p className="text-muted-foreground">Select an audio file to transcribe</p>
               </div>
               
+              {/* Debug Info */}
+              {/* {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-muted-foreground p-2 bg-muted rounded max-w-4xl">
+                  Debug Cache: consensusData={cachedResults.consensusData ? 'exists' : 'missing'}, 
+                  audioFile={audioFile ? audioFile.name : 'none'}, 
+                  transcriptionText={transcriptionText ? 'exists' : 'empty'}
+                </div>
+              )} */}
+
               <div className="w-full">
                 <StageNavigation
                   onBack={handleBack}
-                  showNext={false}
+                  showNext={true}
+                  onNext={handleNext}
+                  nextText="Next"
+                  nextDisabled={!cachedResults.consensusData}
                 />
               </div>
               <AudioUpload
                 onTranscriptionComplete={handleTranscriptionComplete}
                 selectedModel={selectedModel}
                 selectedAnalysis={selectedAnalysis}
+                onFileRemoved={clearCache}
+                currentFile={audioFile}
+                hasProcessedFile={!!cachedResults.consensusData}
               />
             </div>
           )}
@@ -471,8 +761,10 @@ const Index = () => {
                 vimMode={vimMode}
                 onVimModeChange={setVimMode}
                 isVimEnabled={isVimEnabled}
-                initialContent={transcriptionText}
+                placeholder={transcriptionText}
+                initialContent={""}
                 onChange={handleTranscriptionChange}
+                audioId={null}
               />
             </div>
           )}
@@ -485,6 +777,15 @@ const Index = () => {
               onNext={handleNext}
               completedStages={completedStages}
               onStageClick={handleStageClick}
+              cachedResults={cachedResults}
+              hasFileChanged={hasFileChanged}
+              audioFile={audioFile}
+              onCacheUpdate={updateCacheForAccent}
+              currentAccent={selectedAccent}
+              hasProcessedAccent={completedStages.has("accent")}
+              audioUrl={practiceAudioUrl}
+              isAudioPlaying={isAudioPlaying}
+              onAudioPlayPause={handleAudioPlayPause}
             />
           )}
 
@@ -498,6 +799,10 @@ const Index = () => {
                 onNext={handleNext}
                 completedStages={completedStages}
                 onStageClick={handleStageClick}
+                audioFile={audioFile}
+                audioUrl={practiceAudioUrl}
+                isAudioPlaying={isAudioPlaying}
+                onAudioPlayPause={handleAudioPlayPause}
               />
             ) : (
               <div className="text-center py-12 space-y-6 flex flex-col items-center justify-center">
@@ -527,7 +832,6 @@ const Index = () => {
           {currentStage === "comparison" && selectedAccent && (
             <TranscriptionComparison
               originalTranscription={transcriptionText}
-              llmTranscription={particleData?.primary || transcriptionText}
               userTranscription={userTranscription}
               selectedAccent={selectedAccent}
               selectedParticles={selectedParticles}
@@ -535,6 +839,7 @@ const Index = () => {
               onBack={handleBack}
               completedStages={completedStages}
               onStageClick={handleStageClick}
+              aiGeneratedTranscription={particleData?.ai_generated_transcription}
             />
           )}
         </div>

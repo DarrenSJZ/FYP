@@ -47,16 +47,29 @@ func (pt *PrefixTrie) Insert(word string, suggestion WordSuggestion) {
 	})
 }
 
-// SearchPrefix finds all words that start with the given prefix
-func (pt *PrefixTrie) SearchPrefix(prefix string) []WordSuggestion {
+// Search finds all words that start with the given prefix and returns their text.
+func (pt *PrefixTrie) Search(prefix string, maxResults int) []string {
 	node := pt.Root
 	for _, char := range prefix {
 		if node.Children[char] == nil {
-			return []WordSuggestion{}
+			return []string{}
 		}
 		node = node.Children[char]
 	}
-	return pt.collectAllSuggestions(node)
+	
+	// Collect all WordSuggestions from the subtree
+	allSuggestions := pt.collectAllSuggestions(node)
+	
+	// Extract only the text and limit results
+	var result []string
+	for i, s := range allSuggestions {
+		if i >= maxResults {
+			break
+		}
+		result = append(result, s.Text)
+	}
+	
+	return result
 }
 
 // collectAllSuggestions recursively collects all suggestions from a node
@@ -71,15 +84,10 @@ func (pt *PrefixTrie) collectAllSuggestions(node *TrieNode) []WordSuggestion {
 		suggestions = append(suggestions, pt.collectAllSuggestions(child)...)
 	}
 	
-	// Sort by confidence and limit results
+	// Sort by confidence (descending)
 	sort.Slice(suggestions, func(i, j int) bool {
 		return suggestions[i].Confidence > suggestions[j].Confidence
 	})
-	
-	// Limit to top 10 suggestions to prevent overwhelming responses
-	if len(suggestions) > 10 {
-		suggestions = suggestions[:10]
-	}
 	
 	return suggestions
 }

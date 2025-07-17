@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       clientPort: 8080,
     },
+    allowedHosts: ["complete-coral-faithful.ngrok-free.app"],
   },
   plugins: [
     react(),

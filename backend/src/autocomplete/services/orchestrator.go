@@ -15,6 +15,7 @@ type OrchestratorResponse struct {
 	Status    string `json:"status"`
 	Primary   string `json:"primary"`
 	Alternatives map[string]string `json:"alternatives"`
+	AutocompleteData *models.AutocompleteData `json:"autocomplete_data"`
 	PotentialParticles []interface{} `json:"potential_particles"`
 	Metadata struct {
 		Confidence     float64 `json:"confidence"`
@@ -30,7 +31,7 @@ func LoadAutocompleteData(audioID string) (*models.AutocompleteData, error) {
 		orchestratorURL = "http://localhost:8000"
 	}
 	
-	url := fmt.Sprintf("%s/transcribe-with-gemini", orchestratorURL)
+	url := fmt.Sprintf("%s/transcribe-consensus", orchestratorURL)
 	
 	resp, err := http.Get(url)
 	if err != nil {
@@ -47,7 +48,12 @@ func LoadAutocompleteData(audioID string) (*models.AutocompleteData, error) {
 		return nil, fmt.Errorf("failed to decode orchestrator response: %w", err)
 	}
 	
-	// Convert to AutocompleteData format
+	// Use the pre-extracted autocomplete data if available
+	if orchestratorResp.AutocompleteData != nil {
+		return orchestratorResp.AutocompleteData, nil
+	}
+	
+	// Fallback to manual extraction (for backward compatibility)
 	autocompleteData := &models.AutocompleteData{
 		FinalTranscription: orchestratorResp.Primary,
 		ConfidenceScore:   orchestratorResp.Metadata.Confidence,
@@ -59,39 +65,41 @@ func LoadAutocompleteData(audioID string) (*models.AutocompleteData, error) {
 }
 
 // BuildDataStructures transforms orchestrator results into autocomplete data structures
-func BuildDataStructures(audioID string, autocompleteData *models.AutocompleteData) (*models.PositionMap, *models.PrefixTrie) {
-	posMap := models.NewPositionMap(audioID)
-	prefixTrie := models.NewPrefixTrie(audioID)
-	
+func BuildDataStructures(autocompleteData *models.AutocompleteData) *models.PrefixTrie {
+	fmt.Println("DEBUG: BuildDataStructures called") // ADDED
+	fmt.Println("DEBUG: FinalTranscription received:", autocompleteData.FinalTranscription) // ADDED
+
+	prefixTrie := models.NewPrefixTrie("global")
+
 	// STEP 1: Use final transcription as baseline
 	baselineWords := strings.Fields(autocompleteData.FinalTranscription)
-	
-	// Initialize each position with the processed word (highest confidence)
-	for i, baseWord := range baselineWords {
+	fmt.Println("DEBUG: Baseline words:", baselineWords) // ADDED
+
+	for _, baseWord := range baselineWords {
 		suggestion := models.WordSuggestion{
 			Text:       baseWord,
 			Confidence: autocompleteData.ConfidenceScore,
 			Source:     "gemini_final",
 			Rank:       1,
 		}
-		
-		posMap.AddSuggestion(i, suggestion)
+
 		prefixTrie.Insert(baseWord, suggestion)
+		fmt.Println("DEBUG: Inserted word:", baseWord) // ADDED
 	}
-	
+
 	// STEP 2: Add ASR alternatives
 	wordBasedModels := []string{"whisper", "mesolitica", "vosk", "wav2vec", "moonshine"}
-	
+
 	for _, modelName := range wordBasedModels {
 		if transcription, exists := autocompleteData.ASRAlternatives[modelName]; exists {
 			modelWords := strings.Fields(transcription)
 			alignedAlternatives := alignToBaseline(baselineWords, modelWords)
-			
+
 			for pos, altWord := range alignedAlternatives {
 				if pos >= len(baselineWords) {
 					continue // Skip if model has extra words
 				}
-				
+
 				if altWord != baselineWords[pos] { // Only add if different from baseline
 					suggestion := models.WordSuggestion{
 						Text:       altWord,
@@ -99,30 +107,29 @@ func BuildDataStructures(audioID string, autocompleteData *models.AutocompleteDa
 						Source:     modelName,
 						Rank:       2,
 					}
-					
-					posMap.AddSuggestion(pos, suggestion)
+
 					prefixTrie.Insert(altWord, suggestion)
 				}
 			}
 		}
 	}
-	
-	return posMap, prefixTrie
+
+	return prefixTrie
 }
 
-// alignToBaseline aligns ASR words to baseline positions
+
 func alignToBaseline(baseline []string, modelWords []string) map[int]string {
 	aligned := make(map[int]string)
-	
-	// Simple alignment strategy: best-effort position matching
+
+
 	minLen := len(baseline)
 	if len(modelWords) < minLen {
 		minLen = len(modelWords)
 	}
-	
+
 	for i := 0; i < minLen; i++ {
 		aligned[i] = modelWords[i]
 	}
-	
+
 	return aligned
 }

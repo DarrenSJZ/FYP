@@ -6,10 +6,8 @@ backend/src/autocomplete/
 ├── main.go                 # Entry point, HTTP server setup
 ├── handlers/
 │   ├── health.go          # Health check endpoint
-│   ├── position.go        # Position-based suggestions endpoint
 │   └── prefix.go          # Prefix completion endpoint
 ├── models/
-│   ├── position_map.go    # Position mapping data structure
 │   ├── prefix_trie.go     # Trie implementation
 │   └── types.go           # Common types and structs
 ├── services/
@@ -24,26 +22,7 @@ backend/src/autocomplete/
 
 ## Core Data Structures
 
-### 1. Position Mapping Structure
-```go
-// models/position_map.go
-type PositionMap struct {
-    AudioClipID string
-    WordIndex   map[int][]WordSuggestion  // [position] -> suggestions
-}
 
-type WordSuggestion struct {
-    Text       string    `json:"text"`
-    Confidence float64   `json:"confidence"`
-    Source     string    `json:"source"`     // "whisper", "gemini", etc.
-    Rank       int       `json:"rank"`       // 1=best, 2=second best
-}
-
-// Fast O(1) lookup by position
-func (pm *PositionMap) GetSuggestionsForPosition(pos int) []WordSuggestion {
-    return pm.WordIndex[pos]
-}
-```
 
 ### 2. Prefix Trie Structure
 ```go
@@ -74,28 +53,7 @@ func (pt *PrefixTrie) SearchPrefix(prefix string) []WordSuggestion {
 
 ## API Endpoints
 
-### 1. Position Suggestions
-```go
-// handlers/position.go
-// GET /suggest/position?audio_id={id}&word_index={pos}
-func GetPositionSuggestions(w http.ResponseWriter, r *http.Request) {
-    audioID := r.URL.Query().Get("audio_id")
-    wordIndex, _ := strconv.Atoi(r.URL.Query().Get("word_index"))
-    
-    // Load position map from cache or orchestrator
-    positionMap := services.GetPositionMap(audioID)
-    suggestions := positionMap.GetSuggestionsForPosition(wordIndex)
-    
-    response := PositionResponse{
-        AudioID:     audioID,
-        WordIndex:   wordIndex,
-        Suggestions: suggestions,
-        Timestamp:   time.Now(),
-    }
-    
-    json.NewEncoder(w).Encode(response)
-}
-```
+
 
 ### 2. Prefix Completion
 ```go
@@ -173,74 +131,13 @@ type AutocompleteData struct {
 }
 
 // Transform orchestrator results into autocomplete data structures
-func BuildDataStructures(orchestratorResponse *OrchestratorResponse) (*PositionMap, *PrefixTrie) {
-    posMap := &PositionMap{
-        AudioClipID: orchestratorResponse.ASRResults.AudioFilename,
-        WordIndex:   make(map[int][]WordSuggestion),
-    }
-    
-    prefixTrie := &PrefixTrie{
-        Root:        &TrieNode{Children: make(map[rune]*TrieNode)},
-        AudioClipID: orchestratorResponse.ASRResults.AudioFilename,
-    }
-    
-    // STEP 1: Use Gemini's FINAL transcription as position baseline
-    geminiAnalysis := orchestratorResponse.GeminiAnalysis.Response
-    finalTranscription := extractFinalTranscription(geminiAnalysis) // Parse "FINAL TRANSCRIPTION: ..."
-    baselineWords := strings.Fields(finalTranscription)
-    
-    // Initialize each position with Gemini's processed word (highest confidence)
-    for i, baseWord := range baselineWords {
-        suggestion := WordSuggestion{
-            Text:       baseWord,
-            Confidence: 0.95, // LLM processed = highest confidence
-            Source:     "gemini_final",
-            Rank:       1,
-        }
-        
-        posMap.WordIndex[i] = []WordSuggestion{suggestion}
-        prefixTrie.Insert(baseWord, suggestion)
-    }
-    
-    // STEP 2: Add word-based ASR models as alternatives (exclude allosaurus)
-    wordBasedModels := []string{"whisper", "mesolitica", "vosk", "wav2vec", "moonshine"}
-    
-    for _, modelName := range wordBasedModels {
-        result := orchestratorResponse.ASRResults.Results[modelName]
-        if result.Status != "success" {
-            continue
-        }
-        
-        modelWords := strings.Fields(result.Transcription)
-        alignedAlternatives := alignToBaseline(baselineWords, modelWords)
-        
-        for pos, altWord := range alignedAlternatives {
-            if pos >= len(baselineWords) {
-                continue // Skip if model has extra words
-            }
-            
-            if altWord != baselineWords[pos] { // Only add if different from baseline
-                suggestion := WordSuggestion{
-                    Text:       altWord,
-                    Confidence: 0.7, // Raw ASR = lower confidence than Gemini
-                    Source:     modelName,
-                    Rank:       2,
-                }
-                
-                posMap.WordIndex[pos] = append(posMap.WordIndex[pos], suggestion)
-                prefixTrie.Insert(altWord, suggestion)
-            }
-        }
-    }
-    
-    return posMap, prefixTrie
-}
 
-// Helper function to align ASR words to Gemini baseline positions
+
+
 func alignToBaseline(baseline []string, modelWords []string) map[int]string {
     aligned := make(map[int]string)
     
-    // Simple alignment strategy: best-effort position matching
+    
     minLen := len(baseline)
     if len(modelWords) < minLen {
         minLen = len(modelWords)
@@ -273,21 +170,7 @@ func extractFinalTranscription(geminiText string) string {
 ### Redis Integration
 ```go
 // services/cache.go
-func CachePositionMap(audioID string, posMap *PositionMap) error {
-    data, _ := json.Marshal(posMap)
-    return redisClient.Set(fmt.Sprintf("position:%s", audioID), data, time.Hour).Err()
-}
 
-func GetCachedPositionMap(audioID string) (*PositionMap, error) {
-    data, err := redisClient.Get(fmt.Sprintf("position:%s", audioID)).Result()
-    if err != nil {
-        return nil, err
-    }
-    
-    var posMap PositionMap
-    json.Unmarshal([]byte(data), &posMap)
-    return &posMap, nil
-}
 ```
 
 ## Performance Optimizations
@@ -322,7 +205,7 @@ func BuildDataStructuresAsync(audioIDs []string) {
             defer wg.Done()
             asrResults, _ := LoadASRResultsFromOrchestrator(id)
             posMap, prefixTrie := BuildDataStructures(asrResults)
-            CachePositionMap(id, posMap)
+            
             CachePrefixTrie(id, prefixTrie)
         }(audioID)
     }
@@ -369,29 +252,6 @@ autocomplete-service:
 ```
 
 ## API Response Formats
-
-### Position Suggestions Response
-```json
-{
-  "audio_id": "abc123",
-  "word_index": 2,
-  "suggestions": [
-    {
-      "text": "like",
-      "confidence": 0.95,
-      "source": "whisper",
-      "rank": 1
-    },
-    {
-      "text": "lying",
-      "confidence": 0.78,
-      "source": "moonshine", 
-      "rank": 2
-    }
-  ],
-  "timestamp": "2025-01-07T12:00:00Z"
-}
-```
 
 ### Prefix Completion Response
 ```json
@@ -460,7 +320,7 @@ func TestFullPipeline(t *testing.T) {
 ✅ **COMPLETED:**
 - [x] Go module initialized (`go mod init autocomplete`)
 - [x] Basic trie implemented (`prefix_trie.go`)
-- [x] Position mapping created (`position_map.go`)
+
 - [x] HTTP handlers set up (all API endpoints)
 - [x] Docker integration added to docker-compose.yml
 - [x] Service builds and runs in Docker container

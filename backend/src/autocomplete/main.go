@@ -32,8 +32,8 @@ func main() {
 	// Set up routes with CORS middleware
 	log.Printf("DEBUG: Setting up routes with CORS middleware")
 	http.HandleFunc("/health", corsMiddleware(handlers.HealthCheck))
-	http.HandleFunc("/suggest/position", corsMiddleware(handlers.GetPositionSuggestions))
 	http.HandleFunc("/suggest/prefix", corsMiddleware(handlers.GetPrefixSuggestions))
+	http.HandleFunc("/initialize", corsMiddleware(handlers.InitializeWithData))
 	
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
@@ -45,7 +45,8 @@ func main() {
 	log.Printf("Starting autocomplete service on port %s", port)
 	log.Printf("Available endpoints:")
 	log.Printf("  GET /health - Health check")
-	log.Printf("  GET /suggest/position?audio_id={id}&word_index={pos} - Position suggestions")
+	log.Printf("  POST /initialize?audio_id={id} - Initialize autocomplete data")
+	
 	log.Printf("  GET /suggest/prefix?audio_id={id}&prefix={text}&max_results={n} - Prefix completion")
 	
 	log.Printf("DEBUG: About to start ListenAndServe")

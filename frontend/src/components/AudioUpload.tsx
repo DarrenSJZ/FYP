@@ -1,28 +1,45 @@
-import { useState, useRef } from "react";
-import { Upload, FileAudio, X, Play, Pause, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Upload, FileAudio, X, Play, Pause, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/ui/use-toast";
 
 interface AudioUploadProps {
-  onTranscriptionComplete: (transcription: string, file?: File) => void;
+  onTranscriptionComplete: (transcription: string, file?: File, consensusData?: any) => void;
   selectedModel?: string;
   selectedAnalysis?: string;
+  onFileRemoved?: () => void;
+  currentFile?: File;
+  hasProcessedFile?: boolean;
 }
 
 export function AudioUpload({ 
   onTranscriptionComplete, 
   selectedModel = "parallel",
-  selectedAnalysis = "basic" 
+  selectedAnalysis = "basic",
+  onFileRemoved,
+  currentFile,
+  hasProcessedFile = false
 }: AudioUploadProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionProgress, setTranscriptionProgress] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Restore file state when component mounts with existing file
+  useEffect(() => {
+    if (currentFile && !uploadedFile) {
+      setUploadedFile(currentFile);
+      const url = URL.createObjectURL(currentFile);
+      setAudioUrl(url);
+    }
+  }, [currentFile, uploadedFile]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -54,6 +71,12 @@ export function AudioUpload({
     if (audioRef.current) {
       audioRef.current.pause();
     }
+    // Clear session storage when file is removed
+    sessionStorage.removeItem('particleData');
+    sessionStorage.removeItem('uploadedFileName');
+    sessionStorage.removeItem('uploadedFileBlob');
+    // Notify parent component to clear cache
+    onFileRemoved?.();
   };
 
   const togglePlayback = () => {
@@ -70,39 +93,54 @@ export function AudioUpload({
   const startTranscription = async () => {
     if (!uploadedFile) return;
     
+    // If this file has already been processed, skip transcription and use cached data
+    if (hasProcessedFile) {
+      const storedParticleData = sessionStorage.getItem('particleData');
+      if (storedParticleData) {
+        try {
+          const result = JSON.parse(storedParticleData);
+          const primaryTranscription = result.primary || 'No transcription available';
+          onTranscriptionComplete(primaryTranscription, uploadedFile, result);
+          return;
+        } catch (error) {
+          console.error('Failed to parse stored data:', error);
+        }
+      }
+    }
+    
     setIsTranscribing(true);
     setTranscriptionProgress(0);
     
     try {
       const formData = new FormData();
-      formData.append('audio', uploadedFile);
+      formData.append('file', uploadedFile);
+      formData.append('context', 'Speech recognition analysis');
       
-      // Simulate progress
+      // Progress simulation with realistic stages for consensus only
+      const progressStages = [
+        { progress: 15, message: 'Initializing ASR models...' },
+        { progress: 40, message: 'Running parallel transcription...' },
+        { progress: 70, message: 'Establishing consensus...' },
+        { progress: 90, message: 'Validating with web search...' }
+      ];
+      
+      let currentStage = 0;
       const progressInterval = setInterval(() => {
-        setTranscriptionProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 500);
-
-      // Determine endpoint based on selected options
-      let endpoint = 'http://localhost:8000/transcribe';
-      if (selectedAnalysis === 'ai-consensus') {
-        endpoint = 'http://localhost:8000/transcribe-with-gemini';
-      } else if (selectedAnalysis === 'debug') {
-        endpoint = 'http://localhost:8000/transcribe-with-gemini/debug';
-      }
-
-      const response = await fetch(endpoint, {
+        if (currentStage < progressStages.length) {
+          setTranscriptionProgress(progressStages[currentStage].progress);
+          currentStage++;
+        }
+      }, 2000); // 2 second intervals for realistic timing
+      
+      // Use the new consensus endpoint (stage 1)
+      const response = await fetch('http://localhost:8000/transcribe-consensus', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
@@ -110,21 +148,32 @@ export function AudioUpload({
       clearInterval(progressInterval);
       setTranscriptionProgress(100);
       
-      // Extract transcription based on response type
-      let transcription = '';
-      if (result.final_transcription) {
-        transcription = result.final_transcription;
-      } else if (result.transcriptions) {
-        // Multiple model results - combine or use consensus
-        transcription = Object.values(result.transcriptions).join('\n\n');
-      } else if (result.transcription) {
-        transcription = result.transcription;
+      // Extract primary transcription for the validation stage
+      const primaryTranscription = result.primary || 'No transcription available';
+      
+      // Store the full result for later use in particle detection
+      if (result.status === 'success') {
+        // Store particle data in session storage for later use
+        sessionStorage.setItem('particleData', JSON.stringify(result));
+        // Also store the audio file name for potential reuse
+        sessionStorage.setItem('uploadedFileName', uploadedFile.name);
+        // Store the audio file as a blob URL for API calls
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          sessionStorage.setItem('uploadedFileBlob', reader.result as string);
+        };
+        reader.readAsDataURL(uploadedFile);
       }
       
-      onTranscriptionComplete(transcription, uploadedFile || undefined);
+      onTranscriptionComplete(primaryTranscription, uploadedFile || undefined);
       
     } catch (error) {
       console.error('Transcription failed:', error);
+      toast({
+        title: "Transcription Failed",
+        description: error.message || "An unknown error occurred. Please check the console for more details.",
+        variant: "destructive",
+      });
       onTranscriptionComplete('Transcription failed. Please check your backend connection and try again.');
     } finally {
       setIsTranscribing(false);
@@ -151,7 +200,7 @@ export function AudioUpload({
       {/* Upload Area */}
       {!uploadedFile ? (
         <div
-          className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+          className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/50"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onClick={() => fileInputRef.current?.click()}
@@ -187,7 +236,15 @@ export function AudioUpload({
                 <FileAudio className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-medium truncate max-w-64">{uploadedFile.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium truncate max-w-64">{uploadedFile.name}</p>
+                  {hasProcessedFile && (
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Processed
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {formatFileSize(uploadedFile.size)}
                 </p>
@@ -234,21 +291,68 @@ export function AudioUpload({
             </div>
           )}
 
-          {/* Transcribe Button */}
-          <Button 
-            onClick={startTranscription}
-            disabled={isTranscribing}
-            className="w-full"
-          >
-            {isTranscribing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Transcribing...
-              </>
-            ) : (
-              'Start Transcription'
-            )}
-          </Button>
+          {/* Debug Info */}
+          {/* {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
+              Debug: hasProcessedFile={hasProcessedFile ? 'true' : 'false'}, 
+              currentFile={currentFile ? currentFile.name : 'none'},
+              uploadedFile={uploadedFile ? uploadedFile.name : 'none'}
+            </div>
+          )} */}
+
+          {/* Transcribe/Continue Button */}
+          {hasProcessedFile ? (
+            <div className="space-y-3">
+              <Button 
+                onClick={() => {
+                  // Use cached data and proceed
+                  const storedParticleData = sessionStorage.getItem('particleData');
+                  if (storedParticleData) {
+                    try {
+                      const result = JSON.parse(storedParticleData);
+                      const primaryTranscription = result.primary || 'No transcription available';
+                      onTranscriptionComplete(primaryTranscription, uploadedFile, result);
+                    } catch (error) {
+                      console.error('Failed to parse stored data:', error);
+                      // Fallback to API call
+                      startTranscription();
+                    }
+                  } else {
+                    // No cached data, fall back to API call
+                    startTranscription();
+                  }
+                }}
+                disabled={isTranscribing}
+                className="w-full"
+              >
+                Continue with This File
+              </Button>
+              
+              <Button 
+                onClick={removeFile}
+                disabled={isTranscribing}
+                variant="secondary"
+                className="w-full"
+              >
+                Select Another File
+              </Button>
+            </div>
+          ) : (
+            <Button 
+              onClick={startTranscription}
+              disabled={isTranscribing}
+              className="w-full"
+            >
+              {isTranscribing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Transcribing...
+                </>
+              ) : (
+                'Start Transcription'
+              )}
+            </Button>
+          )}
         </div>
       )}
     </div>

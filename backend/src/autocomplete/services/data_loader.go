@@ -7,85 +7,46 @@ import (
 	"autocomplete/models"
 )
 
-// In-memory cache for demonstration (replace with Redis in production)
+// In-memory cache for single global trie (replace with Redis in production)
 var (
-	positionMapCache = make(map[string]*models.PositionMap)
-	prefixTrieCache  = make(map[string]*models.PrefixTrie)
+	globalPrefixTrie *models.PrefixTrie
 	cacheMutex       sync.RWMutex
 )
 
-// GetPositionMap retrieves or builds position map for audio ID
-func GetPositionMap(audioID string) (*models.PositionMap, error) {
-	cacheMutex.RLock()
-	if posMap, exists := positionMapCache[audioID]; exists {
-		cacheMutex.RUnlock()
-		return posMap, nil
-	}
-	cacheMutex.RUnlock()
-	
-	// Load fresh data from orchestrator
-	return buildAndCacheData(audioID)
-}
+// BuildAndCacheData builds the PrefixTrie from the provided data and caches it globally.
+// This is called by the /initialize endpoint.
+func BuildAndCacheData(data *models.AutocompleteData) {
+	fmt.Println("DEBUG: BuildAndCacheData called") // ADDED
+	// Build the data structure
+	trie := BuildDataStructures(data)
 
-// GetPrefixTrie retrieves or builds prefix trie for audio ID
-func GetPrefixTrie(audioID string) (*models.PrefixTrie, error) {
-	cacheMutex.RLock()
-	if trie, exists := prefixTrieCache[audioID]; exists {
-		cacheMutex.RUnlock()
-		return trie, nil
-	}
-	cacheMutex.RUnlock()
-	
-	// Load fresh data from orchestrator
-	_, trie, err := buildAndCacheDataWithTrie(audioID)
-	return trie, err
-}
-
-// buildAndCacheData builds data structures and caches them
-func buildAndCacheData(audioID string) (*models.PositionMap, error) {
-	// Load data from orchestrator
-	autocompleteData, err := LoadAutocompleteData(audioID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load autocomplete data: %w", err)
-	}
-	
-	// Build data structures
-	posMap, trie := BuildDataStructures(audioID, autocompleteData)
-	
-	// Cache the results
+	// Cache the result globally
 	cacheMutex.Lock()
-	positionMapCache[audioID] = posMap
-	prefixTrieCache[audioID] = trie
+	globalPrefixTrie = trie
 	cacheMutex.Unlock()
-	
-	return posMap, nil
+	fmt.Println("DEBUG: Global PrefixTrie cached") // ADDED
 }
 
-// buildAndCacheDataWithTrie builds data structures and returns both
-func buildAndCacheDataWithTrie(audioID string) (*models.PositionMap, *models.PrefixTrie, error) {
-	// Load data from orchestrator
-	autocompleteData, err := LoadAutocompleteData(audioID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load autocomplete data: %w", err)
+// GetPrefixTrie retrieves the global prefix trie from the cache.
+// This is called by the /suggest/prefix endpoint.
+func GetPrefixTrie() (*models.PrefixTrie, error) {
+	fmt.Println("DEBUG: GetPrefixTrie called") // ADDED
+	cacheMutex.RLock()
+	defer cacheMutex.RUnlock()
+
+	if globalPrefixTrie != nil {
+		fmt.Println("DEBUG: Global PrefixTrie found in cache") // ADDED
+		return globalPrefixTrie, nil
 	}
-	
-	// Build data structures
-	posMap, trie := BuildDataStructures(audioID, autocompleteData)
-	
-	// Cache the results
-	cacheMutex.Lock()
-	positionMapCache[audioID] = posMap
-	prefixTrieCache[audioID] = trie
-	cacheMutex.Unlock()
-	
-	return posMap, trie, nil
+
+	fmt.Println("DEBUG: Global PrefixTrie NOT found in cache") // ADDED
+	return nil, fmt.Errorf("autocomplete not initialized, please initialize first")
 }
 
 // ClearCache clears all cached data (useful for testing)
 func ClearCache() {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
-	
-	positionMapCache = make(map[string]*models.PositionMap)
-	prefixTrieCache = make(map[string]*models.PrefixTrie)
+
+	globalPrefixTrie = nil
 }

@@ -34,6 +34,12 @@ export function TranscriptionValidation({
   const [hasValidated, setHasValidated] = useState(completedStages.has("validation"));
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
+  
+  // Check if transcription failed
+  const isTranscriptionFailed = originalTranscription.includes('Transcription failed') || 
+                                originalTranscription.includes('Please check your backend connection') ||
+                                originalTranscription === 'No transcription available' ||
+                                originalTranscription.trim() === '';
 
   // Update validation state when completedStages changes
   useEffect(() => {
@@ -141,7 +147,7 @@ export function TranscriptionValidation({
           onBack={onBack}
           onNext={onNext}
           nextText="Next"
-          nextDisabled={!hasValidated}
+          nextDisabled={!hasValidated || isTranscriptionFailed}
         />
       </div>
 
@@ -150,21 +156,21 @@ export function TranscriptionValidation({
         <div className="flex justify-center">
           <Button
             onClick={handlePlayPause}
-            disabled={!audioFile && !audioUrl}
+            disabled={(!audioFile && !audioUrl) || isTranscriptionFailed}
             className={`
               px-6 py-4 rounded-2xl transition-all duration-200 
-              ${!audioFile && !audioUrl 
+              ${(!audioFile && !audioUrl) || isTranscriptionFailed 
                 ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
                 : isPlaying 
                   ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
                   : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
               }
               shadow-lg hover:shadow-xl border-b-4 
-              ${!audioFile && !audioUrl 
+              ${(!audioFile && !audioUrl) || isTranscriptionFailed 
                 ? 'border-muted/70' 
                 : isPlaying ? 'border-accent/70' : 'border-primary/70'
               }
-              ${!audioFile && !audioUrl ? '' : 'active:border-b-2 active:translate-y-0.5'}
+              ${(!audioFile && !audioUrl) || isTranscriptionFailed ? '' : 'active:border-b-2 active:translate-y-0.5'}
             `}
           >
             <div className="flex items-center gap-3">
@@ -202,10 +208,25 @@ export function TranscriptionValidation({
         <Button
           onClick={handleYes}
           size="lg"
-          className="gap-2 px-8 py-3 text-white"
-          style={{backgroundColor: 'hsl(var(--sage-green))'}}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green) / 0.9)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green))'}
+          className={`gap-2 px-8 py-3 text-white ${
+            isTranscriptionFailed 
+              ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+              : 'hover:opacity-90'
+          }`}
+          style={{
+            backgroundColor: isTranscriptionFailed ? undefined : 'hsl(var(--sage-green))'
+          }}
+          onMouseEnter={(e) => {
+            if (!isTranscriptionFailed) {
+              e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green) / 0.9)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isTranscriptionFailed) {
+              e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green))';
+            }
+          }}
+          disabled={isTranscriptionFailed}
         >
           <CheckCircle className="h-5 w-5" />
           Yes, this is correct
@@ -214,10 +235,25 @@ export function TranscriptionValidation({
         <Button
           onClick={handleNo}
           size="lg"
-          className="gap-2 px-8 py-3 text-white"
-          style={{backgroundColor: 'hsl(var(--dusty-rose))'}}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose) / 0.9)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose))'}
+          className={`gap-2 px-8 py-3 text-white ${
+            isTranscriptionFailed 
+              ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+              : 'hover:opacity-90'
+          }`}
+          style={{
+            backgroundColor: isTranscriptionFailed ? undefined : 'hsl(var(--dusty-rose))'
+          }}
+          onMouseEnter={(e) => {
+            if (!isTranscriptionFailed) {
+              e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose) / 0.9)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isTranscriptionFailed) {
+              e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose))';
+            }
+          }}
+          disabled={isTranscriptionFailed}
         >
           <XCircle className="h-5 w-5" />
           No, needs correction
@@ -226,12 +262,25 @@ export function TranscriptionValidation({
 
       {/* Helper Text */}
       <div className="text-center text-sm text-muted-foreground">
-        <p>
-          Click <strong>"Yes"</strong> if the transcription is correct, or <strong>"No"</strong> to edit it.
-        </p>
-        <p className="mt-1">
-          Complete this validation to unlock the next stage in the progress bar above.
-        </p>
+        {isTranscriptionFailed ? (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+            <p className="text-destructive font-medium">
+              ⚠️ Transcription Failed
+            </p>
+            <p className="text-destructive/80 text-sm mt-1">
+              Please check your backend connection and try uploading again.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p>
+              Click <strong>"Yes"</strong> if the transcription is correct, or <strong>"No"</strong> to edit it.
+            </p>
+            <p className="mt-1">
+              Complete this validation to unlock the next stage in the progress bar above.
+            </p>
+          </>
+        )}
       </div>
 
     </div>

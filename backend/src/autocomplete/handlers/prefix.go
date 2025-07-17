@@ -2,61 +2,39 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strconv"
-	"time"
 
-	"autocomplete/models"
 	"autocomplete/services"
 )
 
-// GetPrefixSuggestions handles prefix-based autocomplete requests
+// GetPrefixSuggestions handles requests for prefix-based autocomplete suggestions.
 func GetPrefixSuggestions(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	
-	// Parse query parameters
-	audioID := r.URL.Query().Get("audio_id")
-	if audioID == "" {
-		http.Error(w, "audio_id parameter is required", http.StatusBadRequest)
-		return
-	}
-	
+	// Extract prefix from query parameters (no audio_id needed)
 	prefix := r.URL.Query().Get("prefix")
+	maxResults := 10 // Default max results
+
+	fmt.Println("DEBUG: GetPrefixSuggestions called for prefix:", prefix) // ADDED
+
 	if prefix == "" {
-		http.Error(w, "prefix parameter is required", http.StatusBadRequest)
+		http.Error(w, "Missing prefix parameter", http.StatusBadRequest)
 		return
 	}
-	
-	maxResultsStr := r.URL.Query().Get("max_results")
-	maxResults := 5 // default
-	if maxResultsStr != "" {
-		if parsed, err := strconv.Atoi(maxResultsStr); err == nil && parsed > 0 {
-			maxResults = parsed
-		}
-	}
-	
-	// Get prefix trie from service
-	trie, err := services.GetPrefixTrie(audioID)
+
+	// Retrieve the global prefix trie
+	trie, err := services.GetPrefixTrie()
 	if err != nil {
-		http.Error(w, "Failed to load prefix trie: "+err.Error(), http.StatusInternalServerError)
+		fmt.Println("ERROR: GetPrefixTrie failed:", err) // ADDED
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	
-	// Search for suggestions
-	suggestions := trie.SearchPrefix(prefix)
-	
-	// Limit results
-	if len(suggestions) > maxResults {
-		suggestions = suggestions[:maxResults]
-	}
-	
-	// Build response
-	response := models.PrefixResponse{
-		AudioID:     audioID,
-		Prefix:      prefix,
-		Suggestions: suggestions,
-		Timestamp:   time.Now(),
-	}
-	
+
+	// Get suggestions from the trie
+	suggestions := trie.Search(prefix, maxResults)
+	fmt.Println("DEBUG: Suggestions found for prefix '" + prefix + "':", suggestions) // ADDED
+
+	// Prepare response
+	response := map[string][]string{"suggestions": suggestions}
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

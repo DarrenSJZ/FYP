@@ -73,7 +73,7 @@ All colors MUST be HSL.
     --popover-foreground: 39 21% 84%;
 
     --primary: 213 46% 64%;           /* #7e9cd8 - crystal blue */
-    --primary-foreground: 240 10% 15%;
+    --primary-foreground: 39 21% 84%;     /* #dcd7ba - light text for better contrast */
 
     --secondary: 232 16% 52%;         /* #766b90 - lotus violet (restored for dark mode) */
     --secondary-foreground: 39 21% 84%;
@@ -82,7 +82,7 @@ All colors MUST be HSL.
     --muted-foreground: 39 19% 67%;   /* #c8c093 - old white for better contrast */
 
     --accent: 44 78% 71%;             /* #e6c384 - carp yellow */
-    --accent-foreground: 240 10% 15%;
+    --accent-foreground: 240 10% 15%;     /* Keep dark text for yellow accent (better contrast) */
 
     --destructive: 2 78% 67%;         /* #e46876 - wave red */
     --destructive-foreground: 39 21% 87%;
@@ -106,7 +106,7 @@ All colors MUST be HSL.
     --sidebar-background: 240 10% 15%;
     --sidebar-foreground: 39 21% 84%;
     --sidebar-primary: 44 78% 71%;
-    --sidebar-primary-foreground: 240 10% 15%;
+    --sidebar-primary-foreground: 240 10% 15%;    /* Keep dark text for yellow sidebar (better contrast) */
     --sidebar-accent: 240 9% 27%;
     --sidebar-accent-foreground: 39 21% 84%;
     --sidebar-border: 240 9% 27%;
