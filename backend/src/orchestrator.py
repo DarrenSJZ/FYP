@@ -593,21 +593,45 @@ class ASROrchestrator:
                 "validation_confidence": consensus_data['model_agreement_score']
             }
         
-        # Return consensus result with alternatives (stop before particle detection)
+        # Prepare A-B transcription choices
+        transcription_choices = {
+            "option_a": {
+                "transcription": consensus_data['consensus_transcription'],
+                "label": "AI Consensus",
+                "description": f"Based on agreement between {asr_results.get('successful_models', 6)} speech recognition models",
+                "confidence": consensus_data['model_agreement_score'],
+                "reasoning": f"Primary model: {consensus_data['primary_model']}"
+            },
+            "option_b": {
+                "transcription": validated_data['final_consensus'],
+                "label": "With Spelling Context",
+                "description": "AI consensus with proper noun spelling verification",
+                "confidence": validated_data['validation_confidence'],
+                "reasoning": self._format_search_explanations(search_data, validated_data)
+            }
+        }
+        
+        print(f"DEBUG: Created transcription_choices: {transcription_choices}")
+        print(f"DEBUG: Option A transcription: '{transcription_choices['option_a']['transcription']}'")
+        print(f"DEBUG: Option B transcription: '{transcription_choices['option_b']['transcription']}'")
+        print(f"DEBUG: Are they different? {transcription_choices['option_a']['transcription'] != transcription_choices['option_b']['transcription']}")
+        
+        # Return consensus result with A-B choices
         result = {
             "status": "success",
-            "primary": validated_data['final_consensus'],
+            "primary": consensus_data['consensus_transcription'],  # Keep for backward compatibility
+            "transcription_choices": transcription_choices,  # New A-B choice system
             "alternatives": {
                 model: result.get('transcription', '')
                 for model, result in asr_results['results'].items()
                 if result.get('status') == 'success' and model != 'allosaurus'
             },
             "consensus_data": consensus_data,
-            "validation_data": validated_data,
+            "validation_data": validated_data,  # Use validation_data to match current API response
             "search_data": search_data,
-            "asr_results": asr_results,  # Include full ASR results for particle detection stage
+            "asr_results": asr_results,
             "metadata": {
-                "confidence": validated_data['validation_confidence'],
+                "confidence": consensus_data['model_agreement_score'],
                 "processing_time": asr_results.get('total_processing_time', 0),
                 "models_used": asr_results.get('successful_models', 0)
             },
@@ -621,6 +645,32 @@ class ASROrchestrator:
         
         return result
 
+    def _format_search_explanations(self, search_data, validated_data):
+        """Format search explanations for user display"""
+        explanations = []
+        
+        # Add search queries that were performed
+        if search_data.get('search_queries'):
+            explanations.append(f"Verified: {', '.join(search_data['search_queries'])}")
+        
+        # Add validated terms
+        if validated_data.get('validated_terms'):
+            validated_terms = validated_data['validated_terms']
+            if validated_terms:
+                explanations.append(f"Confirmed: {', '.join(validated_terms.keys())}")
+        
+        # Add corrections made
+        if validated_data.get('corrections_made'):
+            corrections = validated_data['corrections_made']
+            if corrections:
+                explanations.append(f"Corrected: {', '.join(corrections)}")
+        
+        # Default explanation if no specific search was performed
+        if not explanations:
+            explanations.append("No proper nouns requiring web verification found")
+        
+        return " • ".join(explanations)
+    
     def extract_autocomplete_data(self, consensus_result):
         """Extract minimal data structure for autocomplete service"""
         return {

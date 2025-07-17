@@ -23,6 +23,7 @@ const Login = () => {
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
+  const [signUpPasswordConfirm, setSignUpPasswordConfirm] = useState('');
   const [signUpName, setSignUpName] = useState('');
 
   // Redirect if already logged in
@@ -60,6 +61,20 @@ const Login = () => {
     setIsLoading(true);
     setError(null);
 
+    // Check if passwords match
+    if (signUpPassword !== signUpPasswordConfirm) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check minimum password length
+    if (signUpPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await authService.signUp(
         signUpEmail, 
@@ -70,7 +85,8 @@ const Login = () => {
       if (error) {
         setError(error.message);
       } else {
-        setSuccess('Check your email for confirmation link!');
+        // Redirect to signup success page
+        navigate('/signup-success');
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -219,6 +235,23 @@ const Login = () => {
                         placeholder="Choose a strong password"
                         value={signUpPassword}
                         onChange={(e) => setSignUpPassword(e.target.value)}
+                        className="pl-10"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password-confirm">Confirm Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-password-confirm"
+                        type="password"
+                        placeholder="Re-enter your password"
+                        value={signUpPasswordConfirm}
+                        onChange={(e) => setSignUpPasswordConfirm(e.target.value)}
                         className="pl-10"
                         required
                         minLength={6}

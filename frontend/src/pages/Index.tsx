@@ -6,6 +6,7 @@ import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { TextEditor } from "@/components/TextEditor";
 import { AudioUpload } from "@/components/AudioUpload";
 import { TranscriptionValidation } from "@/components/TranscriptionValidation";
+import { TranscriptionChoiceStage } from "@/components/TranscriptionChoiceStage";
 import { AccentSelection, type AccentOption } from "@/components/AccentSelection";
 import { ParticleDetection, type ParticleDetectionData, type PotentialParticle } from "@/components/ParticleDetection";
 import { TranscriptionComparison } from "@/components/TranscriptionComparison";
@@ -18,7 +19,7 @@ import { Play, Pause, Volume2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dockerAPI } from "@/lib/api";
 
-export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "accent" | "particle-placement" | "comparison";
+export type WorkflowStage = "mode-selection" | "upload" | "validation" | "transcription-choice" | "editor" | "accent" | "particle-placement" | "comparison";
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
@@ -38,6 +39,7 @@ const Index = () => {
   const [completedStages, setCompletedStages] = useState<Set<WorkflowStage>>(new Set());
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [hasEditedTranscription, setHasEditedTranscription] = useState(false);
+  const [selectedTranscriptionChoice, setSelectedTranscriptionChoice] = useState<'option_a' | 'option_b' | null>(null);
   
   // Cache for API results to avoid redundant calls
   const [cachedResults, setCachedResults] = useState<{
@@ -78,6 +80,7 @@ const Index = () => {
     setUserTranscription("");
     setCompletedStages(new Set());
     setPracticeAudioUrl(undefined);
+    setSelectedTranscriptionChoice(null);
     
     // Clear session storage as well
     sessionStorage.removeItem('particleData');
@@ -159,6 +162,8 @@ const Index = () => {
     switch (currentStage) {
       case "validation":
         return completedStages.has("validation");
+      case "transcription-choice":
+        return completedStages.has("transcription-choice");
       case "editor":
         return completedStages.has("editor");
       case "accent":
@@ -227,10 +232,21 @@ const Index = () => {
     setCurrentStage("validation");
   };
 
-  const handleValidationComplete = (isValid: boolean) => {
+  const handleValidationComplete = (isValid: boolean, selectedTranscription?: string) => {
     setCompletedStages(prev => new Set([...prev, "validation"]));
+    
+    // If a specific transcription was selected, update the transcription text
+    if (selectedTranscription) {
+      setTranscriptionText(selectedTranscription);
+    }
+    
     if (isValid) {
-      setCurrentStage("accent");
+      // Go to transcription choice stage if we have choices available
+      if (cachedResults.consensusData?.transcription_choices) {
+        setCurrentStage("transcription-choice");
+      } else {
+        setCurrentStage("accent");
+      }
     } else {
       setCurrentStage("editor");
     }
@@ -273,6 +289,18 @@ const Index = () => {
 
   const handleEditComplete = () => {
     setCompletedStages(prev => new Set([...prev, "editor"]));
+    // Go to transcription choice stage if we have choices available
+    if (cachedResults.consensusData?.transcription_choices) {
+      setCurrentStage("transcription-choice");
+    } else {
+      setCurrentStage("accent");
+    }
+  };
+
+  const handleTranscriptionChoiceSelected = (selectedOption: 'option_a' | 'option_b', selectedTranscription: string) => {
+    setSelectedTranscriptionChoice(selectedOption);
+    setTranscriptionText(selectedTranscription);
+    setCompletedStages(prev => new Set([...prev, "transcription-choice"]));
     setCurrentStage("accent");
   };
 
@@ -472,11 +500,19 @@ const Index = () => {
           setCurrentStage("upload");
         }
         break;
+      case "transcription-choice":
+        setCurrentStage("validation");
+        break;
       case "editor":
         setCurrentStage("validation");
         break;
       case "accent":
-        setCurrentStage("validation");
+        // Go back to transcription choice if available, otherwise validation
+        if (cachedResults.consensusData?.transcription_choices) {
+          setCurrentStage("transcription-choice");
+        } else {
+          setCurrentStage("validation");
+        }
         break;
       case "particle-placement":
         setCurrentStage("accent");
@@ -505,6 +541,14 @@ const Index = () => {
         }
         break;
       case "validation":
+        // Go to transcription choice if available, otherwise accent
+        if (cachedResults.consensusData?.transcription_choices) {
+          setCurrentStage("transcription-choice");
+        } else {
+          setCurrentStage("accent");
+        }
+        break;
+      case "transcription-choice":
         setCurrentStage("accent");
         break;
       case "editor":
@@ -528,6 +572,7 @@ const Index = () => {
         setSelectedParticles([]);
         setUserTranscription("");
         setPracticeMode(null);
+        setSelectedTranscriptionChoice(null);
         clearCache(); // Clear cached results when starting over
         setCurrentStage("mode-selection");
         break;
@@ -679,6 +724,20 @@ const Index = () => {
               onNext={handleNext}
               completedStages={completedStages}
               onStageClick={handleStageClick}
+            />
+          )}
+
+          {currentStage === "transcription-choice" && cachedResults.consensusData?.transcription_choices && (
+            <TranscriptionChoiceStage
+              audioFile={audioFile}
+              audioUrl={practiceAudioUrl}
+              transcriptionChoices={cachedResults.consensusData.transcription_choices}
+              onChoiceSelected={handleTranscriptionChoiceSelected}
+              onBack={handleBack}
+              completedStages={completedStages}
+              onStageClick={handleStageClick}
+              isAudioPlaying={isAudioPlaying}
+              onAudioPlayPause={handleAudioPlayPause}
             />
           )}
 

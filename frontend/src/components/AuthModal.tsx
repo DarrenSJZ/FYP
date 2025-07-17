@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authService } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   const [signInPassword, setSignInPassword] = useState('');
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
+  const [signUpPasswordConfirm, setSignUpPasswordConfirm] = useState('');
   const [signUpName, setSignUpName] = useState('');
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -55,6 +58,20 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     setIsLoading(true);
     setError(null);
 
+    // Check if passwords match
+    if (signUpPassword !== signUpPasswordConfirm) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check minimum password length
+    if (signUpPassword.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await authService.signUp(
         signUpEmail, 
@@ -65,7 +82,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       if (error) {
         setError(error.message);
       } else {
-        setSuccess('Check your email for confirmation link!');
+        // Redirect to signup success page
+        onClose();
+        navigate('/signup-success');
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -77,10 +96,10 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
       <Card className="w-full max-w-md mx-4">
         <CardHeader>
-          <CardTitle>Welcome to Voice Transcription</CardTitle>
+          <CardTitle>Welcome to Accentric Voice</CardTitle>
           <CardDescription>
             Sign in to track your progress and contribute to the dataset
           </CardDescription>
@@ -190,6 +209,23 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                       placeholder="Choose a strong password"
                       value={signUpPassword}
                       onChange={(e) => setSignUpPassword(e.target.value)}
+                      className="pl-10"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password-confirm">Confirm Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="signup-password-confirm"
+                      type="password"
+                      placeholder="Re-enter your password"
+                      value={signUpPasswordConfirm}
+                      onChange={(e) => setSignUpPasswordConfirm(e.target.value)}
                       className="pl-10"
                       required
                       minLength={6}

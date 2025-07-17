@@ -3,8 +3,8 @@ Validation prompts for Step 3 of the pipeline
 """
 
 def get_validation_prompt(consensus_data, search_data, web_context):
-    """Generate web validation prompt"""
-    return f"""Validate and correct the transcription using web search results.
+    """Generate spelling context validation prompt - FOR CONTEXT ONLY, NOT TO MODIFY TRANSCRIPTION"""
+    return f"""Analyze web search results to provide spelling context for proper nouns. DO NOT modify the transcription.
 
 **Original Consensus**: "{consensus_data['consensus_transcription']}"
 **Primary Model**: {consensus_data['primary_model']}
@@ -16,17 +16,17 @@ Search Reasoning: {search_data['search_reasoning']}
 
 {web_context}
 
-**Task**:
-- Based on the web search results, determine which terms should be corrected
-- Identify which proper nouns are confirmed by the search results
-- Provide the final validated transcription with corrections applied
-- IMPORTANT: Preserve the full original transcription length and meaning
-- Explain your reasoning for any changes made
+**Task - CONTEXT ONLY**:
+- Identify which proper nouns are confirmed by web search results
+- Provide spelling context and verification for proper nouns
+- Note any discrepancies between transcription and web results
+- IMPORTANT: Return the original consensus transcription unchanged
+- Provide context information only - do NOT modify the transcription
 
 **Guidance**:
-- Use web search results to validate uncertain terms
-- Correct obvious errors based on search evidence
-- Preserve original transcription where search results don't provide clear corrections
-- Focus on improving accuracy while maintaining the original meaning
+- This is for spelling context verification only
+- Always return the original consensus transcription as final_consensus
+- Use web results to understand correct spellings but don't change anything
+- Focus on providing context rather than corrections
 
 Call the validate_with_web_context function with your analysis."""
