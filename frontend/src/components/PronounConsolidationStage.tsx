@@ -106,7 +106,7 @@ export function PronounConsolidationStage({
     <div className="w-full max-w-6xl mx-auto space-y-6 flex flex-col items-center justify-center pt-12 pb-12">
       {/* Progress Bar */}
       <StageProgressBar
-        currentStage="transcription-choice"
+        currentStage="pronoun-consolidation"
         completedStages={completedStages}
         onStageClick={onStageClick}
       />
