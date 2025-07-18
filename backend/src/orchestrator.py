@@ -593,8 +593,8 @@ class ASROrchestrator:
                 "validation_confidence": consensus_data['model_agreement_score']
             }
         
-        # Prepare A-B transcription choices
-        transcription_choices = {
+        # Prepare A-B pronoun consolidation choices
+        pronoun_consolidation = {
             "option_a": {
                 "transcription": consensus_data['consensus_transcription'],
                 "label": "AI Consensus",
@@ -611,16 +611,16 @@ class ASROrchestrator:
             }
         }
         
-        print(f"DEBUG: Created transcription_choices: {transcription_choices}")
-        print(f"DEBUG: Option A transcription: '{transcription_choices['option_a']['transcription']}'")
-        print(f"DEBUG: Option B transcription: '{transcription_choices['option_b']['transcription']}'")
-        print(f"DEBUG: Are they different? {transcription_choices['option_a']['transcription'] != transcription_choices['option_b']['transcription']}")
+        print(f"DEBUG: Created pronoun_consolidation: {pronoun_consolidation}")
+        print(f"DEBUG: Option A transcription: '{pronoun_consolidation['option_a']['transcription']}'")
+        print(f"DEBUG: Option B transcription: '{pronoun_consolidation['option_b']['transcription']}'")
+        print(f"DEBUG: Are they different? {pronoun_consolidation['option_a']['transcription'] != pronoun_consolidation['option_b']['transcription']}")
         
         # Return consensus result with A-B choices
         result = {
             "status": "success",
             "primary": consensus_data['consensus_transcription'],  # Keep for backward compatibility
-            "transcription_choices": transcription_choices,  # New A-B choice system
+            "pronoun_consolidation": pronoun_consolidation,  # New A-B choice system
             "alternatives": {
                 model: result.get('transcription', '')
                 for model, result in asr_results['results'].items()
