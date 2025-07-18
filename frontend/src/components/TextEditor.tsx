@@ -3,10 +3,116 @@ import CodeMirror from "@uiw/react-codemirror";
 import { vim, getCM } from "@replit/codemirror-vim";
 import { createTheme } from "@uiw/codemirror-themes";
 import { useTheme } from "next-themes";
-import { EditorView, keymap } from "@codemirror/view";
-import { Prec } from "@codemirror/state";
+import { EditorView, keymap, Decoration, DecorationSet } from "@codemirror/view";
+import { Prec, StateEffect, StateField, EditorSelection } from "@codemirror/state";
 import { autocompletion, CompletionContext, CompletionResult, acceptCompletion, moveCompletionSelection, completionStatus, currentCompletions } from "@codemirror/autocomplete";
 import "../styles/autocomplete.css";
+
+// --- Text Highlighting System --- //
+// Define the highlight effect
+const addHighlight = StateEffect.define<{from: number, to: number, color: string}>();
+const removeHighlight = StateEffect.define<{from: number, to: number}>();
+const clearHighlights = StateEffect.define();
+
+// Define formatting effects
+const addFormatting = StateEffect.define<{from: number, to: number, formats: Set<string>}>();
+const removeFormatting = StateEffect.define<{from: number, to: number}>();
+const clearAllFormatting = StateEffect.define();
+
+// Create highlight decorations for different colors
+const createHighlightDecoration = (color: string) => {
+  const colorMap: { [key: string]: string } = {
+    'bg-yellow-200': 'rgba(254, 240, 138, 0.5)',
+    'bg-green-200': 'rgba(187, 247, 208, 0.5)',
+    'bg-blue-200': 'rgba(191, 219, 254, 0.5)',
+    'bg-pink-200': 'rgba(251, 207, 232, 0.5)',
+    'bg-purple-200': 'rgba(221, 214, 254, 0.5)',
+    'bg-orange-200': 'rgba(254, 215, 170, 0.5)',
+  };
+  
+  return Decoration.mark({
+    attributes: {
+      style: `background-color: ${colorMap[color] || colorMap['bg-yellow-200']}`
+    }
+  });
+};
+
+// Create formatting decorations
+const createFormattingDecoration = (formats: Set<string>) => {
+  const styles: string[] = [];
+  
+  if (formats.has('bold')) styles.push('font-weight: bold');
+  if (formats.has('italic')) styles.push('font-style: italic');
+  if (formats.has('underline')) styles.push('text-decoration: underline');
+  
+  return Decoration.mark({
+    attributes: {
+      style: styles.join('; ')
+    }
+  });
+};
+
+// State field to manage highlights
+const highlightField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(highlights, transaction) {
+    highlights = highlights.map(transaction.changes);
+    
+    for (let effect of transaction.effects) {
+      if (effect.is(addHighlight)) {
+        const { from, to, color } = effect.value;
+        const decoration = createHighlightDecoration(color);
+        highlights = highlights.update({
+          add: [decoration.range(from, to)],
+          sort: true
+        });
+      } else if (effect.is(removeHighlight)) {
+        const { from, to } = effect.value;
+        highlights = highlights.update({
+          filter: (from_pos, to_pos) => !(from_pos === from && to_pos === to)
+        });
+      } else if (effect.is(clearHighlights)) {
+        highlights = Decoration.none;
+      }
+    }
+    
+    return highlights;
+  },
+  provide: f => EditorView.decorations.from(f)
+});
+
+// State field to manage text formatting
+const formattingField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(formatting, transaction) {
+    formatting = formatting.map(transaction.changes);
+    
+    for (let effect of transaction.effects) {
+      if (effect.is(addFormatting)) {
+        const { from, to, formats } = effect.value;
+        const decoration = createFormattingDecoration(formats);
+        formatting = formatting.update({
+          add: [decoration.range(from, to)],
+          sort: true
+        });
+      } else if (effect.is(removeFormatting)) {
+        const { from, to } = effect.value;
+        formatting = formatting.update({
+          filter: (from_pos, to_pos) => !(from_pos === from && to_pos === to)
+        });
+      } else if (effect.is(clearAllFormatting)) {
+        formatting = Decoration.none;
+      }
+    }
+    
+    return formatting;
+  },
+  provide: f => EditorView.decorations.from(f)
+});
 
 // --- CodeMirror 6 Native Autocomplete Source --- //
 const redisCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
@@ -70,6 +176,7 @@ type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "V-BLOCK" | "COMMAND"
 
 interface TextEditorProps {
   fontSize: number;
+  fontFamily?: string;
   vimMode: VimMode;
   onVimModeChange: (mode: VimMode) => void;
   isVimEnabled: boolean;
@@ -77,10 +184,15 @@ interface TextEditorProps {
   onChange?: (value: string) => void;
   placeholder?: string;
   audioId?: string;
+  highlightColor?: string | null;
+  onHighlightApplied?: (from: number, to: number, color: string) => void;
+  activeFormatting?: Set<string>;
+  onFormattingApplied?: (from: number, to: number, formats: Set<string>) => void;
 }
 
 export function TextEditor({
   fontSize,
+  fontFamily = "Monaco, Menlo, 'Ubuntu Mono', monospace",
   vimMode,
   onVimModeChange,
   isVimEnabled,
@@ -88,6 +200,10 @@ export function TextEditor({
   onChange,
   placeholder = "",
   audioId,
+  highlightColor,
+  onHighlightApplied,
+  activeFormatting = new Set(),
+  onFormattingApplied,
 }: TextEditorProps) {
   const [value, setValue] = useState(initialContent);
   const { theme } = useTheme();
@@ -102,15 +218,164 @@ export function TextEditor({
   const kanagawaLotus = createTheme({ theme: 'light', settings: { background: 'hsl(44, 51%, 84%)', foreground: 'hsl(38, 16%, 39%)', caret: 'hsl(221, 35%, 45%)', selection: 'hsl(44, 43%, 73%)', selectionMatch: 'hsl(44, 47%, 79%)', lineHeight: '1.6', gutterBackground: 'hsl(44, 47%, 79%)', gutterForeground: 'hsl(50, 12%, 41%)' } });
   const kanagawaWave = createTheme({ theme: 'dark', settings: { background: 'hsl(240, 10%, 15%)', foreground: 'hsl(39, 21%, 84%)', caret: 'hsl(44, 78%, 71%)', selection: 'hsl(240, 9%, 27%)', selectionMatch: 'hsl(240, 9%, 21%)', lineHeight: '1.6', gutterBackground: 'hsl(240, 9%, 21%)', gutterForeground: 'hsl(39, 19%, 67%)' } });
 
+  // Function to apply highlight to selected text
+  const applyHighlightToSelection = useCallback(() => {
+    if (!highlightColor || !editorRef.current) return;
+    
+    const view = editorRef.current.view;
+    if (!view) return;
+    
+    const selection = view.state.selection.main;
+    if (selection.empty) return; // No text selected
+    
+    const { from, to } = selection;
+    view.dispatch({
+      effects: addHighlight.of({ from, to, color: highlightColor })
+    });
+    
+    // Clear selection after highlighting
+    view.dispatch({
+      selection: EditorSelection.single(to)
+    });
+    
+    onHighlightApplied?.(from, to, highlightColor);
+  }, [highlightColor, onHighlightApplied]);
+
+  // Function to apply formatting to selected text
+  const applyFormattingToSelection = useCallback(() => {
+    if (activeFormatting.size === 0 || !editorRef.current) return;
+    
+    const view = editorRef.current.view;
+    if (!view) return;
+    
+    const selection = view.state.selection.main;
+    if (selection.empty) return; // No text selected
+    
+    const { from, to } = selection;
+    view.dispatch({
+      effects: addFormatting.of({ from, to, formats: activeFormatting })
+    });
+    
+    // Clear selection after formatting
+    view.dispatch({
+      selection: EditorSelection.single(to)
+    });
+    
+    onFormattingApplied?.(from, to, activeFormatting);
+  }, [activeFormatting, onFormattingApplied]);
+
   const extensions = useMemo(() => {
     const exts = [];
     
-    // Add native CodeMirror autocomplete without default keymap
+    // Add highlighting field
+    exts.push(highlightField);
+    
+    // Add formatting field
+    exts.push(formattingField);
+    
+    // Add custom keymap for highlighting and formatting
+    const customKeymaps = [];
+    
+    if (highlightColor) {
+      customKeymaps.push({
+        key: "Ctrl-Alt-h",
+        run: () => {
+          applyHighlightToSelection();
+          return true;
+        }
+      });
+    }
+    
+    if (activeFormatting.size > 0) {
+      customKeymaps.push({
+        key: "Ctrl-Alt-f",
+        run: () => {
+          applyFormattingToSelection();
+          return true;
+        }
+      });
+    }
+    
+    // Add individual formatting shortcuts
+    customKeymaps.push({
+      key: "Ctrl-Alt-b",
+      run: () => {
+        // Toggle bold and apply to selection if any
+        const newFormatting = new Set(activeFormatting);
+        if (newFormatting.has('bold')) {
+          newFormatting.delete('bold');
+        } else {
+          newFormatting.add('bold');
+        }
+        
+        // Apply to selection if text is selected
+        const view = editorRef.current?.view;
+        if (view) {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            view.dispatch({
+              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['bold']) })
+            });
+            view.dispatch({
+              selection: EditorSelection.single(selection.to)
+            });
+          }
+        }
+        
+        return true;
+      }
+    });
+    
+    customKeymaps.push({
+      key: "Ctrl-Alt-i",
+      run: () => {
+        // Toggle italic and apply to selection if any
+        const view = editorRef.current?.view;
+        if (view) {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            view.dispatch({
+              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['italic']) })
+            });
+            view.dispatch({
+              selection: EditorSelection.single(selection.to)
+            });
+          }
+        }
+        return true;
+      }
+    });
+    
+    customKeymaps.push({
+      key: "Ctrl-Alt-u",
+      run: () => {
+        // Toggle underline and apply to selection if any
+        const view = editorRef.current?.view;
+        if (view) {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            view.dispatch({
+              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['underline']) })
+            });
+            view.dispatch({
+              selection: EditorSelection.single(selection.to)
+            });
+          }
+        }
+        return true;
+      }
+    });
+    
+    if (customKeymaps.length > 0) {
+      exts.push(keymap.of(customKeymaps));
+    }
+    
+    // Add native CodeMirror autocomplete with default keymap
     exts.push(autocompletion({
       override: [redisCompletionSource],
       activateOnTyping: true,
       maxRenderedOptions: 10,
-      defaultKeymap: true, 
+      defaultKeymap: true, // Use CodeMirror's built-in keymap
       selectOnOpen: true, // Auto-select first option
       closeOnBlur: true,
       tooltipClass: () => "custom-autocomplete-tooltip"
@@ -121,7 +386,7 @@ export function TextEditor({
     }
     exts.push(EditorView.lineWrapping);
     return exts;
-  }, [isVimEnabled]);
+  }, [isVimEnabled, fontFamily, highlightColor, applyHighlightToSelection, activeFormatting, applyFormattingToSelection]);
 
   useEffect(() => {
     setValue(initialContent);
@@ -154,7 +419,10 @@ export function TextEditor({
 
   return (
     <div className="w-full">
-      <div className="w-full relative rounded-lg overflow-hidden border border-border">
+      <div 
+        className="w-full relative rounded-lg overflow-hidden border border-border"
+        style={{ fontFamily: fontFamily }}
+      >
         <CodeMirror
           ref={editorRef}
           value={value}
@@ -175,7 +443,11 @@ export function TextEditor({
             indentOnInput: false,
           }}
           className="rounded-lg"
-          style={{ fontSize: `${fontSize}px`, fontFamily: "Monaco, Menlo, 'Ubuntu Mono', monospace", lineHeight: "1.6" }}
+          style={{ 
+            fontSize: `${fontSize}px`, 
+            fontFamily: fontFamily, 
+            lineHeight: "1.6"
+          }}
         />
       </div>
     </div>

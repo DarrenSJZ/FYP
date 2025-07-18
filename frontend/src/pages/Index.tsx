@@ -22,6 +22,9 @@ export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
+  const [fontFamily, setFontFamily] = useState("Monaco, Menlo, 'Ubuntu Mono', monospace");
+  const [selectedHighlighter, setSelectedHighlighter] = useState<string | null>(null);
+  const [activeFormatting, setActiveFormatting] = useState<Set<string>>(new Set());
   const [isVimEnabled, setIsVimEnabled] = useState(false);
   const [vimMode, setVimMode] = useState<"NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "COMMAND">("NORMAL");
   const [transcriptionText, setTranscriptionText] = useState("");
@@ -738,7 +741,7 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col items-center justify-center px-6 min-h-0 ${currentStage === "editor" ? "justify-start pt-16" : ""}`}>
+      <div className={`flex-1 flex flex-col items-center px-6 min-h-0 ${currentStage === "editor" ? "justify-start pt-16 min-h-screen" : "justify-center"}`}>
         
         <div className="w-full max-w-6xl flex justify-center items-center">
           {/* Stage Content */}
@@ -817,7 +820,7 @@ const Index = () => {
           )}
 
           {currentStage === "editor" && (
-            <div className="space-y-6 w-full max-w-6xl flex flex-col items-center">
+            <div className="space-y-6 w-full max-w-6xl flex flex-col items-center pb-52">
               {/* Page Title - At the tippity top */}
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Edit Transcription</h2>
@@ -880,6 +883,12 @@ const Index = () => {
                 <Ribbon
                   fontSize={fontSize}
                   onFontSizeChange={setFontSize}
+                  fontFamily={fontFamily}
+                  onFontFamilyChange={setFontFamily}
+                  selectedHighlighter={selectedHighlighter}
+                  onHighlighterChange={setSelectedHighlighter}
+                  activeFormatting={activeFormatting}
+                  onFormattingChange={setActiveFormatting}
                 />
                 
                 {/* VIM Toggle positioned to the right with gap */}
@@ -896,6 +905,7 @@ const Index = () => {
               {/* Text Editor */}
               <TextEditor
                 fontSize={fontSize}
+                fontFamily={fontFamily}
                 vimMode={vimMode}
                 onVimModeChange={setVimMode}
                 isVimEnabled={isVimEnabled}
@@ -903,6 +913,14 @@ const Index = () => {
                 initialContent={transcriptionText}
                 onChange={handleTranscriptionChange}
                 audioId={null}
+                highlightColor={selectedHighlighter}
+                onHighlightApplied={(from, to, color) => {
+                  // Optional: Handle highlight application
+                }}
+                activeFormatting={activeFormatting}
+                onFormattingApplied={(from, to, formats) => {
+                  // Optional: Handle formatting application
+                }}
               />
               
               {/* Clear Button */}
@@ -923,6 +941,9 @@ const Index = () => {
               {/* Divider */}
               <div className="w-full h-px bg-border"></div>
               
+              {/* Spacer to push submit button down */}
+              <div className="flex-1"></div>
+              
               {/* Submit Button */}
               <div className="flex justify-center">
                 <Button
@@ -937,6 +958,9 @@ const Index = () => {
               <p className="text-xs text-muted-foreground text-center">
                 Make corrections using autocomplete suggestions or clear the text to start fresh
               </p>
+              
+              {/* Bottom spacer */}
+              <div className="flex-1"></div>
             </div>
           )}
 
