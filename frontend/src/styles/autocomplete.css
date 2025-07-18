@@ -1,34 +1,118 @@
-.autocomplete-container {
-  position: relative;
+
+
+/* CodeMirror Active Line Fix */
+.cm-activeLine {
+  background-color: transparent !important;
 }
 
-.autocomplete-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background-color: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  max-height: 150px;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+/* Active line adjustments using CSS variables */
+[data-theme="light"] .cm-activeLine {
+  background-color: hsl(44, 47%, 79%) !important; /* Using existing light mode value */
 }
 
-.autocomplete-suggestion {
-  padding: 8px 12px;
-  cursor: pointer;
-  color: var(--foreground);
-  font-size: 14px;
-  transition: background-color 0.15s ease;
+[data-theme="dark"] .cm-activeLine {
+  background-color: hsl(240, 9%, 21%) !important; /* Using existing dark mode value */
 }
 
-.autocomplete-suggestion:hover {
-  background-color: var(--accent);
+/* Hide CodeMirror completion type icons (including mathematical x symbol) */
+.cm-completionIcon {
+  display: none !important;
 }
 
-.autocomplete-suggestion.selected {
-  background-color: var(--accent);
-  color: var(--accent-foreground);
+/* CodeMirror Native Autocomplete Styling */
+.cm-tooltip-autocomplete,
+.custom-autocomplete-tooltip {
+  background-color: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 25px hsl(var(--shadow-color)) !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 13px !important;
+  max-height: 200px !important;
+  overflow: hidden !important;
+  opacity: 1 !important;
+  z-index: 1000 !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.cm-tooltip-autocomplete > ul {
+  max-height: 150px !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+.cm-tooltip-autocomplete > ul > li {
+  padding: 8px 12px !important;
+  cursor: pointer !important;
+  color: hsl(var(--foreground)) !important;
+  transition: background-color 0.1s ease !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid transparent !important;
+}
+
+.cm-tooltip-autocomplete > ul > li:hover {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  border-bottom: none !important;
+}
+
+.cm-tooltip-autocomplete > ul > li .cm-completionLabel {
+  font-family: inherit !important;
+  color: inherit !important;
+  font-weight: 500 !important;
+}
+
+.cm-tooltip-autocomplete > ul > li .cm-completionDetail {
+  font-size: 9px !important;
+  color: hsl(var(--muted-foreground)) !important;
+  background-color: hsl(var(--detail-background)) !important;
+  padding: 2px 6px !important;
+  border-radius: 12px !important;
+  margin-left: 8px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  border: 1px solid hsl(var(--detail-border)) !important;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected="true"] .cm-completionDetail {
+  color: hsl(var(--accent-foreground)) !important;
+  background-color: hsla(var(--shadow-color)) !important; /* Using shadow-color for a translucent effect */
+}
+
+/* Remove redundant light mode adjustments as they are now in :root */
+/* Removed: [data-theme="light"] .cm-tooltip-autocomplete, etc. */
+/* Removed: [data-theme="light"] .cm-tooltip-autocomplete > ul > li, etc. */
+/* Removed: [data-theme="light"] .cm-tooltip-autocomplete > ul > li:hover, etc. */
+/* Removed: [data-theme="light"] .cm-tooltip-autocomplete > ul > li[aria-selected="true"], etc. */
+/* Removed: [data-theme="light"] .cm-tooltip-autocomplete > ul > li .cm-completionDetail, etc. */
+
+/* Dark mode adjustments - now only overriding variables */
+[data-theme="dark"] .cm-tooltip-autocomplete,
+[data-theme="dark"] .custom-autocomplete-tooltip {
+  /* These are now handled by the --card and --border variables in the [data-theme="dark"] block */
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li {
+  /* This is now handled by the --foreground variable in the [data-theme="dark"] block */
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li:hover {
+  /* This is now handled by the --muted variable in the [data-theme="dark"] block */
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  /* These are now handled by the --accent and --accent-foreground variables in the [data-theme="dark"] block */
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li .cm-completionDetail {
+  /* These are now handled by the --muted-foreground, --detail-background, and --detail-border variables in the [data-theme="dark"] block */
 }

@@ -22,11 +22,12 @@ export interface ParticleDetectionData {
   status: string;
   primary: string;
   alternatives: {
-    whisper: string;
-    wav2vec: string;
-    moonshine: string;
-    mesolitica: string;
-    vosk: string;
+    whisper?: string;
+    wav2vec?: string;
+    moonshine?: string;
+    mesolitica?: string;
+    vosk?: string;
+    [key: string]: string | undefined; // Allow additional model keys
   };
   potential_particles: PotentialParticle[];
   metadata: {

@@ -593,8 +593,8 @@ class ASROrchestrator:
                 "validation_confidence": consensus_data['model_agreement_score']
             }
         
-        # Prepare A-B transcription choices
-        transcription_choices = {
+        # Prepare A-B pronoun consolidation choices
+        pronoun_consolidation = {
             "option_a": {
                 "transcription": consensus_data['consensus_transcription'],
                 "label": "AI Consensus",
@@ -611,16 +611,16 @@ class ASROrchestrator:
             }
         }
         
-        print(f"DEBUG: Created transcription_choices: {transcription_choices}")
-        print(f"DEBUG: Option A transcription: '{transcription_choices['option_a']['transcription']}'")
-        print(f"DEBUG: Option B transcription: '{transcription_choices['option_b']['transcription']}'")
-        print(f"DEBUG: Are they different? {transcription_choices['option_a']['transcription'] != transcription_choices['option_b']['transcription']}")
+        print(f"DEBUG: Created pronoun_consolidation: {pronoun_consolidation}")
+        print(f"DEBUG: Option A transcription: '{pronoun_consolidation['option_a']['transcription']}'")
+        print(f"DEBUG: Option B transcription: '{pronoun_consolidation['option_b']['transcription']}'")
+        print(f"DEBUG: Are they different? {pronoun_consolidation['option_a']['transcription'] != pronoun_consolidation['option_b']['transcription']}")
         
         # Return consensus result with A-B choices
         result = {
             "status": "success",
             "primary": consensus_data['consensus_transcription'],  # Keep for backward compatibility
-            "transcription_choices": transcription_choices,  # New A-B choice system
+            "pronoun_consolidation": pronoun_consolidation,  # New A-B choice system
             "alternatives": {
                 model: result.get('transcription', '')
                 for model, result in asr_results['results'].items()
@@ -651,7 +651,7 @@ class ASROrchestrator:
         
         # Add search queries that were performed
         if search_data.get('search_queries'):
-            explanations.append(f"Verified: {', '.join(search_data['search_queries'])}")
+            explanations.append(f"Verified Search Terms: {', '.join(search_data['search_queries'])}")
         
         # Add validated terms
         if validated_data.get('validated_terms'):
@@ -999,21 +999,31 @@ async def transcribe_consensus(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AutocompleteInitRequest(BaseModel):
+    final_transcription: str
+    confidence_score: float = 0.8
+    detected_particles: List[str] = []
+    asr_alternatives: Dict[str, str] = {}
+
 @app.post("/initialize-autocomplete")
-async def initialize_autocomplete(request: dict):
+async def initialize_autocomplete(request: AutocompleteInitRequest):
     """Initialize autocomplete service with transcription data when user chooses to edit"""
     try:
-        # Extract data from the consensus result
-        autocomplete_data = orchestrator.extract_autocomplete_data(request)
+        # Prepare data for autocomplete service
+        autocomplete_data = {
+            "final_transcription": request.final_transcription,
+            "confidence_score": request.confidence_score,
+            "detected_particles": request.detected_particles,
+            "asr_alternatives": request.asr_alternatives
+        }
         
         # Push to autocomplete service
-        audio_filename = request.get('audio_filename', 'unknown.mp3')
-        await orchestrator.push_to_autocomplete_service(autocomplete_data, audio_filename)
+        await orchestrator.push_to_autocomplete_service(autocomplete_data, "audio_file")
         
         return {
             "status": "success",
             "message": "Autocomplete service initialized",
-            "audio_filename": audio_filename
+            "data": autocomplete_data
         }
         
     except Exception as e:

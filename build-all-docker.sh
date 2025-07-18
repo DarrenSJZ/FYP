@@ -18,6 +18,7 @@ PARALLEL_BUILDS=false
 VERBOSE=false
 FORCE_REBUILD=false
 BUILD_ORCHESTRATOR=true
+START_SERVICES=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -38,6 +39,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_ORCHESTRATOR=false
             shift
             ;;
+        --start)
+            START_SERVICES=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
@@ -45,6 +50,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -v, --verbose         Show detailed build output"
             echo "  -f, --force           Force rebuild (--no-cache)"
             echo "  --no-orchestrator     Skip building orchestrator service"
+            echo "  --start               Start services after successful build"
             echo "  -h, --help           Show this help message"
             exit 0
             ;;
@@ -239,6 +245,7 @@ check_prerequisites() {
         "backend/src/asr_models/mesolitica/Dockerfile"
         "backend/src/asr_models/vosk/Dockerfile"
         "backend/src/asr_models/allosaurus/Dockerfile"
+        "backend/src/autocomplete/Dockerfile"
     )
     
     for dockerfile in "${dockerfiles[@]}"; do
@@ -361,23 +368,39 @@ show_summary() {
     local images=("asr-base:latest")
     
     if [ "$BUILD_ORCHESTRATOR" = true ]; then
-        images+=("orchestrator:latest")
+        # Check for docker-compose generated image names
+        local project_name=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]//g')
+        images+=("${project_name}-orchestrator:latest" "${project_name}-autocomplete-service:latest")
     fi
     
     images+=("whisper-service:latest" "wav2vec-service:latest" "moonshine-service:latest" 
-             "mesolitica-service:latest" "vosk-service:latest" "allosaurus-service:latest")
+             "mesolitica-service:latest" "vosk-service:latest" "allosaurus-service:latest"
+             "redis:7-alpine")
     
     for image in "${images[@]}"; do
         if docker image inspect "$image" > /dev/null 2>&1; then
             local size=$(docker image inspect "$image" --format='{{.Size}}' | numfmt --to=iec)
             echo -e "${GREEN}✓${NC} $image ($size)"
         else
-            echo -e "${RED}✗${NC} $image (not found)"
+            # Try without :latest tag for docker-compose images
+            local image_no_tag=$(echo "$image" | sed 's/:latest$//')
+            if docker image inspect "$image_no_tag" > /dev/null 2>&1; then
+                local size=$(docker image inspect "$image_no_tag" --format='{{.Size}}' | numfmt --to=iec)
+                echo -e "${GREEN}✓${NC} $image ($size)"
+            else
+                # For docker-compose services, check if they're running
+                local service_name=$(echo "$image" | sed 's/.*-\([^-]*\):.*/\1/')
+                if docker compose ps "$service_name" 2>/dev/null | grep -q "Up"; then
+                    echo -e "${GREEN}✓${NC} $image (running via docker-compose)"
+                else
+                    echo -e "${RED}✗${NC} $image (not found)"
+                fi
+            fi
         fi
     done
     
     echo "=========================="
-    local total_size=$(docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" | grep -E "(asr-base|orchestrator|whisper-service|wav2vec-service|moonshine-service|mesolitica-service|vosk-service|allosaurus-service)" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "unknown")
+    local total_size=$(docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" | grep -E "(asr-base|orchestrator|whisper-service|wav2vec-service|moonshine-service|mesolitica-service|vosk-service|allosaurus-service|autocomplete-service|redis)" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "unknown")
     log_info "Total estimated size: $total_size"
 }
 
@@ -415,13 +438,13 @@ main() {
         fi
     fi
     
-    # Build orchestrator service using docker-compose
+    # Build orchestrator and supporting services using docker-compose
     if [ "$BUILD_ORCHESTRATOR" = true ]; then
-        log_info "Step 3/3: Building orchestrator service with docker-compose..."
-        if docker compose up --build -d orchestrator; then
-            log_success "Orchestrator service built and started successfully"
+        log_info "Step 3/3: Building orchestrator, autocomplete, and Redis services with docker-compose..."
+        if docker compose up --build -d orchestrator autocomplete-service redis; then
+            log_success "Orchestrator, autocomplete, and Redis services built and started successfully"
         else
-            log_warning "Failed to build orchestrator service with docker-compose"
+            log_warning "Failed to build orchestrator services with docker-compose"
             log_info "ASR services are still functional without orchestrator"
         fi
     else
@@ -434,11 +457,44 @@ main() {
     log_success "Build completed in ${duration}s"
     show_summary
     
-    log_info "Next steps:"
-    echo "  • Start all services: docker compose up -d"
-    echo "  • Start specific ASR service: docker compose up -d whisper-service"
-    echo "  • View orchestrator logs: docker compose logs -f orchestrator"
-    echo "  • Test endpoint: curl http://localhost:8000/health"
+    # Start services if requested
+    if [[ "$START_SERVICES" == true ]]; then
+        log_info "Step 4/4: Starting services..."
+        echo ""
+        
+        # Stop existing services first
+        log_info "Stopping existing services..."
+        docker compose down > /dev/null 2>&1
+        
+        # Start services
+        log_info "Starting services..."
+        if docker compose up -d; then
+            log_success "Services started successfully"
+            echo ""
+            log_info "Service status:"
+            docker compose ps
+            echo ""
+            log_info "Useful commands:"
+            echo "  • View orchestrator logs: docker compose logs -f orchestrator"
+            echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
+            echo "  • Test orchestrator: curl http://localhost:8000/health"
+            echo "  • Test autocomplete: curl http://localhost:8007/health"
+            echo "  • Test Redis: docker compose exec redis redis-cli ping"
+        else
+            log_error "Failed to start services"
+            exit 1
+        fi
+    else
+        log_info "Next steps:"
+        echo "  • Start all services: docker compose up -d"
+        echo "  • Start specific ASR service: docker compose up -d whisper-service"
+        echo "  • View orchestrator logs: docker compose logs -f orchestrator"
+        echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
+        echo "  • Test orchestrator: curl http://localhost:8000/health"
+        echo "  • Test autocomplete: curl http://localhost:8007/health"
+        echo "  • Test Redis: docker compose exec redis redis-cli ping"
+        echo "  • Full autocomplete test: see redis-autocomplete-test-commands.md"
+    fi
 }
 
 # Run main function
