@@ -8,7 +8,7 @@ import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
 import type { WorkflowStage } from "@/pages/Index";
 
-interface TranscriptionChoice {
+interface PronounConsolidationChoice {
   transcription: string;
   label: string;
   description: string;
@@ -19,9 +19,9 @@ interface TranscriptionChoice {
 interface PronounConsolidationStageProps {
   audioFile?: File;
   audioUrl?: string;
-  transcriptionChoices: {
-    option_a: TranscriptionChoice;
-    option_b: TranscriptionChoice;
+  pronounConsolitdationChoices?: {
+    option_a: PronounConsolidationChoice;
+    option_b: PronounConsolidationChoice;
   };
   onChoiceSelected: (selectedOption: 'option_a' | 'option_b', selectedTranscription: string) => void;
   onBack: () => void;
@@ -29,24 +29,41 @@ interface PronounConsolidationStageProps {
   onStageClick?: (stage: WorkflowStage) => void;
   isAudioPlaying: boolean;
   onAudioPlayPause: () => void;
+  userEditedTranscription?: string;
+  hasEditedTranscription?: boolean;
 }
 
 export function PronounConsolidationStage({
   audioFile,
   audioUrl,
-  transcriptionChoices,
+  pronounConsolitdationChoices,
   onChoiceSelected,
   onBack,
   completedStages,
   onStageClick,
   isAudioPlaying,
-  onAudioPlayPause
+  onAudioPlayPause,
+  userEditedTranscription,
+  hasEditedTranscription
 }: PronounConsolidationStageProps) {
   const [selectedOption, setSelectedOption] = useState<'option_a' | 'option_b' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const areTranscriptionsDifferent = transcriptionChoices.option_a.transcription !== transcriptionChoices.option_b.transcription;
+  // Create modified choices that use user's edited transcription when available
+  const effectiveChoices = pronounConsolitdationChoices ? {
+    option_a: hasEditedTranscription ? {
+      ...pronounConsolitdationChoices.option_a,
+      transcription: userEditedTranscription || pronounConsolitdationChoices.option_a.transcription,
+      label: "Your Edited Version",
+      description: "Your manually edited transcription with corrections",
+      reasoning: "User edited transcription",
+      confidence: 1.0
+    } : pronounConsolitdationChoices.option_a,
+    option_b: pronounConsolitdationChoices.option_b
+  } : null;
+
+  const areTranscriptionsDifferent = effectiveChoices ? effectiveChoices.option_a.transcription !== effectiveChoices.option_b.transcription : false;
 
   useEffect(() => {
     if (!areTranscriptionsDifferent) {
@@ -54,7 +71,6 @@ export function PronounConsolidationStage({
         title: "💡 Options are Identical",
         description: "Both options are identical because the web validation confirmed the AI consensus was already correct.",
         variant: "default",
-        duration: 5000,
       });
     }
   }, [areTranscriptionsDifferent, toast]);
@@ -64,10 +80,10 @@ export function PronounConsolidationStage({
   };
 
   const handleConfirm = async () => {
-    if (!selectedOption) return;
+    if (!selectedOption || !effectiveChoices) return;
 
     setIsSubmitting(true);
-    const selectedTranscription = transcriptionChoices[selectedOption].transcription;
+    const selectedTranscription = effectiveChoices[selectedOption].transcription;
     onChoiceSelected(selectedOption, selectedTranscription);
     setIsSubmitting(false);
   };
@@ -169,15 +185,15 @@ export function PronounConsolidationStage({
             <div className="flex flex-col justify-center items-center text-center">
               <div className="flex items-center gap-3 mb-2">
                 {getIcon('option_a')}
-                <h3 className="text-lg font-semibold">{transcriptionChoices.option_a.label}</h3>
-                <Badge className={getConfidenceColor(transcriptionChoices.option_a.confidence)}>
-                  {formatConfidence(transcriptionChoices.option_a.confidence)}% confident
+                <h3 className="text-lg font-semibold">{effectiveChoices?.option_a.label}</h3>
+                <Badge className={getConfidenceColor(effectiveChoices?.option_a.confidence || 0)}>
+                  {formatConfidence(effectiveChoices?.option_a.confidence || 0)}% confident
                 </Badge>
                 {selectedOption === 'option_a' && (
                   <CheckCircle2 className="w-5 h-5 text-primary" />
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">{transcriptionChoices.option_a.description}</p>
+              <p className="text-sm text-muted-foreground">{effectiveChoices?.option_a.description}</p>
             </div>
             
             {/* Card bubble */}
@@ -187,11 +203,11 @@ export function PronounConsolidationStage({
             >
               <div className="space-y-3">
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
-                  "{transcriptionChoices.option_a.transcription}"
+                  "{effectiveChoices?.option_a.transcription}"
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Info className="w-3 h-3" />
-                  <span>{transcriptionChoices.option_a.reasoning}</span>
+                  <span>{effectiveChoices?.option_a.reasoning}</span>
                 </div>
               </div>
             </div>
@@ -210,15 +226,15 @@ export function PronounConsolidationStage({
             <div className="flex flex-col justify-center items-center text-center">
               <div className="flex items-center gap-3 mb-2">
                 {getIcon('option_b')}
-                <h3 className="text-lg font-semibold">{transcriptionChoices.option_b.label}</h3>
-                <Badge className={getConfidenceColor(transcriptionChoices.option_b.confidence)}>
-                  {formatConfidence(transcriptionChoices.option_b.confidence)}% confident
+                <h3 className="text-lg font-semibold">{effectiveChoices?.option_b.label}</h3>
+                <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
+                  {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
                 </Badge>
                 {selectedOption === 'option_b' && (
                   <CheckCircle2 className="w-5 h-5 text-accent" />
                 )}
               </div>
-              <p className="text-sm text-muted-foreground">{transcriptionChoices.option_b.description}</p>
+              <p className="text-sm text-muted-foreground">{effectiveChoices?.option_b.description}</p>
             </div>
             
             {/* Card bubble */}
@@ -228,11 +244,11 @@ export function PronounConsolidationStage({
             >
               <div className="space-y-3">
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
-                  "{transcriptionChoices.option_b.transcription}"
+                  "{effectiveChoices?.option_b.transcription}"
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Info className="w-3 h-3" />
-                  <span>{transcriptionChoices.option_b.reasoning}</span>
+                  <span>{effectiveChoices?.option_b.reasoning}</span>
                 </div>
               </div>
             </div>
@@ -260,7 +276,7 @@ export function PronounConsolidationStage({
             </>
           ) : (
             <>
-              Continue with {selectedOption ? transcriptionChoices[selectedOption].label : 'Selection'}
+              Continue with {selectedOption && effectiveChoices ? effectiveChoices[selectedOption].label : 'Selection'}
               <ArrowRight className="w-4 h-4" />
             </>
           )}

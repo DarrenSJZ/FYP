@@ -1,34 +1,134 @@
-.autocomplete-container {
-  position: relative;
+/* CodeMirror Active Line Fix */
+.cm-activeLine {
+  background-color: transparent !important;
 }
 
-.autocomplete-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background-color: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  max-height: 150px;
-  overflow-y: auto;
-  z-index: 1000;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+/* Light mode active line */
+[data-theme="light"] .cm-activeLine {
+  background-color: hsl(44, 47%, 79%) !important;
 }
 
-.autocomplete-suggestion {
-  padding: 8px 12px;
-  cursor: pointer;
-  color: var(--foreground);
-  font-size: 14px;
-  transition: background-color 0.15s ease;
+/* Dark mode active line */
+[data-theme="dark"] .cm-activeLine {
+  background-color: hsl(240, 9%, 21%) !important;
 }
 
-.autocomplete-suggestion:hover {
-  background-color: var(--accent);
+
+/* Hide CodeMirror completion type icons (including mathematical x symbol) */
+.cm-completionIcon {
+  display: none !important;
 }
 
-.autocomplete-suggestion.selected {
-  background-color: var(--accent);
-  color: var(--accent-foreground);
+/* CodeMirror Native Autocomplete Styling */
+.cm-tooltip-autocomplete {
+  background-color: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 13px !important;
+  max-height: 200px !important;
+  overflow: hidden !important;
+}
+
+.cm-tooltip-autocomplete > ul {
+  max-height: 150px !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+.cm-tooltip-autocomplete > ul > li {
+  padding: 8px 12px !important;
+  cursor: pointer !important;
+  color: var(--foreground) !important;
+  transition: background-color 0.1s ease !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid transparent !important;
+}
+
+.cm-tooltip-autocomplete > ul > li:hover {
+  background-color: var(--muted) !important;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  border-bottom: none !important;
+}
+
+.cm-tooltip-autocomplete > ul > li .cm-completionLabel {
+  font-family: inherit !important;
+  color: inherit !important;
+  font-weight: 500 !important;
+}
+
+.cm-tooltip-autocomplete > ul > li .cm-completionDetail {
+  font-size: 9px !important;
+  color: var(--muted-foreground) !important;
+  background-color: var(--muted) !important;
+  padding: 2px 6px !important;
+  border-radius: 12px !important;
+  margin-left: 8px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected="true"] .cm-completionDetail {
+  color: var(--accent-foreground) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .cm-tooltip-autocomplete {
+  border-color: hsl(240, 9%, 27%) !important;
+  color: hsl(39, 21%, 84%) !important;
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li {
+  color: hsl(39, 21%, 84%) !important;
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li:hover {
+  background-color: hsl(240, 9%, 27%) !important;
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background-color: hsl(240, 9%, 35%) !important;
+  color: hsl(44, 78%, 71%) !important;
+}
+
+[data-theme="dark"] .cm-tooltip-autocomplete > ul > li .cm-completionDetail {
+  color: hsl(44, 90%, 75%) !important;
+  background-color: hsl(240, 12%, 25%) !important;
+  border: 1px solid hsl(44, 80%, 65%) !important;
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .cm-tooltip-autocomplete {
+  border-color: hsl(44, 43%, 73%) !important;
+  color: hsl(38, 16%, 39%) !important;
+}
+
+[data-theme="light"] .cm-tooltip-autocomplete > ul > li {
+  color: hsl(38, 16%, 39%) !important;
+}
+
+[data-theme="light"] .cm-tooltip-autocomplete > ul > li:hover {
+  background-color: hsl(44, 43%, 73%) !important;
+}
+
+[data-theme="light"] .cm-tooltip-autocomplete > ul > li[aria-selected="true"] {
+  background-color: hsl(44, 30%, 65%) !important;
+  color: hsl(38, 16%, 25%) !important;
+}
+
+[data-theme="light"] .cm-tooltip-autocomplete > ul > li .cm-completionDetail {
+  color: hsl(221, 50%, 25%) !important;
+  background-color: hsl(44, 30%, 90%) !important;
+  border: 1px solid hsl(221, 50%, 35%) !important;
 }

@@ -18,8 +18,8 @@ RUN useradd --create-home --shell /bin/bash app
 # Stage 3: Final runtime image
 FROM asr-base AS runtime
 
-# Copy dependencies from allosaurus-deps stage
-COPY --from=allosaurus-deps /app/.venv /app/.venv
+# Copy dependencies and models from model-download stage
+COPY --from=model-download /app/.venv /app/.venv
 
 # Copy application code for execution
 COPY backend/src/asr_models/allosaurus/stt_model_allosaurus.py ./src/asr_models/allosaurus/

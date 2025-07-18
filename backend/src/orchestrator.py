@@ -651,7 +651,7 @@ class ASROrchestrator:
         
         # Add search queries that were performed
         if search_data.get('search_queries'):
-            explanations.append(f"Verified: {', '.join(search_data['search_queries'])}")
+            explanations.append(f"Verified Search Terms: {', '.join(search_data['search_queries'])}")
         
         # Add validated terms
         if validated_data.get('validated_terms'):

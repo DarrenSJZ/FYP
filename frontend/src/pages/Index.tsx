@@ -19,7 +19,7 @@ import { Play, Pause, Volume2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { dockerAPI } from "@/lib/api";
 
-export type WorkflowStage = "mode-selection" | "upload" | "validation" | "pronoun-consolidation" | "editor" | "accent" | "particle-placement" | "comparison";
+export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "pronoun-consolidation" | "accent" | "particle-placement" | "comparison";
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
@@ -39,7 +39,7 @@ const Index = () => {
   const [completedStages, setCompletedStages] = useState<Set<WorkflowStage>>(new Set());
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [hasEditedTranscription, setHasEditedTranscription] = useState(false);
-  const [selectedTranscriptionChoice, setSelectedTranscriptionChoice] = useState<'option_a' | 'option_b' | null>(null);
+  const [selectedPronounConsolidationChoice, setSelectedPronounConsolidationChoice] = useState<'option_a' | 'option_b' | null>(null);
   
   // Cache for API results to avoid redundant calls
   const [cachedResults, setCachedResults] = useState<{
@@ -80,7 +80,7 @@ const Index = () => {
     setUserTranscription("");
     setCompletedStages(new Set());
     setPracticeAudioUrl(undefined);
-    setSelectedTranscriptionChoice(null);
+    setSelectedPronounConsolidationChoice(null);
     
     // Clear session storage as well
     sessionStorage.removeItem('particleData');
@@ -162,8 +162,8 @@ const Index = () => {
     switch (currentStage) {
       case "validation":
         return completedStages.has("validation");
-      case "transcription-choice":
-        return completedStages.has("transcription-choice");
+      case "pronoun-consolidation":
+        return completedStages.has("pronoun-consolidation");
       case "editor":
         return completedStages.has("editor");
       case "accent":
@@ -178,6 +178,11 @@ const Index = () => {
   };
 
   const handleStageClick = (stage: WorkflowStage) => {
+    // Prevent skipping pronoun consolidation if required
+    if (stage === "accent" && cachedResults.consensusData?.pronoun_consolidation && !completedStages.has("pronoun-consolidation")) {
+      setCurrentStage("pronoun-consolidation");
+      return;
+    }
     if (completedStages.has(stage) || stage === currentStage) {
       setCurrentStage(stage);
     }
@@ -189,6 +194,7 @@ const Index = () => {
     
     // Cache the consensus data and file info - always cache if we have the data
     if (consensusData) {
+      sessionStorage.setItem('particleData', JSON.stringify(consensusData));
       setCachedResults(prev => ({
         ...prev,
         consensusData,
@@ -241,12 +247,8 @@ const Index = () => {
     }
     
     if (isValid) {
-      // Go to transcription choice stage if we have choices available
-      if (cachedResults.consensusData?.transcription_choices) {
-        setCurrentStage("transcription-choice");
-      } else {
-        setCurrentStage("accent");
-      }
+      // Always go to pronoun consolidation stage
+      setCurrentStage("pronoun-consolidation");
     } else {
       setCurrentStage("editor");
     }
@@ -266,12 +268,22 @@ const Index = () => {
           primary: cachedResults.consensusData.primary?.substring(0, 50)
         });
         
+        // Use the pre-formatted autocomplete_data if available, otherwise construct it
+        const autocompletePayload = cachedResults.consensusData.autocomplete_data || {
+          final_transcription: cachedResults.consensusData.primary || '',
+          confidence_score: cachedResults.consensusData.metadata?.confidence || 0.8,
+          detected_particles: cachedResults.consensusData.potential_particles || [],
+          asr_alternatives: cachedResults.consensusData.alternatives || {}
+        };
+        
+        console.log('DEBUG: Sending autocomplete payload:', autocompletePayload);
+        
         const response = await fetch('http://localhost:8000/initialize-autocomplete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(cachedResults.consensusData),
+          body: JSON.stringify(autocompletePayload),
         });
         
         if (response.ok) {
@@ -287,28 +299,20 @@ const Index = () => {
     setCurrentStage("editor");
   };
 
-  const handleEditComplete = () => {
-    setCompletedStages(prev => new Set([...prev, "editor"]));
-    // Go to transcription choice stage if we have choices available
-    if (cachedResults.consensusData?.transcription_choices) {
-      setCurrentStage("transcription-choice");
-    } else {
-      setCurrentStage("accent");
-    }
-  };
+  
 
   const handleTranscriptionChoiceSelected = (selectedOption: 'option_a' | 'option_b', selectedTranscription: string) => {
-    setSelectedTranscriptionChoice(selectedOption);
+    setSelectedPronounConsolidationChoice(selectedOption);
     setTranscriptionText(selectedTranscription);
     setCompletedStages(prev => new Set([...prev, "pronoun-consolidation"]));
     setCurrentStage("accent");
   };
 
   const handleTranscriptionChange = (newValue: string) => {
-    if (newValue !== transcriptionText) {
+    if (newValue !== transcriptionText){
       setHasEditedTranscription(true);
-      setTranscriptionText(newValue);
     }
+    setTranscriptionText(newValue);
   };
 
   // Reset editor flag when entering editor stage
@@ -500,16 +504,16 @@ const Index = () => {
           setCurrentStage("upload");
         }
         break;
-      case "transcription-choice":
+      case "pronoun-consolidation":
         setCurrentStage("validation");
         break;
       case "editor":
         setCurrentStage("validation");
         break;
       case "accent":
-        // Go back to transcription choice if available, otherwise validation
-        if (cachedResults.consensusData?.transcription_choices) {
-          setCurrentStage("transcription-choice");
+        // Go back to pronoun consolidation if available, otherwise validation
+        if (cachedResults.consensusData?.pronoun_consolidation) {
+          setCurrentStage("pronoun-consolidation");
         } else {
           setCurrentStage("validation");
         }
@@ -541,20 +545,27 @@ const Index = () => {
         }
         break;
       case "validation":
-        // Go to transcription choice if available, otherwise accent
-        if (cachedResults.consensusData?.transcription_choices) {
-          setCurrentStage("transcription-choice");
+        // Go to pronoun consolidation if available, otherwise accent
+        if (cachedResults.consensusData?.pronoun_consolidation) {
+          setCurrentStage("pronoun-consolidation");
         } else {
           setCurrentStage("accent");
         }
         break;
-      case "transcription-choice":
+      case "pronoun-consolidation":
         setCurrentStage("accent");
         break;
       case "editor":
-        setCurrentStage("validation");
+        setCompletedStages(prev => new Set([...prev, "editor"]));
+        // Always go to pronoun consolidation stage
+        setCurrentStage("pronoun-consolidation");
         break;
       case "accent":
+        // Prevent skipping pronoun consolidation if required
+        if (cachedResults.consensusData?.pronoun_consolidation && !completedStages.has("pronoun-consolidation")) {
+          setCurrentStage("pronoun-consolidation");
+          return;
+        }
         setCurrentStage("particle-placement");
         break;
       case "particle-placement":
@@ -572,7 +583,7 @@ const Index = () => {
         setSelectedParticles([]);
         setUserTranscription("");
         setPracticeMode(null);
-        setSelectedTranscriptionChoice(null);
+        setSelectedPronounConsolidationChoice(null);
         clearCache(); // Clear cached results when starting over
         setCurrentStage("mode-selection");
         break;
@@ -727,17 +738,19 @@ const Index = () => {
             />
           )}
 
-          {currentStage === "transcription-choice" && cachedResults.consensusData?.transcription_choices && (
+          {currentStage === "pronoun-consolidation" && (
             <PronounConsolidationStage
               audioFile={audioFile}
               audioUrl={practiceAudioUrl}
-              transcriptionChoices={cachedResults.consensusData.transcription_choices}
+              pronounConsolitdationChoices={cachedResults.consensusData?.pronoun_consolidation}
               onChoiceSelected={handleTranscriptionChoiceSelected}
               onBack={handleBack}
               completedStages={completedStages}
               onStageClick={handleStageClick}
               isAudioPlaying={isAudioPlaying}
               onAudioPlayPause={handleAudioPlayPause}
+              userEditedTranscription={transcriptionText}
+              hasEditedTranscription={hasEditedTranscription}
             />
           )}
 
@@ -753,9 +766,13 @@ const Index = () => {
               <div className="w-full">
                 <StageNavigation
                   onBack={handleBack}
-                  onNext={handleEditComplete}
+                  showNext={true}
+                  onNext={() => {
+                    if (window.confirm("Are you sure you want to continue with this transcription?")) {
+                      handleNext();
+                    }
+                  }}
                   nextText="Next"
-                  nextDisabled={!hasEditedTranscription}
                 />
               </div>
               
@@ -820,11 +837,44 @@ const Index = () => {
                 vimMode={vimMode}
                 onVimModeChange={setVimMode}
                 isVimEnabled={isVimEnabled}
-                placeholder={transcriptionText}
-                initialContent={""}
+                placeholder="Type your transcription here..."
+                initialContent={transcriptionText}
                 onChange={handleTranscriptionChange}
                 audioId={null}
               />
+              
+              {/* Clear Button */}
+              <div className="w-full flex justify-end">
+                <Button
+                  onClick={() => {
+                    setTranscriptionText("");
+                    setHasEditedTranscription(true);
+                  }}
+                  variant="destructive"
+                  className="border-0"
+                  size="sm"
+                >
+                  Clear
+                </Button>
+              </div>
+              
+              {/* Divider */}
+              <div className="w-full h-px bg-border"></div>
+              
+              {/* Submit Button */}
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleNext}
+                  disabled={!hasEditedTranscription}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3"
+                >
+                  Submit Edited Transcription
+                </Button>
+              </div>
+              
+              <p className="text-xs text-muted-foreground text-center">
+                Make corrections using autocomplete suggestions or clear the text to start fresh
+              </p>
             </div>
           )}
 
