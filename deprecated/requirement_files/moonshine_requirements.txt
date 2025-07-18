@@ -1,0 +1,12 @@
+useful-moonshine @ git+https://github.com/usefulsensors/moonshine.git@2f6282347950c8d711bd7319287babb87ec5a92d
+torchvision>=0.21.0
+librosa>=0.10.2
+transformers>=4.30.0
+efficientnet-pytorch==0.7.1
+einops==0.8.0
+segmentation-models-pytorch==0.3.2
+timm==0.6.12
+pretrainedmodels==0.7.4
+playsound3>=2.5.2
+pydub>=0.25.1
+tensorflow>=2.16.1 

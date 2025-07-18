@@ -1,0 +1,153 @@
+# Load environment variables from backend/.env
+services:
+  # ASR Base Image - Used as the base for all ASR model services
+  asr-base:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/base.Dockerfile
+    image: asr-base:latest
+    # No need to run as a container, just build the image
+
+  # ASR Orchestrator Service - Main API endpoint
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - whisper-service
+      - wav2vec-service
+      - moonshine-service
+      - mesolitica-service
+      - vosk-service
+      - allosaurus-service
+    networks:
+      - asr-network
+
+  # Whisper ASR Service
+  whisper-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/whisper/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WHISPER_MODEL=base
+      - PORT=8001
+    volumes:
+      - whisper_cache:/home/app/.cache/whisper
+    networks:
+      - asr-network
+
+  # Wav2Vec ASR Service
+  wav2vec-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/wav2vec/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8002
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    networks:
+      - asr-network
+
+  # Moonshine ASR Service
+  moonshine-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/moonshine/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8003:8003"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8003
+    networks:
+      - asr-network
+
+  # Mesolitica ASR Service
+  mesolitica-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/mesolitica/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8004:8004"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8004
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    networks:
+      - asr-network
+
+  # Vosk ASR Service
+  vosk-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/vosk/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8005:8005"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8005
+    volumes:
+      - vosk_models:/app/models
+    networks:
+      - asr-network
+
+  # Allosaurus ASR Service
+  allosaurus-service:
+    build:
+      context: .
+      dockerfile: backend/src/asr_models/allosaurus/Dockerfile
+    depends_on:
+      - asr-base
+    ports:
+      - "8006:8006"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8006
+    networks:
+      - asr-network
+
+  # Autocomplete Service
+  autocomplete-service:
+    build:
+      context: backend/src/autocomplete
+      dockerfile: Dockerfile
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+    depends_on:
+      - orchestrator
+    networks:
+      - asr-network
+
+volumes:
+  whisper_cache:
+  huggingface_cache:
+  vosk_models:
+
+networks:
+  asr-network:
+    driver: bridge 

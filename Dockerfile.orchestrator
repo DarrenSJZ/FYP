@@ -1,0 +1,38 @@
+FROM python:3.12-slim
+
+# Install system dependencies including espeak-ng for phonemizer
+RUN apt-get update && apt-get install -y \
+    curl \
+    espeak-ng \
+    espeak-ng-data \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY backend/pyproject.toml ./
+RUN pip install uv && \
+    uv venv && \
+    . .venv/bin/activate && \
+    UV_HTTP_TIMEOUT=1800 uv pip install fastapi uvicorn aiohttp pydantic python-multipart phonemizer
+
+# Copy orchestrator code
+COPY backend/src/orchestrator.py ./src/
+# Copy prompt logic
+COPY backend/src/prompts ./src/prompts
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the orchestrator service
+CMD ["python", "src/orchestrator.py"]
