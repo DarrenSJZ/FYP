@@ -165,7 +165,7 @@ export function AudioUpload({
         reader.readAsDataURL(uploadedFile);
       }
       
-      onTranscriptionComplete(primaryTranscription, uploadedFile || undefined);
+      onTranscriptionComplete(primaryTranscription, uploadedFile || undefined, result);
       
     } catch (error) {
       console.error('Transcription failed:', error);

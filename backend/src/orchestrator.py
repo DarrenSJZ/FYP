@@ -999,21 +999,31 @@ async def transcribe_consensus(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AutocompleteInitRequest(BaseModel):
+    final_transcription: str
+    confidence_score: float = 0.8
+    detected_particles: List[str] = []
+    asr_alternatives: Dict[str, str] = {}
+
 @app.post("/initialize-autocomplete")
-async def initialize_autocomplete(request: dict):
+async def initialize_autocomplete(request: AutocompleteInitRequest):
     """Initialize autocomplete service with transcription data when user chooses to edit"""
     try:
-        # Extract data from the consensus result
-        autocomplete_data = orchestrator.extract_autocomplete_data(request)
+        # Prepare data for autocomplete service
+        autocomplete_data = {
+            "final_transcription": request.final_transcription,
+            "confidence_score": request.confidence_score,
+            "detected_particles": request.detected_particles,
+            "asr_alternatives": request.asr_alternatives
+        }
         
         # Push to autocomplete service
-        audio_filename = request.get('audio_filename', 'unknown.mp3')
-        await orchestrator.push_to_autocomplete_service(autocomplete_data, audio_filename)
+        await orchestrator.push_to_autocomplete_service(autocomplete_data, "audio_file")
         
         return {
             "status": "success",
             "message": "Autocomplete service initialized",
-            "audio_filename": audio_filename
+            "data": autocomplete_data
         }
         
     except Exception as e:

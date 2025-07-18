@@ -239,6 +239,7 @@ check_prerequisites() {
         "backend/src/asr_models/mesolitica/Dockerfile"
         "backend/src/asr_models/vosk/Dockerfile"
         "backend/src/asr_models/allosaurus/Dockerfile"
+        "backend/src/autocomplete/Dockerfile"
     )
     
     for dockerfile in "${dockerfiles[@]}"; do
@@ -361,23 +362,39 @@ show_summary() {
     local images=("asr-base:latest")
     
     if [ "$BUILD_ORCHESTRATOR" = true ]; then
-        images+=("orchestrator:latest")
+        # Check for docker-compose generated image names
+        local project_name=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]//g')
+        images+=("${project_name}-orchestrator:latest" "${project_name}-autocomplete-service:latest")
     fi
     
     images+=("whisper-service:latest" "wav2vec-service:latest" "moonshine-service:latest" 
-             "mesolitica-service:latest" "vosk-service:latest" "allosaurus-service:latest")
+             "mesolitica-service:latest" "vosk-service:latest" "allosaurus-service:latest"
+             "redis:7-alpine")
     
     for image in "${images[@]}"; do
         if docker image inspect "$image" > /dev/null 2>&1; then
             local size=$(docker image inspect "$image" --format='{{.Size}}' | numfmt --to=iec)
             echo -e "${GREEN}✓${NC} $image ($size)"
         else
-            echo -e "${RED}✗${NC} $image (not found)"
+            # Try without :latest tag for docker-compose images
+            local image_no_tag=$(echo "$image" | sed 's/:latest$//')
+            if docker image inspect "$image_no_tag" > /dev/null 2>&1; then
+                local size=$(docker image inspect "$image_no_tag" --format='{{.Size}}' | numfmt --to=iec)
+                echo -e "${GREEN}✓${NC} $image ($size)"
+            else
+                # For docker-compose services, check if they're running
+                local service_name=$(echo "$image" | sed 's/.*-\([^-]*\):.*/\1/')
+                if docker compose ps "$service_name" 2>/dev/null | grep -q "Up"; then
+                    echo -e "${GREEN}✓${NC} $image (running via docker-compose)"
+                else
+                    echo -e "${RED}✗${NC} $image (not found)"
+                fi
+            fi
         fi
     done
     
     echo "=========================="
-    local total_size=$(docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" | grep -E "(asr-base|orchestrator|whisper-service|wav2vec-service|moonshine-service|mesolitica-service|vosk-service|allosaurus-service)" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "unknown")
+    local total_size=$(docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" | grep -E "(asr-base|orchestrator|whisper-service|wav2vec-service|moonshine-service|mesolitica-service|vosk-service|allosaurus-service|autocomplete-service|redis)" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "unknown")
     log_info "Total estimated size: $total_size"
 }
 
@@ -415,13 +432,13 @@ main() {
         fi
     fi
     
-    # Build orchestrator service using docker-compose
+    # Build orchestrator and supporting services using docker-compose
     if [ "$BUILD_ORCHESTRATOR" = true ]; then
-        log_info "Step 3/3: Building orchestrator service with docker-compose..."
-        if docker compose up --build -d orchestrator; then
-            log_success "Orchestrator service built and started successfully"
+        log_info "Step 3/3: Building orchestrator, autocomplete, and Redis services with docker-compose..."
+        if docker compose up --build -d orchestrator autocomplete-service redis; then
+            log_success "Orchestrator, autocomplete, and Redis services built and started successfully"
         else
-            log_warning "Failed to build orchestrator service with docker-compose"
+            log_warning "Failed to build orchestrator services with docker-compose"
             log_info "ASR services are still functional without orchestrator"
         fi
     else
@@ -438,7 +455,11 @@ main() {
     echo "  • Start all services: docker compose up -d"
     echo "  • Start specific ASR service: docker compose up -d whisper-service"
     echo "  • View orchestrator logs: docker compose logs -f orchestrator"
-    echo "  • Test endpoint: curl http://localhost:8000/health"
+    echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
+    echo "  • Test orchestrator: curl http://localhost:8000/health"
+    echo "  • Test autocomplete: curl http://localhost:8007/health"
+    echo "  • Test Redis: docker compose exec redis redis-cli ping"
+    echo "  • Full autocomplete test: see redis-autocomplete-test-commands.md"
 }
 
 # Run main function

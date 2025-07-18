@@ -194,7 +194,7 @@ export function TranscriptionValidation({
           <Lightbulb className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Generated Transcription</h3>
         </div>
-        <p className="text-sm text-muted-foreground pb-4">Review the automatically generated transcription above</p>
+        <p className="text-sm text-muted-foreground pb-4">Review the automatically generated transcription below</p>
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <p className="text-lg leading-relaxed text-left">
             {originalTranscription || "No transcription available"}
