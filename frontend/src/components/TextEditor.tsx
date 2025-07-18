@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { vim, getCM } from "@replit/codemirror-vim";
 import { createTheme } from "@uiw/codemirror-themes";
-import { tags as t } from "@lezer/highlight";
 import { useTheme } from "next-themes";
 import { EditorView, keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
@@ -36,13 +35,13 @@ const redisCompletionSource = async (context: CompletionContext): Promise<Comple
       let modelInfo = "";
       
       if (conf > 0.95) {
-        modelInfo = "whisper+wav2vec";
+        modelInfo = "high confidence";
       } else if (conf > 0.9) {
-        modelInfo = "whisper";
+        modelInfo = "good confidence";
       } else if (conf > 0.8) {
-        modelInfo = "wav2vec";
+        modelInfo = "medium confidence";
       } else {
-        modelInfo = "detected";
+        modelInfo = "low confidence";
       }
       
       return {
@@ -199,7 +198,8 @@ export function TextEditor({
       maxRenderedOptions: 10,
       defaultKeymap: false, // Disable default keymap, use our custom one
       selectOnOpen: true, // Auto-select first option
-      closeOnBlur: true
+      closeOnBlur: true,
+      tooltipClass: () => "custom-autocomplete-tooltip"
     }));
     
     if (isVimEnabled) {

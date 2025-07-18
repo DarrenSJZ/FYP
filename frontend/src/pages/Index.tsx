@@ -15,8 +15,7 @@ import { StageNavigation } from "@/components/StageNavigation";
 import { DockerStatus as ConnectionStatus } from "@/components/DockerStatus";
 import { UserProfile } from "@/components/UserProfile";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Volume2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Volume2 } from "lucide-react";
 import { dockerAPI } from "@/lib/api";
 
 export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "pronoun-consolidation" | "accent" | "particle-placement" | "comparison";
@@ -47,6 +46,12 @@ const Index = () => {
     particleDataByAccent?: { [accentKey: string]: ParticleDetectionData };
     lastProcessedFile?: { name: string; size: number; lastModified: number };
     practiceAudioId?: string;
+    // Stage-specific cached data
+    validationResult?: { isValid: boolean; selectedTranscription?: string };
+    pronounConsolidationChoice?: { selectedOption: 'option_a' | 'option_b'; selectedTranscription: string };
+    selectedAccentData?: any;
+    selectedParticlesData?: { particles: PotentialParticle[]; userTranscription: string };
+    finalTranscriptionChoice?: { selection: 'ai' | 'user'; finalTranscription: string };
   }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
@@ -81,6 +86,7 @@ const Index = () => {
     setCompletedStages(new Set());
     setPracticeAudioUrl(undefined);
     setSelectedPronounConsolidationChoice(null);
+    setHasEditedTranscription(false);
     
     // Clear session storage as well
     sessionStorage.removeItem('particleData');
@@ -178,13 +184,46 @@ const Index = () => {
   };
 
   const handleStageClick = (stage: WorkflowStage) => {
-    // Prevent skipping pronoun consolidation if required
-    if (stage === "accent" && cachedResults.consensusData?.pronoun_consolidation && !completedStages.has("pronoun-consolidation")) {
-      setCurrentStage("pronoun-consolidation");
-      return;
-    }
+    // Only allow navigation to completed stages or current stage (no skipping)
     if (completedStages.has(stage) || stage === currentStage) {
+      // Restore cached data when navigating back to completed stages
+      restoreStageData(stage);
       setCurrentStage(stage);
+    }
+  };
+
+  // Helper function to restore cached data for a specific stage
+  const restoreStageData = (stage: WorkflowStage) => {
+    const cache = cachedResults;
+    
+    switch (stage) {
+      case "pronoun-consolidation":
+        if (cache.pronounConsolidationChoice) {
+          setSelectedPronounConsolidationChoice(cache.pronounConsolidationChoice.selectedOption);
+          setTranscriptionText(cache.pronounConsolidationChoice.selectedTranscription);
+        }
+        break;
+      case "accent":
+        if (cache.selectedAccentData) {
+          setSelectedAccent(cache.selectedAccentData);
+        }
+        break;
+      case "particle-placement":
+        if (cache.selectedParticlesData) {
+          setSelectedParticles(cache.selectedParticlesData.particles);
+          setUserTranscription(cache.selectedParticlesData.userTranscription);
+        }
+        break;
+      case "comparison":
+        // Restore all relevant data for comparison view
+        if (cache.selectedAccentData) setSelectedAccent(cache.selectedAccentData);
+        if (cache.selectedParticlesData) {
+          setSelectedParticles(cache.selectedParticlesData.particles);
+          setUserTranscription(cache.selectedParticlesData.userTranscription);
+        }
+        break;
+      default:
+        break;
     }
   };
 
@@ -241,13 +280,19 @@ const Index = () => {
   const handleValidationComplete = (isValid: boolean, selectedTranscription?: string) => {
     setCompletedStages(prev => new Set([...prev, "validation"]));
     
+    // Cache validation result
+    setCachedResults(prev => ({
+      ...prev,
+      validationResult: { isValid, selectedTranscription }
+    }));
+    
     // If a specific transcription was selected, update the transcription text
     if (selectedTranscription) {
       setTranscriptionText(selectedTranscription);
     }
     
     if (isValid) {
-      // Always go to pronoun consolidation stage
+      // Always go to pronoun consolidation stage (step 2)
       setCurrentStage("pronoun-consolidation");
     } else {
       setCurrentStage("editor");
@@ -305,6 +350,13 @@ const Index = () => {
     setSelectedPronounConsolidationChoice(selectedOption);
     setTranscriptionText(selectedTranscription);
     setCompletedStages(prev => new Set([...prev, "pronoun-consolidation"]));
+    
+    // Cache pronoun consolidation choice
+    setCachedResults(prev => ({
+      ...prev,
+      pronounConsolidationChoice: { selectedOption, selectedTranscription }
+    }));
+    
     setCurrentStage("accent");
   };
 
@@ -429,6 +481,12 @@ const Index = () => {
     setSelectedAccent(accent);
     setCompletedStages(prev => new Set([...prev, "accent"]));
     
+    // Cache accent selection
+    setCachedResults(prev => ({
+      ...prev,
+      selectedAccentData: accent
+    }));
+    
     // Get the particle data from session storage (stored during transcription)
     const storedParticleData = sessionStorage.getItem('particleData');
     
@@ -446,7 +504,7 @@ const Index = () => {
           alternatives: {},
           potential_particles: [],
           metadata: {
-            confidence: 0.8,
+            confidence: 0.0,
             processing_time: 0,
             models_used: 0
           }
@@ -461,7 +519,7 @@ const Index = () => {
         alternatives: {},
         potential_particles: [],
         metadata: {
-          confidence: 0.8,
+          confidence: 0.0,
           processing_time: 0,
           models_used: 0
         }
@@ -476,17 +534,31 @@ const Index = () => {
     setSelectedParticles(particles);
     setUserTranscription(userTranscriptionText);
     setCompletedStages(prev => new Set([...prev, "particle-placement"]));
+    
+    // Cache particle selection
+    setCachedResults(prev => ({
+      ...prev,
+      selectedParticlesData: { particles, userTranscription: userTranscriptionText }
+    }));
+    
     setCurrentStage("comparison");
   };
 
   const handleTranscriptionSelected = (selection: 'ai' | 'user', finalTranscription: string) => {
     setCompletedStages(prev => new Set([...prev, "comparison"]));
     
+    // Cache final transcription choice
+    setCachedResults(prev => ({
+      ...prev,
+      finalTranscriptionChoice: { selection, finalTranscription }
+    }));
+    
     // Here you would typically submit the final data to the backend/database
     console.log("Selected transcription type:", selection);
     console.log("Final transcription:", finalTranscription);
     console.log("Selected accent:", selectedAccent?.name);
     console.log("Selected particles:", selectedParticles);
+    console.log("Complete workflow cache:", cachedResults);
     
     // Reset the workflow
     handleNext();
@@ -511,12 +583,8 @@ const Index = () => {
         setCurrentStage("validation");
         break;
       case "accent":
-        // Go back to pronoun consolidation if available, otherwise validation
-        if (cachedResults.consensusData?.pronoun_consolidation) {
-          setCurrentStage("pronoun-consolidation");
-        } else {
-          setCurrentStage("validation");
-        }
+        // Step 4: Accent → Pronoun Consolidation (always go back sequentially)
+        setCurrentStage("pronoun-consolidation");
         break;
       case "particle-placement":
         setCurrentStage("accent");
@@ -535,7 +603,7 @@ const Index = () => {
         // Handled by mode selection
         break;
       case "upload":
-        // If we have cached consensus data, proceed to validation
+        // Step 1: Upload → Validation
         if (cachedResults.consensusData) {
           // Restore transcription text if not already set
           if (!transcriptionText && cachedResults.consensusData.primary) {
@@ -545,30 +613,24 @@ const Index = () => {
         }
         break;
       case "validation":
-        // Go to pronoun consolidation if available, otherwise accent
-        if (cachedResults.consensusData?.pronoun_consolidation) {
-          setCurrentStage("pronoun-consolidation");
-        } else {
-          setCurrentStage("accent");
-        }
+        // Step 2: Validation → Pronoun Consolidation (always)
+        setCurrentStage("pronoun-consolidation");
         break;
       case "pronoun-consolidation":
+        // Step 3: Pronoun Consolidation → Accent
         setCurrentStage("accent");
         break;
       case "editor":
+        // Editor → Pronoun Consolidation (always)
         setCompletedStages(prev => new Set([...prev, "editor"]));
-        // Always go to pronoun consolidation stage
         setCurrentStage("pronoun-consolidation");
         break;
       case "accent":
-        // Prevent skipping pronoun consolidation if required
-        if (cachedResults.consensusData?.pronoun_consolidation && !completedStages.has("pronoun-consolidation")) {
-          setCurrentStage("pronoun-consolidation");
-          return;
-        }
+        // Step 4: Accent → Particle Placement
         setCurrentStage("particle-placement");
         break;
       case "particle-placement":
+        // Step 5: Particle Placement → Comparison
         setCurrentStage("comparison");
         break;
       case "comparison":

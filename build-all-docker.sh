@@ -18,6 +18,7 @@ PARALLEL_BUILDS=false
 VERBOSE=false
 FORCE_REBUILD=false
 BUILD_ORCHESTRATOR=true
+START_SERVICES=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -38,6 +39,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_ORCHESTRATOR=false
             shift
             ;;
+        --start)
+            START_SERVICES=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
@@ -45,6 +50,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -v, --verbose         Show detailed build output"
             echo "  -f, --force           Force rebuild (--no-cache)"
             echo "  --no-orchestrator     Skip building orchestrator service"
+            echo "  --start               Start services after successful build"
             echo "  -h, --help           Show this help message"
             exit 0
             ;;
@@ -451,15 +457,44 @@ main() {
     log_success "Build completed in ${duration}s"
     show_summary
     
-    log_info "Next steps:"
-    echo "  • Start all services: docker compose up -d"
-    echo "  • Start specific ASR service: docker compose up -d whisper-service"
-    echo "  • View orchestrator logs: docker compose logs -f orchestrator"
-    echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
-    echo "  • Test orchestrator: curl http://localhost:8000/health"
-    echo "  • Test autocomplete: curl http://localhost:8007/health"
-    echo "  • Test Redis: docker compose exec redis redis-cli ping"
-    echo "  • Full autocomplete test: see redis-autocomplete-test-commands.md"
+    # Start services if requested
+    if [[ "$START_SERVICES" == true ]]; then
+        log_info "Step 4/4: Starting services..."
+        echo ""
+        
+        # Stop existing services first
+        log_info "Stopping existing services..."
+        docker compose down > /dev/null 2>&1
+        
+        # Start services
+        log_info "Starting services..."
+        if docker compose up -d; then
+            log_success "Services started successfully"
+            echo ""
+            log_info "Service status:"
+            docker compose ps
+            echo ""
+            log_info "Useful commands:"
+            echo "  • View orchestrator logs: docker compose logs -f orchestrator"
+            echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
+            echo "  • Test orchestrator: curl http://localhost:8000/health"
+            echo "  • Test autocomplete: curl http://localhost:8007/health"
+            echo "  • Test Redis: docker compose exec redis redis-cli ping"
+        else
+            log_error "Failed to start services"
+            exit 1
+        fi
+    else
+        log_info "Next steps:"
+        echo "  • Start all services: docker compose up -d"
+        echo "  • Start specific ASR service: docker compose up -d whisper-service"
+        echo "  • View orchestrator logs: docker compose logs -f orchestrator"
+        echo "  • View autocomplete logs: docker compose logs -f autocomplete-service"
+        echo "  • Test orchestrator: curl http://localhost:8000/health"
+        echo "  • Test autocomplete: curl http://localhost:8007/health"
+        echo "  • Test Redis: docker compose exec redis redis-cli ping"
+        echo "  • Full autocomplete test: see redis-autocomplete-test-commands.md"
+    fi
 }
 
 # Run main function

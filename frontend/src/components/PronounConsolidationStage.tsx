@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Volume2, Brain, Search, CheckCircle2, ArrowRight, Info } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -50,6 +49,13 @@ export function PronounConsolidationStage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
+  // Debug logging
+  useEffect(() => {
+    console.log('DEBUG: PronounConsolidationStage - pronounConsolitdationChoices:', pronounConsolitdationChoices);
+    console.log('DEBUG: PronounConsolidationStage - userEditedTranscription:', userEditedTranscription);
+    console.log('DEBUG: PronounConsolidationStage - hasEditedTranscription:', hasEditedTranscription);
+  }, [pronounConsolitdationChoices, userEditedTranscription, hasEditedTranscription]);
+
   // Create modified choices that use user's edited transcription when available
   const effectiveChoices = pronounConsolitdationChoices ? {
     option_a: hasEditedTranscription ? {
@@ -61,7 +67,23 @@ export function PronounConsolidationStage({
       confidence: 1.0
     } : pronounConsolitdationChoices.option_a,
     option_b: pronounConsolitdationChoices.option_b
-  } : null;
+  } : {
+    // Fallback choices when backend data is missing
+    option_a: {
+      transcription: userEditedTranscription || "No transcription available",
+      label: hasEditedTranscription ? "Your Edited Version" : "AI Consensus",
+      description: hasEditedTranscription ? "Your manually edited transcription with corrections" : "AI consensus (data unavailable)",
+      confidence: hasEditedTranscription ? 1.0 : 0.0,
+      reasoning: hasEditedTranscription ? "User edited transcription" : "Fallback option"
+    },
+    option_b: {
+      transcription: userEditedTranscription || "No transcription available",
+      label: "Original Version",
+      description: "Original transcription without modifications",
+      confidence: 0.0,
+      reasoning: "Fallback option"
+    }
+  };
 
   const areTranscriptionsDifferent = effectiveChoices ? effectiveChoices.option_a.transcription !== effectiveChoices.option_b.transcription : false;
 
