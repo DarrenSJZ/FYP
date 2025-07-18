@@ -105,98 +105,12 @@ export function TextEditor({
   const extensions = useMemo(() => {
     const exts = [];
     
-    // Custom keymap for Tab autocomplete navigation with highest priority
-    const customKeymap = Prec.highest(keymap.of([
-      {
-        key: "Tab",
-        preventDefault: true,
-        stopPropagation: true,
-        run: (editor) => {
-          console.log("Tab pressed - completion status:", completionStatus(editor.state));
-          if (completionStatus(editor.state)) {
-            const completions = currentCompletions(editor.state);
-            const current = completions?.selected || 0;
-            const total = completions?.options.length || 0;
-            
-            console.log(`Current: ${current}, Total: ${total}`);
-            
-            if (current < total - 1) {
-              console.log("Moving down through completions");
-              return moveCompletionSelection(false)(editor); // Move down if not at end
-            } else {
-              console.log("At bottom - not moving");
-              return true; // At bottom, don't move
-            }
-          }
-          console.log("No completion active - blocking tab");
-          return true; // Block tab when no completion is active
-        },
-      },
-      {
-        key: "Shift-Tab",
-        preventDefault: true,
-        stopPropagation: true,
-        run: (editor) => {
-          if (completionStatus(editor.state)) {
-            const completions = currentCompletions(editor.state);
-            const current = completions?.selected || 0;
-            
-            if (current > 0) {
-              return moveCompletionSelection(true)(editor); // Move up if not at top
-            } else {
-              return true; // At top, don't move
-            }
-          }
-          return true; // Block Shift-Tab when no completion is active
-        },
-      },
-      {
-        key: "ArrowDown",
-        run: (editor) => {
-          if (completionStatus(editor.state)) {
-            return moveCompletionSelection(false)(editor); // Move forward through suggestions
-          }
-          return false; // Allow default arrow behavior if no completion
-        },
-      },
-      {
-        key: "ArrowUp",
-        run: (editor) => {
-          if (completionStatus(editor.state)) {
-            return moveCompletionSelection(true)(editor); // Move backward through suggestions
-          }
-          return false; // Allow default arrow behavior if no completion
-        },
-      },
-      {
-        key: "Enter",
-        run: (editor) => {
-          if (completionStatus(editor.state)) {
-            return acceptCompletion(editor);
-          }
-          return false; // Allow default Enter behavior if no completion
-        },
-      },
-      {
-        key: "Escape",
-        run: (editor) => {
-          if (completionStatus(editor.state)) {
-            // Close completion without accepting
-            return true;
-          }
-          return false; // Allow default Escape behavior if no completion
-        },
-      },
-    ]));
-    
-    exts.push(customKeymap);
-    
     // Add native CodeMirror autocomplete without default keymap
     exts.push(autocompletion({
       override: [redisCompletionSource],
       activateOnTyping: true,
       maxRenderedOptions: 10,
-      defaultKeymap: false, // Disable default keymap, use our custom one
+      defaultKeymap: true, 
       selectOnOpen: true, // Auto-select first option
       closeOnBlur: true,
       tooltipClass: () => "custom-autocomplete-tooltip"
