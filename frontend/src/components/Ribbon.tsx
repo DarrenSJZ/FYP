@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Moon, Sun, Minus, Plus, Settings, Terminal, Type, Mic, Headphones, Globe, Brain, Zap, MessageSquare, Highlighter, Bold, Italic, Underline } from "lucide-react";
+import { Moon, Sun, Minus, Plus, Settings, Terminal, Type, Mic, Headphones, Globe, Brain, Zap, MessageSquare, Highlighter, Bold, Italic, Underline, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ interface RibbonProps {
   onHighlighterChange?: (color: string | null) => void;
   activeFormatting?: Set<string>;
   onFormattingChange?: (formatting: Set<string>) => void;
+  onClearHighlights?: () => void;
 }
 
 export function Ribbon({
@@ -31,6 +32,7 @@ export function Ribbon({
   onHighlighterChange,
   activeFormatting = new Set(),
   onFormattingChange,
+  onClearHighlights,
 }: RibbonProps) {
 
   const incrementFontSize = () => {
@@ -74,6 +76,76 @@ export function Ribbon({
 
   return (
     <div className="flex items-center gap-2 p-3 bg-card/95 backdrop-blur-sm border rounded-lg shadow-lg h-[52px]">
+      {/* Keyboard Shortcuts Cheat Sheet */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="px-2">
+            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="bottom" className="w-80 p-4">
+          <DropdownMenuLabel className="text-sm font-semibold mb-3">Keyboard Shortcuts</DropdownMenuLabel>
+          
+          <div className="space-y-3">
+            <div className="text-xs">
+              <div className="font-medium mb-2 text-foreground">Formatting:</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+B</kbd>
+                  <span>Bold</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+I</kbd>
+                  <span>Italic</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+U</kbd>
+                  <span>Underline</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+F</kbd>
+                  <span>Apply Format</span>
+                </div>
+              </div>
+            </div>
+            
+            <DropdownMenuSeparator />
+            
+            <div className="text-xs">
+              <div className="font-medium mb-2 text-foreground">Highlighting:</div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+H</kbd>
+                  <span>Apply Highlight</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+C</kbd>
+                  <span>Clear All Highlights</span>
+                </div>
+              </div>
+            </div>
+            
+            <DropdownMenuSeparator />
+            
+            <div className="text-xs">
+              <div className="font-medium mb-2 text-foreground">Universal:</div>
+              <div className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono text-xs">Ctrl+Alt+Enter</kbd>
+                <span>Apply All Active Settings</span>
+              </div>
+            </div>
+            
+            <DropdownMenuSeparator />
+            
+            <div className="text-xs text-muted-foreground">
+              💡 Select text first, then use shortcuts to apply formatting/highlighting
+            </div>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <div className="h-6 w-px bg-border" />
+
       {/* Font Size Controls */}
       <div className="flex items-center gap-1">
         <Button
@@ -104,6 +176,7 @@ export function Ribbon({
           size="sm"
           onClick={() => toggleFormatting('bold')}
           className="px-2"
+          title="Bold (Ctrl+Alt+B)"
         >
           <Bold className="h-4 w-4" />
         </Button>
@@ -112,6 +185,7 @@ export function Ribbon({
           size="sm"
           onClick={() => toggleFormatting('italic')}
           className="px-2"
+          title="Italic (Ctrl+Alt+I)"
         >
           <Italic className="h-4 w-4" />
         </Button>
@@ -120,6 +194,7 @@ export function Ribbon({
           size="sm"
           onClick={() => toggleFormatting('underline')}
           className="px-2"
+          title="Underline (Ctrl+Alt+U)"
         >
           <Underline className="h-4 w-4" />
         </Button>
@@ -130,16 +205,13 @@ export function Ribbon({
       {/* Highlighter Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-2" title="Highlighter (Ctrl+Alt+H)">
             <Highlighter className="h-4 w-4" />
             Highlighter
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="bottom" className="bg-popover border w-72">
+        <DropdownMenuContent align="start" side="bottom" className="bg-popover border w-56">
           <DropdownMenuLabel>Highlight Colors</DropdownMenuLabel>
-          <div className="px-3 py-2 text-xs text-muted-foreground bg-muted/50 rounded mx-2 mb-2">
-            💡 Select a color, then select text and press <kbd className="px-1 py-0.5 bg-background rounded text-foreground font-mono text-xs">Ctrl+Alt+H</kbd> to highlight
-          </div>
           {highlightColors.map((color) => (
             <DropdownMenuItem 
               key={color.name}
@@ -155,11 +227,14 @@ export function Ribbon({
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem 
-            onClick={() => onHighlighterChange?.(null)}
+            onClick={() => {
+              onHighlighterChange?.(null);
+              onClearHighlights?.();
+            }}
             className="flex items-center gap-2 p-3"
           >
             <div className="w-4 h-4 rounded border bg-transparent" />
-            <span className="font-medium">Clear Highlight</span>
+            <span className="font-medium">Clear All Highlights</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { vim, getCM } from "@replit/codemirror-vim";
 import { createTheme } from "@uiw/codemirror-themes";
@@ -16,7 +16,7 @@ const clearHighlights = StateEffect.define();
 
 // Define formatting effects
 const addFormatting = StateEffect.define<{from: number, to: number, formats: Set<string>}>();
-const removeFormatting = StateEffect.define<{from: number, to: number}>();
+const removeFormatting = StateEffect.define<{from: number, to: number, format: string}>();
 const clearAllFormatting = StateEffect.define();
 
 // Create highlight decorations for different colors
@@ -83,35 +83,76 @@ const highlightField = StateField.define<DecorationSet>({
   provide: f => EditorView.decorations.from(f)
 });
 
-// State field to manage text formatting
-const formattingField = StateField.define<DecorationSet>({
+// State field to manage text formatting with individual format tracking
+const formattingField = StateField.define<{decorations: DecorationSet, formatMap: Map<string, Set<string>>}>({
   create() {
-    return Decoration.none;
+    return { decorations: Decoration.none, formatMap: new Map() };
   },
-  update(formatting, transaction) {
-    formatting = formatting.map(transaction.changes);
+  update(state, transaction) {
+    let { decorations, formatMap } = state;
+    decorations = decorations.map(transaction.changes);
+    
+    // Update position keys in formatMap based on changes
+    const newFormatMap = new Map<string, Set<string>>();
+    for (const [key, formats] of formatMap) {
+      const [from, to] = key.split('-').map(Number);
+      const mapped = transaction.changes.mapPos(from);
+      const mappedTo = transaction.changes.mapPos(to);
+      if (mapped !== null && mappedTo !== null) {
+        newFormatMap.set(`${mapped}-${mappedTo}`, formats);
+      }
+    }
+    formatMap = newFormatMap;
     
     for (let effect of transaction.effects) {
       if (effect.is(addFormatting)) {
         const { from, to, formats } = effect.value;
-        const decoration = createFormattingDecoration(formats);
-        formatting = formatting.update({
+        const key = `${from}-${to}`;
+        
+        // Merge with existing formats at this position
+        const existing = formatMap.get(key) || new Set();
+        const merged = new Set([...existing, ...formats]);
+        formatMap.set(key, merged);
+        
+        const decoration = createFormattingDecoration(merged);
+        decorations = decorations.update({
           add: [decoration.range(from, to)],
           sort: true
         });
       } else if (effect.is(removeFormatting)) {
-        const { from, to } = effect.value;
-        formatting = formatting.update({
-          filter: (from_pos, to_pos) => !(from_pos === from && to_pos === to)
-        });
+        const { from, to, format } = effect.value;
+        const key = `${from}-${to}`;
+        
+        if (formatMap.has(key)) {
+          const existing = formatMap.get(key)!;
+          existing.delete(format);
+          
+          if (existing.size === 0) {
+            // Remove decoration entirely if no formats left
+            formatMap.delete(key);
+            decorations = decorations.update({
+              filter: (from_pos, to_pos) => !(from_pos === from && to_pos === to)
+            });
+          } else {
+            // Update decoration with remaining formats
+            formatMap.set(key, existing);
+            const decoration = createFormattingDecoration(existing);
+            decorations = decorations.update({
+              filter: (from_pos, to_pos) => !(from_pos === from && to_pos === to),
+              add: [decoration.range(from, to)],
+              sort: true
+            });
+          }
+        }
       } else if (effect.is(clearAllFormatting)) {
-        formatting = Decoration.none;
+        decorations = Decoration.none;
+        formatMap.clear();
       }
     }
     
-    return formatting;
+    return { decorations, formatMap };
   },
-  provide: f => EditorView.decorations.from(f)
+  provide: f => EditorView.decorations.from(f, state => state.decorations)
 });
 
 // --- CodeMirror 6 Native Autocomplete Source --- //
@@ -188,9 +229,12 @@ interface TextEditorProps {
   onHighlightApplied?: (from: number, to: number, color: string) => void;
   activeFormatting?: Set<string>;
   onFormattingApplied?: (from: number, to: number, formats: Set<string>) => void;
+  onFormattingChange?: (formatting: Set<string>) => void;
+  onHighlighterChange?: (color: string | null) => void;
+  onClearHighlights?: () => void;
 }
 
-export function TextEditor({
+export const TextEditor = forwardRef<{clearAllHighlights: () => void}, TextEditorProps>(function TextEditor({
   fontSize,
   fontFamily = "Monaco, Menlo, 'Ubuntu Mono', monospace",
   vimMode,
@@ -204,7 +248,10 @@ export function TextEditor({
   onHighlightApplied,
   activeFormatting = new Set(),
   onFormattingApplied,
-}: TextEditorProps) {
+  onFormattingChange,
+  onHighlighterChange,
+  onClearHighlights,
+}, ref) {
   const [value, setValue] = useState(initialContent);
   const { theme } = useTheme();
   const editorRef = useRef<any>(null);
@@ -213,7 +260,6 @@ export function TextEditor({
     setValue(val);
     onChange?.(val);
   }, [onChange]);
-
 
   const kanagawaLotus = createTheme({ theme: 'light', settings: { background: 'hsl(44, 51%, 84%)', foreground: 'hsl(38, 16%, 39%)', caret: 'hsl(221, 35%, 45%)', selection: 'hsl(44, 43%, 73%)', selectionMatch: 'hsl(44, 47%, 79%)', lineHeight: '1.6', gutterBackground: 'hsl(44, 47%, 79%)', gutterForeground: 'hsl(50, 12%, 41%)' } });
   const kanagawaWave = createTheme({ theme: 'dark', settings: { background: 'hsl(240, 10%, 15%)', foreground: 'hsl(39, 21%, 84%)', caret: 'hsl(44, 78%, 71%)', selection: 'hsl(240, 9%, 27%)', selectionMatch: 'hsl(240, 9%, 21%)', lineHeight: '1.6', gutterBackground: 'hsl(240, 9%, 21%)', gutterForeground: 'hsl(39, 19%, 67%)' } });
@@ -241,28 +287,25 @@ export function TextEditor({
     onHighlightApplied?.(from, to, highlightColor);
   }, [highlightColor, onHighlightApplied]);
 
-  // Function to apply formatting to selected text
-  const applyFormattingToSelection = useCallback(() => {
-    if (activeFormatting.size === 0 || !editorRef.current) return;
+  // Function to clear all highlights
+  const clearAllHighlights = useCallback(() => {
+    if (!editorRef.current) return;
     
     const view = editorRef.current.view;
     if (!view) return;
     
-    const selection = view.state.selection.main;
-    if (selection.empty) return; // No text selected
-    
-    const { from, to } = selection;
     view.dispatch({
-      effects: addFormatting.of({ from, to, formats: activeFormatting })
+      effects: clearHighlights.of(null)
     });
     
-    // Clear selection after formatting
-    view.dispatch({
-      selection: EditorSelection.single(to)
-    });
-    
-    onFormattingApplied?.(from, to, activeFormatting);
-  }, [activeFormatting, onFormattingApplied]);
+    onClearHighlights?.();
+  }, [onClearHighlights]);
+
+  // Expose clearAllHighlights function to parent via ref
+  useImperativeHandle(ref, () => ({
+    clearAllHighlights
+  }), [clearAllHighlights]);
+
 
   const extensions = useMemo(() => {
     const exts = [];
@@ -290,32 +333,85 @@ export function TextEditor({
       customKeymaps.push({
         key: "Ctrl-Alt-f",
         run: () => {
-          applyFormattingToSelection();
+          // Use the same logic as individual shortcuts to ensure consistency
+          const view = editorRef.current?.view;
+          if (view) {
+            const selection = view.state.selection.main;
+            if (!selection.empty) {
+              view.dispatch({
+                effects: addFormatting.of({ from: selection.from, to: selection.to, formats: activeFormatting })
+              });
+              view.dispatch({
+                selection: EditorSelection.single(selection.to)
+              });
+            }
+          }
           return true;
         }
       });
     }
     
-    // Add individual formatting shortcuts
+    // Universal applicator - applies current ribbon state to selection
     customKeymaps.push({
-      key: "Ctrl-Alt-b",
+      key: "Ctrl-Alt-Enter",
       run: () => {
-        // Toggle bold and apply to selection if any
-        const newFormatting = new Set(activeFormatting);
-        if (newFormatting.has('bold')) {
-          newFormatting.delete('bold');
-        } else {
-          newFormatting.add('bold');
-        }
-        
-        // Apply to selection if text is selected
         const view = editorRef.current?.view;
         if (view) {
           const selection = view.state.selection.main;
           if (!selection.empty) {
+            // Apply current ribbon formatting using the consistent tracking system
+            if (activeFormatting.size > 0) {
+              view.dispatch({
+                effects: addFormatting.of({ from: selection.from, to: selection.to, formats: activeFormatting })
+              });
+            }
+            
+            // Apply current ribbon highlighter
+            if (highlightColor) {
+              view.dispatch({
+                effects: addHighlight.of({ from: selection.from, to: selection.to, color: highlightColor })
+              });
+            }
+            
             view.dispatch({
-              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['bold']) })
+              selection: EditorSelection.single(selection.to)
             });
+          }
+        }
+        return true;
+      }
+    });
+
+    // Individual formatting shortcuts - update ribbon state AND apply/remove formatting from selection
+    customKeymaps.push({
+      key: "Ctrl-Alt-b",
+      run: () => {
+        // Toggle bold in ribbon state
+        const newFormatting = new Set(activeFormatting);
+        const wasActive = newFormatting.has('bold');
+        if (wasActive) {
+          newFormatting.delete('bold');
+        } else {
+          newFormatting.add('bold');
+        }
+        onFormattingChange?.(newFormatting);
+        
+        // Apply or remove formatting from selection if text is selected
+        const view = editorRef.current?.view;
+        if (view) {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            if (wasActive) {
+              // Remove bold formatting - dispatch remove effect
+              view.dispatch({
+                effects: removeFormatting.of({ from: selection.from, to: selection.to, format: 'bold' })
+              });
+            } else {
+              // Add bold formatting
+              view.dispatch({
+                effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['bold']) })
+              });
+            }
             view.dispatch({
               selection: EditorSelection.single(selection.to)
             });
@@ -329,14 +425,32 @@ export function TextEditor({
     customKeymaps.push({
       key: "Ctrl-Alt-i",
       run: () => {
-        // Toggle italic and apply to selection if any
+        // Toggle italic in ribbon state  
+        const newFormatting = new Set(activeFormatting);
+        const wasActive = newFormatting.has('italic');
+        if (wasActive) {
+          newFormatting.delete('italic');
+        } else {
+          newFormatting.add('italic');
+        }
+        onFormattingChange?.(newFormatting);
+        
+        // Apply or remove formatting from selection if text is selected
         const view = editorRef.current?.view;
         if (view) {
           const selection = view.state.selection.main;
           if (!selection.empty) {
-            view.dispatch({
-              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['italic']) })
-            });
+            if (wasActive) {
+              // Remove italic formatting
+              view.dispatch({
+                effects: removeFormatting.of({ from: selection.from, to: selection.to, format: 'italic' })
+              });
+            } else {
+              // Add italic formatting
+              view.dispatch({
+                effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['italic']) })
+              });
+            }
             view.dispatch({
               selection: EditorSelection.single(selection.to)
             });
@@ -349,19 +463,48 @@ export function TextEditor({
     customKeymaps.push({
       key: "Ctrl-Alt-u",
       run: () => {
-        // Toggle underline and apply to selection if any
+        // Toggle underline in ribbon state
+        const newFormatting = new Set(activeFormatting);
+        const wasActive = newFormatting.has('underline');
+        if (wasActive) {
+          newFormatting.delete('underline');
+        } else {
+          newFormatting.add('underline');
+        }
+        onFormattingChange?.(newFormatting);
+        
+        // Apply or remove formatting from selection if text is selected
         const view = editorRef.current?.view;
         if (view) {
           const selection = view.state.selection.main;
           if (!selection.empty) {
-            view.dispatch({
-              effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['underline']) })
-            });
+            if (wasActive) {
+              // Remove underline formatting
+              view.dispatch({
+                effects: removeFormatting.of({ from: selection.from, to: selection.to, format: 'underline' })
+              });
+            } else {
+              // Add underline formatting
+              view.dispatch({
+                effects: addFormatting.of({ from: selection.from, to: selection.to, formats: new Set(['underline']) })
+              });
+            }
             view.dispatch({
               selection: EditorSelection.single(selection.to)
             });
           }
         }
+        return true;
+      }
+    });
+
+    // Clear highlights shortcut
+    customKeymaps.push({
+      key: "Ctrl-Alt-c",
+      run: () => {
+        clearAllHighlights();
+        // Also clear the ribbon highlighter selection
+        onHighlighterChange?.(null);
         return true;
       }
     });
@@ -386,7 +529,7 @@ export function TextEditor({
     }
     exts.push(EditorView.lineWrapping);
     return exts;
-  }, [isVimEnabled, fontFamily, highlightColor, applyHighlightToSelection, activeFormatting, applyFormattingToSelection]);
+  }, [isVimEnabled, fontFamily, highlightColor, applyHighlightToSelection, activeFormatting, clearAllHighlights]);
 
   useEffect(() => {
     setValue(initialContent);
@@ -452,4 +595,4 @@ export function TextEditor({
       </div>
     </div>
   );
-}
+});

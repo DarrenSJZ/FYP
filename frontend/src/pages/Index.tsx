@@ -58,6 +58,7 @@ const Index = () => {
   }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
+  const textEditorRef = useRef<any>(null);
 
   // Helper function to check if file has changed
   const hasFileChanged = (file?: File) => {
@@ -112,6 +113,15 @@ const Index = () => {
 
   const handleVimToggle = () => {
     setIsVimEnabled(!isVimEnabled);
+  };
+
+  const handleClearHighlights = () => {
+    // Clear highlights from the text editor
+    if (textEditorRef.current?.clearAllHighlights) {
+      textEditorRef.current.clearAllHighlights();
+    }
+    // Also clear the ribbon highlighter selection when clearing highlights
+    setSelectedHighlighter(null);
   };
 
   const handleAudioPlayPause = () => {
@@ -889,6 +899,7 @@ const Index = () => {
                   onHighlighterChange={setSelectedHighlighter}
                   activeFormatting={activeFormatting}
                   onFormattingChange={setActiveFormatting}
+                  onClearHighlights={handleClearHighlights}
                 />
                 
                 {/* VIM Toggle positioned to the right with gap */}
@@ -904,6 +915,7 @@ const Index = () => {
               
               {/* Text Editor */}
               <TextEditor
+                ref={textEditorRef}
                 fontSize={fontSize}
                 fontFamily={fontFamily}
                 vimMode={vimMode}
@@ -921,6 +933,9 @@ const Index = () => {
                 onFormattingApplied={(from, to, formats) => {
                   // Optional: Handle formatting application
                 }}
+                onFormattingChange={setActiveFormatting}
+                onHighlighterChange={setSelectedHighlighter}
+                onClearHighlights={handleClearHighlights}
               />
               
               {/* Clear Button */}

@@ -57,8 +57,19 @@ export function PronounConsolidationStage({
   }, [pronounConsolitdationChoices, userEditedTranscription, hasEditedTranscription]);
 
   // Create modified choices that use user's edited transcription when available
+  // Only show "Your Edited Version" if the user actually changed the text
+  const hasActuallyEditedText = hasEditedTranscription && 
+    userEditedTranscription && 
+    pronounConsolitdationChoices &&
+    userEditedTranscription.trim() !== pronounConsolitdationChoices.option_a.transcription.trim();
+
+  // For fallback case when no pronounConsolitdationChoices available
+  const hasActuallyEditedTextFallback = hasEditedTranscription && 
+    userEditedTranscription && 
+    userEditedTranscription.trim() !== "";
+
   const effectiveChoices = pronounConsolitdationChoices ? {
-    option_a: hasEditedTranscription ? {
+    option_a: hasActuallyEditedText ? {
       ...pronounConsolitdationChoices.option_a,
       transcription: userEditedTranscription || pronounConsolitdationChoices.option_a.transcription,
       label: "Your Edited Version",
@@ -71,10 +82,10 @@ export function PronounConsolidationStage({
     // Fallback choices when backend data is missing
     option_a: {
       transcription: userEditedTranscription || "No transcription available",
-      label: hasEditedTranscription ? "Your Edited Version" : "AI Consensus",
-      description: hasEditedTranscription ? "Your manually edited transcription with corrections" : "AI consensus (data unavailable)",
-      confidence: hasEditedTranscription ? 1.0 : 0.0,
-      reasoning: hasEditedTranscription ? "User edited transcription" : "Fallback option"
+      label: hasActuallyEditedTextFallback ? "Your Edited Version" : "AI Consensus",
+      description: hasActuallyEditedTextFallback ? "Your manually edited transcription with corrections" : "AI consensus (data unavailable)",
+      confidence: hasActuallyEditedTextFallback ? 1.0 : 0.0,
+      reasoning: hasActuallyEditedTextFallback ? "User edited transcription" : "Fallback option"
     },
     option_b: {
       transcription: userEditedTranscription || "No transcription available",
