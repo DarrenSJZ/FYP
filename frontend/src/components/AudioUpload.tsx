@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Upload, FileAudio, X, Play, Pause, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export function AudioUpload({
       setAudioUrl(url);
     }
   }, [currentFile, uploadedFile]);
+
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -112,9 +114,40 @@ export function AudioUpload({
     setTranscriptionProgress(0);
     
     try {
+      const bucketName = "user-contributions";
+      const filePath = `${uploadedFile.name}`; // Use original filename as path
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, uploadedFile, {
+          cacheControl: '3600',
+          upsert: true, // Overwrite if file with same name exists
+        });
+
+      if (uploadError) {
+        throw new Error(`Supabase Storage Upload Error: ${uploadError.message}`);
+      }
+
+      // Get public URL of the uploaded file
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      if (!publicUrlData || !publicUrlData.publicUrl) {
+        throw new Error("Could not get public URL for the uploaded file.");
+      }
+
+      const audioPublicUrl = publicUrlData.publicUrl;
+
       const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('context', 'Speech recognition analysis');
+      formData.append('file', uploadedFile); // Send file directly to orchestrator
+      formData.append('context', practiceMode ? 'Practice mode analysis' : 'Speech recognition analysis');
+      
+      // Add ground truth for practice mode
+      if (practiceMode && groundTruth) {
+        formData.append('ground_truth', groundTruth);
+      }
       
       // Progress simulation with realistic stages for consensus only
       const progressStages = [
@@ -194,6 +227,7 @@ export function AudioUpload({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
 
   return (
     <div className="w-full space-y-4">

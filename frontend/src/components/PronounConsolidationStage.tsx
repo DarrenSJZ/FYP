@@ -19,8 +19,9 @@ interface PronounConsolidationStageProps {
   audioFile?: File;
   audioUrl?: string;
   pronounConsolitdationChoices?: {
-    option_a: PronounConsolidationChoice;
-    option_b: PronounConsolidationChoice;
+    option_a: string | PronounConsolidationChoice;
+    option_b: string | PronounConsolidationChoice;
+    educational_note?: string;
   };
   onChoiceSelected: (selectedOption: 'option_a' | 'option_b', selectedTranscription: string) => void;
   onBack: () => void;
@@ -56,12 +57,41 @@ export function PronounConsolidationStage({
     console.log('DEBUG: PronounConsolidationStage - hasEditedTranscription:', hasEditedTranscription);
   }, [pronounConsolitdationChoices, userEditedTranscription, hasEditedTranscription]);
 
+  // Helper function to normalize option to full object
+  const normalizeOption = (option: string | PronounConsolidationChoice | undefined, defaultLabel: string): PronounConsolidationChoice => {
+    if (typeof option === 'string') {
+      return {
+        transcription: option,
+        label: defaultLabel,
+        description: `${defaultLabel} transcription`,
+        confidence: 0.8,
+        reasoning: "AI consensus result"
+      };
+    } else if (option && typeof option === 'object') {
+      return option;
+    } else {
+      return {
+        transcription: "No transcription available",
+        label: defaultLabel,
+        description: "No data available",
+        confidence: 0.0,
+        reasoning: "No data"
+      };
+    }
+  };
+
+  // Get the original option A transcription for comparison
+  const originalOptionATranscription = pronounConsolitdationChoices?.option_a 
+    ? (typeof pronounConsolitdationChoices.option_a === 'string' 
+        ? pronounConsolitdationChoices.option_a 
+        : pronounConsolitdationChoices.option_a.transcription)
+    : "";
+
   // Create modified choices that use user's edited transcription when available
   // Only show "Your Edited Version" if the user actually changed the text
   const hasActuallyEditedText = hasEditedTranscription && 
     userEditedTranscription && 
-    pronounConsolitdationChoices &&
-    userEditedTranscription.trim() !== pronounConsolitdationChoices.option_a.transcription.trim();
+    userEditedTranscription.trim() !== originalOptionATranscription.trim();
 
   // For fallback case when no pronounConsolitdationChoices available
   const hasActuallyEditedTextFallback = hasEditedTranscription && 
@@ -70,14 +100,13 @@ export function PronounConsolidationStage({
 
   const effectiveChoices = pronounConsolitdationChoices ? {
     option_a: hasActuallyEditedText ? {
-      ...pronounConsolitdationChoices.option_a,
-      transcription: userEditedTranscription || pronounConsolitdationChoices.option_a.transcription,
+      transcription: userEditedTranscription || originalOptionATranscription,
       label: "Your Edited Version",
       description: "Your manually edited transcription with corrections",
       reasoning: "User edited transcription",
       confidence: 1.0
-    } : pronounConsolitdationChoices.option_a,
-    option_b: pronounConsolitdationChoices.option_b
+    } : normalizeOption(pronounConsolitdationChoices.option_a, "AI Consensus"),
+    option_b: normalizeOption(pronounConsolitdationChoices.option_b, "Web Validated")
   } : {
     // Fallback choices when backend data is missing
     option_a: {

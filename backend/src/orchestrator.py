@@ -26,18 +26,43 @@ from prompts import (
     get_final_transcription_prompt
 )
 
-# Regional particle sets for accent detection
+# Comprehensive discourse particle sets for accent detection
 DISCOURSE_PARTICLES = {
-    "southeast_asian": ["la", "lor", "leh", "meh", "sia", "wat", "lah", "aiya", "wah", "aiyo"],
-    "british": ["innit", "right", "mate", "cheers", "bloody", "blimey"],
-    "indian": ["na", "yaar", "bhai", "re", "hai", "kya", "bas", "arre"],
+    # Specific Southeast Asian variants
+    "malaysian": ["la", "lor", "leh", "mah", "wan", "kan", "ya", "cis", "wei", "nia"],
+    "singaporean": ["lah", "leh", "lor", "meh", "sia", "ceh", "hor", "what", "liao", "arh"],
+    "filipino": ["po", "opo", "ano", "kasi", "naman"],
+    
+    # Combined regional sets
+    "southeast_asian_combined": ["la", "lor", "leh", "mah", "wan", "kan", "ya", "cis", "wei", "nia", "lah", "meh", "sia", "ceh", "hor", "what", "liao", "arh", "po", "opo", "ano", "kasi", "naman"],
+    
+    # Specific North American variants
     "american": ["dude", "awesome", "totally", "gonna", "wanna", "like", "you know", "whatever"],
-    "australian": ["mate", "bloody", "fair dinkum", "no worries", "crikey", "g'day", "she'll be right"],
     "canadian": ["eh", "about", "sorry", "hoser", "double-double", "toque", "loonie", "toonie"],
-    "south_african": ["ag", "boet", "lekker", "shame", "braai", "eish", "howzit", "ja"],
+    "north_american_combined": ["dude", "awesome", "totally", "gonna", "wanna", "eh", "about", "sorry", "hoser", "double-double"],
+    
+    # Specific British Isles variants
+    "british": ["innit", "mate", "cheers", "blimey", "brilliant"],
     "irish": ["craic", "grand", "feck", "sound", "banter", "fair play", "deadly", "class"],
     "scottish": ["aye", "wee", "ken", "bonnie", "dinnae", "cannae", "och", "blether"],
+    "british_isles_combined": ["innit", "mate", "cheers", "blimey", "brilliant", "craic", "grand", "feck", "sound", "aye", "wee", "ken"],
+    
+    # Specific Oceanic variants
+    "australian": ["mate", "bloody", "fair dinkum", "no worries", "crikey", "g'day", "she'll be right"],
     "new_zealand": ["choice", "yeah nah", "sweet as", "bro", "chur", "she'll be right", "good as gold"],
+    "oceanic_combined": ["mate", "bloody", "fair dinkum", "no worries", "crikey", "choice", "yeah nah", "sweet as", "bro", "chur"],
+    
+    # Other individual variants
+    "indian": ["na", "yaar", "bhai", "achha", "bas"],
+    "south_african": ["ag", "boet", "lekker", "shame", "braai", "eish", "howzit", "ja"],
+    "jamaican": ["bredrin", "big up", "irie", "seen", "wha gwaan"],
+    
+    # Middle Eastern variants
+    "lebanese": ["yalla", "habibi", "khalas", "inshallah", "mashallah"],
+    "emirati": ["yalla", "habibi", "khalas", "wallah", "mashallah"],
+    "middle_eastern_combined": ["yalla", "habibi", "khalas", "inshallah", "mashallah", "wallah"],
+    
+    # Special cases
     "unknown": ["ah", "um", "er", "uh", "hmm", "oh", "eh", "ya", "yeah", "okay"],
     "none": []
 }
@@ -470,7 +495,7 @@ class ASROrchestrator:
     # STAGE 1: CONSENSUS PIPELINE IMPLEMENTATION
     # ═════════════════════════════════════════════════════════════════════════════
     
-    async def execute_consensus_pipeline(self, asr_results, allosaurus_transcription, allosaurus_timing, context, session):
+    async def execute_consensus_pipeline(self, asr_results, allosaurus_transcription, allosaurus_timing, context, session, ground_truth=None):
         """Execute only the consensus and validation steps - stops before particle detection"""
         
         # ─────────────────────────────────────────────────────────────────────────────
@@ -491,7 +516,7 @@ class ASROrchestrator:
             }
         }]
         
-        consensus_prompt = get_consensus_prompt(json.dumps(asr_results, indent=2), context)
+        consensus_prompt = get_consensus_prompt(json.dumps(asr_results, indent=2), context, ground_truth)
         
         step1_result = await self.call_gemini_api(consensus_prompt, session, consensus_functions)
         
@@ -968,7 +993,8 @@ async def transcribe_audio_debug(
 async def transcribe_consensus(
     file: UploadFile = File(...),
     context: str = Form("Speech recognition consensus analysis"),
-    models: Optional[str] = Form(None)
+    models: Optional[str] = Form(None),
+    ground_truth: Optional[str] = Form(None)
 ):
     """STAGE 1: Consensus Pipeline - Get consensus transcription with alternatives for human validation"""
     try:
@@ -988,11 +1014,33 @@ async def transcribe_consensus(
         # Execute STAGE 1: Consensus pipeline only
         async with aiohttp.ClientSession() as session:
             consensus_results = await orchestrator.execute_consensus_pipeline(
-                asr_results, allosaurus_transcription, allosaurus_timing, context, session
+                asr_results, allosaurus_transcription, allosaurus_timing, context, session, ground_truth
             )
         
         # Add asr_generated_phonemes to the response
         consensus_results["asr_generated_phonemes"] = allosaurus_transcription.split() if allosaurus_transcription else []
+        
+        # If ground truth provided (practice mode), add comparison metadata
+        if ground_truth:
+            consensus_results["ground_truth"] = ground_truth
+            consensus_results["is_practice_mode"] = True
+            
+            # Add comparison metrics for educational purposes
+            asr_primary = consensus_results.get("primary", "")
+            consensus_results["accuracy_comparison"] = {
+                "ground_truth": ground_truth,
+                "asr_result": asr_primary,
+                "match": ground_truth.lower().strip() == asr_primary.lower().strip(),
+                "word_count_diff": len(ground_truth.split()) - len(asr_primary.split())
+            }
+            
+            # For practice mode, create educational pronoun consolidation choices
+            # Option A: ASR result, Option B: Ground truth
+            consensus_results["pronoun_consolidation"] = {
+                "option_a": asr_primary,
+                "option_b": ground_truth,
+                "educational_note": "Compare ASR output with validated transcription"
+            }
         
         return consensus_results
         

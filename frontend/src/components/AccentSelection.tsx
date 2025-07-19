@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, ArrowRight, CheckCircle, ChevronDown, CheckCircle2, Volume2 } from "lucide-react";
+import { Globe, ArrowRight, CheckCircle, ChevronDown, CheckCircle2, Volume2, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,18 +13,36 @@ import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
 import type { WorkflowStage } from "@/pages/Index";
 
-export interface AccentOption {
+// Specific country/region variant for dropdown selection
+export interface LocaleOption {
   id: string;
-  name: string;
-  description: string;
-  examples: string[];
-  region: string;
-  discourseParticles?: string; // For Docker system
+  name: string; // "Malaysian English"
+  flag: string; // "🇲🇾"
+  locale: string; // "en-MY" 
+  group: string; // "southeast-asian"
+  particles: string[]; // ["la", "lor", "leh"]
+  discourseParticles: string; // "malaysian" - specific backend key
 }
+
+// Regional accent group for quick bubble selection
+export interface AccentGroup {
+  id: string; // "southeast-asian"
+  name: string; // "Southeast Asian"
+  description: string;
+  examples: string[]; // Combined examples from all countries
+  region: string;
+  locales: string[]; // ["en-MY", "en-SG", "en-PH"]
+  combinedParticles: string[]; // Merged particles from all countries
+  discourseParticles: string; // "southeast_asian_combined"
+  defaultLocale?: string; // "en-MY" - default for this group
+}
+
+// Union type for selections
+export type AccentSelection = LocaleOption | AccentGroup;
 
 interface AccentSelectionProps {
   transcriptionText: string;
-  onAccentSelected: (accent: AccentOption) => void;
+  onAccentSelected: (selection: AccentSelection) => void;
   onBack: () => void;
   onNext?: () => void;
   completedStages: Set<WorkflowStage>;
@@ -36,151 +54,163 @@ interface AccentSelectionProps {
   hasFileChanged?: (file?: File) => boolean;
   audioFile?: File;
   onCacheUpdate?: (accentKey: string, particleData: any) => void;
-  currentAccent?: AccentOption | null;
+  currentAccent?: any;
   hasProcessedAccent?: boolean;
   audioUrl?: string;
   isAudioPlaying?: boolean;
   onAudioPlayPause?: () => void;
 }
 
-const accentOptions: AccentOption[] = [
+// Comprehensive specific locale options for dropdown
+const localeOptions: LocaleOption[] = [
+  // Southeast Asian variants
+  { id: "malaysian", name: "Malaysian English", flag: "🇲🇾", locale: "en-MY", group: "southeast-asian", particles: ["la", "lor", "leh", "mah", "wan", "kan", "ya", "cis", "wei", "nia"], discourseParticles: "malaysian" },
+  { id: "singaporean", name: "Singaporean English", flag: "🇸🇬", locale: "en-SG", group: "southeast-asian", particles: ["lah", "leh", "lor", "meh", "sia", "ceh", "hor", "what", "liao", "arh"], discourseParticles: "singaporean" },
+  { id: "filipino", name: "Filipino English", flag: "🇵🇭", locale: "en-PH", group: "southeast-asian", particles: ["po", "opo", "ano", "kasi", "naman"], discourseParticles: "filipino" },
+  
+  // North American variants
+  { id: "american", name: "American English", flag: "🇺🇸", locale: "en-US", group: "north-american", particles: ["dude", "awesome", "totally", "gonna", "wanna"], discourseParticles: "american" },
+  { id: "canadian", name: "Canadian English", flag: "🇨🇦", locale: "en-CA", group: "north-american", particles: ["eh", "about", "sorry", "hoser", "double-double"], discourseParticles: "canadian" },
+  
+  // British Isles variants  
+  { id: "british", name: "British English", flag: "🇬🇧", locale: "en-GB", group: "british-isles", particles: ["innit", "mate", "cheers", "blimey", "brilliant"], discourseParticles: "british" },
+  { id: "irish", name: "Irish English", flag: "🇮🇪", locale: "en-IE", group: "british-isles", particles: ["craic", "grand", "feck", "sound", "banter"], discourseParticles: "irish" },
+  { id: "scottish", name: "Scottish English", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", locale: "en-GB", group: "british-isles", particles: ["aye", "wee", "ken", "bonnie", "dinnae"], discourseParticles: "scottish" },
+  
+  // Oceanic variants
+  { id: "australian", name: "Australian English", flag: "🇦🇺", locale: "en-AU", group: "oceanic", particles: ["mate", "bloody", "fair dinkum", "no worries", "crikey"], discourseParticles: "australian" },
+  { id: "new-zealand", name: "New Zealand English", flag: "🇳🇿", locale: "en-NZ", group: "oceanic", particles: ["choice", "yeah nah", "sweet as", "bro", "chur"], discourseParticles: "new_zealand" },
+  
+  // Other variants
+  { id: "indian", name: "Indian English", flag: "🇮🇳", locale: "en-IN", group: "south-asian", particles: ["na", "yaar", "bhai", "achha", "bas"], discourseParticles: "indian" },
+  { id: "south-african", name: "South African English", flag: "🇿🇦", locale: "en-ZA", group: "african", particles: ["ag", "boet", "lekker", "shame", "braai"], discourseParticles: "south_african" },
+  { id: "jamaican", name: "Jamaican English", flag: "🇯🇲", locale: "en-JM", group: "caribbean", particles: ["bredrin", "big up", "irie", "seen", "wha gwaan"], discourseParticles: "jamaican" },
+  
+  // Middle Eastern variants
+  { id: "lebanese", name: "Lebanese English", flag: "🇱🇧", locale: "en-LB", group: "middle-eastern", particles: ["yalla", "habibi", "khalas", "inshallah", "mashallah"], discourseParticles: "lebanese" },
+  { id: "emirati", name: "Emirati English", flag: "🇦🇪", locale: "en-AE", group: "middle-eastern", particles: ["yalla", "habibi", "khalas", "wallah", "mashallah"], discourseParticles: "emirati" },
+];
+
+// Regional accent groups for quick bubble selection
+const accentGroups: AccentGroup[] = [
   {
     id: "southeast-asian",
     name: "Southeast Asian",
     description: "Malaysian, Singaporean, Filipino accents",
-    examples: ["la", "lor", "leh", "mah", "wan"],
+    examples: ["la", "lor", "leh", "lah", "sia", "po", "ano"],
     region: "Southeast Asia",
-    discourseParticles: "southeast_asian"
+    locales: ["en-MY", "en-SG", "en-PH"],
+    combinedParticles: ["la", "lor", "leh", "mah", "wan", "kan", "ya", "cis", "wei", "nia", "lah", "meh", "sia", "ceh", "hor", "what", "liao", "arh", "po", "opo", "ano", "kasi", "naman"],
+    discourseParticles: "southeast_asian_combined",
+    defaultLocale: "en-MY"
   },
   {
-    id: "british",
-    name: "British",
-    description: "UK English with British expressions",
-    examples: ["innit", "mate", "cheers", "blimey", "brilliant"],
-    region: "United Kingdom",
-    discourseParticles: "british"
+    id: "north-american", 
+    name: "North American",
+    description: "American and Canadian English",
+    examples: ["dude", "awesome", "eh", "sorry"],
+    region: "North America",
+    locales: ["en-US", "en-CA"],
+    combinedParticles: ["dude", "awesome", "totally", "gonna", "wanna", "eh", "about", "sorry", "hoser", "double-double"],
+    discourseParticles: "north_american_combined",
+    defaultLocale: "en-US"
   },
   {
-    id: "indian",
-    name: "Indian",
-    description: "Indian English with local expressions",
-    examples: ["na", "yaar", "bhai", "achha", "bas"],
-    region: "India",
-    discourseParticles: "indian"
+    id: "british-isles",
+    name: "British Isles", 
+    description: "British, Irish, Scottish accents",
+    examples: ["innit", "mate", "craic", "aye"],
+    region: "British Isles",
+    locales: ["en-GB", "en-IE"],
+    combinedParticles: ["innit", "mate", "cheers", "blimey", "brilliant", "craic", "grand", "feck", "sound", "aye", "wee", "ken"],
+    discourseParticles: "british_isles_combined",
+    defaultLocale: "en-GB"
   },
   {
-    id: "american",
-    name: "American",
-    description: "Standard American English",
-    examples: ["dude", "awesome", "totally", "gonna", "wanna"],
-    region: "United States",
-    discourseParticles: "american"
+    id: "oceanic",
+    name: "Oceanic",
+    description: "Australian and New Zealand English", 
+    examples: ["mate", "bloody", "choice", "bro"],
+    region: "Oceania",
+    locales: ["en-AU", "en-NZ"],
+    combinedParticles: ["mate", "bloody", "fair dinkum", "no worries", "crikey", "choice", "yeah nah", "sweet as", "bro", "chur"],
+    discourseParticles: "oceanic_combined",
+    defaultLocale: "en-AU"
   },
   {
-    id: "australian",
-    name: "Australian",
-    description: "Australian English expressions",
-    examples: ["mate", "bloody", "fair dinkum", "no worries", "crikey"],
-    region: "Australia",
-    discourseParticles: "australian"
-  }
-];
-
-const otherAccentOptions: AccentOption[] = [
-  {
-    id: "canadian",
-    name: "Canadian",
-    description: "Canadian English expressions",
-    examples: ["eh", "about", "sorry", "hoser", "double-double"],
-    region: "Canada",
-    discourseParticles: "canadian"
-  },
-  {
-    id: "south-african",
-    name: "South African",
-    description: "South African English expressions",
-    examples: ["ag", "boet", "lekker", "shame", "braai"],
-    region: "South Africa",
-    discourseParticles: "south_african"
-  },
-  {
-    id: "irish",
-    name: "Irish",
-    description: "Irish English expressions",
-    examples: ["craic", "grand", "feck", "sound", "banter"],
-    region: "Ireland",
-    discourseParticles: "irish"
-  },
-  {
-    id: "scottish",
-    name: "Scottish",
-    description: "Scottish English expressions",
-    examples: ["aye", "wee", "ken", "bonnie", "dinnae"],
-    region: "Scotland",
-    discourseParticles: "scottish"
-  },
-  {
-    id: "new-zealand",
-    name: "New Zealand",
-    description: "New Zealand English expressions",
-    examples: ["choice", "yeah nah", "sweet as", "bro", "chur"],
-    region: "New Zealand",
-    discourseParticles: "new_zealand"
+    id: "middle-eastern",
+    name: "Middle Eastern",
+    description: "Lebanese, Emirati, Gulf English",
+    examples: ["yalla", "habibi", "khalas", "wallah"],
+    region: "Middle East",
+    locales: ["en-LB", "en-AE"],
+    combinedParticles: ["yalla", "habibi", "khalas", "inshallah", "mashallah", "wallah"],
+    discourseParticles: "middle_eastern_combined",
+    defaultLocale: "en-LB"
   },
   {
     id: "unknown",
     name: "Unknown",
     description: "Let AI automatically detect the accent and particles",
-    examples: ["auto-detect", "AI-guided", "unsure"],
+    examples: ["auto-detect", "AI-guided"],
     region: "Auto-detect",
+    locales: ["en"],
+    combinedParticles: [],
     discourseParticles: "unknown"
-  },
-  {
-    id: "none",
-    name: "None",
-    description: "No specific accent or particles",
-    region: "None",
-    discourseParticles: "none"
   }
 ];
 
-export function AccentSelection({ transcriptionText, onAccentSelected, onBack, onNext, completedStages, onStageClick, cachedResults, hasFileChanged, audioFile, onCacheUpdate, currentAccent, hasProcessedAccent, audioUrl, isAudioPlaying = false, onAudioPlayPause }: AccentSelectionProps) {
-  const [selectedAccent, setSelectedAccent] = useState<AccentOption | null>(null);
+export function AccentSelection({ 
+  transcriptionText, 
+  onAccentSelected, 
+  onBack, 
+  onNext, 
+  completedStages, 
+  onStageClick, 
+  cachedResults,
+  hasFileChanged,
+  audioFile,
+  onCacheUpdate,
+  currentAccent,
+  hasProcessedAccent,
+  audioUrl, 
+  isAudioPlaying = false, 
+  onAudioPlayPause 
+}: AccentSelectionProps) {
+  const [selectedAccentSelection, setSelectedAccentSelection] = useState<AccentSelection | null>(null);
+  const [selectedLocale, setSelectedLocale] = useState<LocaleOption | null>(null); // Start with no selection
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Restore accent state when component mounts with existing accent
   useEffect(() => {
-    if (currentAccent && !selectedAccent) {
-      setSelectedAccent(currentAccent);
+    if (currentAccent && !selectedAccentSelection) {
+      setSelectedAccentSelection(currentAccent);
     }
-  }, [currentAccent, selectedAccent]);
+  }, [currentAccent, selectedAccentSelection]);
 
-  const handleAccentSelect = (accent: AccentOption) => {
-    setSelectedAccent(accent);
+  const handleGroupSelect = (group: AccentGroup) => {
+    setSelectedAccentSelection(group);
+  };
+
+  const handleLocaleSelect = (locale: LocaleOption) => {
+    setSelectedAccentSelection(locale);
+    setSelectedLocale(locale);
   };
 
   const handleContinue = async () => {
-    if (!selectedAccent) return;
+    if (!selectedAccentSelection) return;
     
-    const accentKey = selectedAccent.discourseParticles || 'unknown';
-    
-    // console.log('DEBUG: handleContinue called with:', {
-    //   selectedAccent: selectedAccent.name,
-    //   accentKey,
-    //   hasProcessedAccent,
-    //   currentAccentId: currentAccent?.id,
-    //   selectedAccentId: selectedAccent.id,
-    //   fileChanged: hasFileChanged?.(audioFile),
-    //   cachedDataExists: !!cachedResults?.particleDataByAccent?.[accentKey]
-    // });
+    const accentKey = selectedAccentSelection.discourseParticles || 'unknown';
     
     // Check if this accent has already been processed for the current file
     const fileHasChanged = hasFileChanged?.(audioFile);
-    const isAlreadyProcessed = hasProcessedAccent && currentAccent?.id === selectedAccent.id && !fileHasChanged;
+    const isAlreadyProcessed = hasProcessedAccent && 
+      currentAccent?.id === selectedAccentSelection.id && 
+      !fileHasChanged;
 
     if (isAlreadyProcessed) {
-      console.log(`Accent ${selectedAccent.name} already processed for this file. Skipping API call.`);
-      onAccentSelected(selectedAccent);
+      console.log(`Accent ${selectedAccentSelection.name} already processed for this file. Skipping API call.`);
+      onAccentSelected(selectedAccentSelection);
       return;
     }
     
@@ -188,189 +218,121 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
     setIsProcessing(true);
     
     try {
+      // Check if we have cached results for this accent
+      const cachedData = cachedResults?.particleDataByAccent?.[accentKey];
+      if (cachedData && !fileHasChanged) {
+        console.log(`Using cached data for accent: ${accentKey}`);
+        onAccentSelected(selectedAccentSelection);
+        setIsProcessing(false);
+        return;
+      }
+
+      if (!audioFile) {
+        console.error('No audio file provided for particle detection');
+        onAccentSelected(selectedAccentSelection);
+        setIsProcessing(false);
+        return;
+      }
+
       // Add a small delay to ensure loading screen shows
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Make API call to get accent-specific particle suggestions using cached data
-      console.log('Making API call with accent:', selectedAccent.name);
-      
-      // Get cached consensus data from session storage
-      const storedParticleData = sessionStorage.getItem('particleData');
-      if (!storedParticleData) {
-        console.error('No cached consensus data available - user may have refreshed or navigated away');
-        setIsProcessing(false);
-        // Show user-friendly error and redirect back to upload
-        alert('Session data lost. Please upload your audio file again.');
-        window.location.reload(); // Or navigate back to upload stage
-        return;
-      }
-      
-      // Validate that the cached data is valid JSON and has required structure
-      let parsedData;
-      try {
-        parsedData = JSON.parse(storedParticleData);
-        if (!parsedData.primary || !parsedData.asr_results) {
-          throw new Error('Invalid cached data structure - missing primary or asr_results');
-        }
-        // Verify we have Allosaurus data for particle detection
-        const allosaurus = parsedData.asr_results?.results?.allosaurus;
-        if (!allosaurus || allosaurus.status !== 'success') {
-          console.warn('No valid Allosaurus data available for particle detection');
-        }
-      } catch (error) {
-        console.error('Invalid cached consensus data:', error);
-        setIsProcessing(false);
-        alert('Cached data is corrupted or incomplete. Please upload your audio file again.');
-        window.location.reload();
-        return;
-      }
-      
-      // Make API call with selected accent using cached consensus data
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const formData = new FormData();
-      formData.append('consensus_data', storedParticleData);
-      formData.append('context', `Accent-specific particle detection for ${selectedAccent.name} accent`);
-      const accentHint = selectedAccent.discourseParticles || 'unknown';
-      formData.append('accent_hint', accentHint);
-        
-      console.log('=== DEBUGGING ACCENT SELECTION ===');
-      console.log('selectedAccent object:', selectedAccent);
-      console.log('selectedAccent.discourseParticles:', selectedAccent.discourseParticles);
-      console.log('accentHint being sent:', accentHint);
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}: ${value}`);
+      formData.append('file', audioFile);
+
+      const sessionParticleData = sessionStorage.getItem('particleData');
+      if (!sessionParticleData) {
+        throw new Error('No consensus data available in session storage. Please complete the consensus stage first.');
       }
-      console.log('=== END DEBUGGING ===');
+
+      const particleData = JSON.parse(sessionParticleData);
+      if (!particleData) {
+        throw new Error('Failed to parse consensus data from session storage.');
+      }
+
+      formData.append('consensus_data', JSON.stringify(particleData));
+      formData.append('transcription_text', transcriptionText);
+
+      // Use the accent-specific particle set for API call
+      formData.append('accent_selection', accentKey);
+
+      // Add context hint for the LLM
+      formData.append('context', `Accent-specific particle detection for ${selectedAccentSelection.name} accent`);
+      formData.append('accent_hint', accentKey);
       
-      const apiResponse = await fetch('http://localhost:8000/transcribe-with-particles', {
+      // Debug log for verification
+      console.log('selectedAccentSelection object:', selectedAccentSelection);
+      console.log('selectedAccentSelection.discourseParticles:', selectedAccentSelection.discourseParticles);
+
+      const response = await fetch('http://localhost:8000/transcribe-with-particles', {
         method: 'POST',
         body: formData,
       });
-      
-      if (apiResponse.ok) {
-        const result = await apiResponse.json();
-        
-        // Update particle data with accent-specific results
-        const updatedParticleData = {
-          ...result,
-          accent_selected: selectedAccent.discourseParticles
-        };
-        
-        // Store the updated result
-        sessionStorage.setItem('particleData', JSON.stringify(updatedParticleData));
-        
-        // Update cache in parent component
-        onCacheUpdate?.(accentKey, updatedParticleData);
-        
-        console.log('Accent-specific API call successful:', result);
-      } else {
-        console.error('Accent-specific API call failed:', apiResponse.statusText);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const result = await response.json();
       
-      // Continue to next stage regardless of API success (fallback to existing data)
-      onAccentSelected(selectedAccent);
+      // Cache the result
+      onCacheUpdate?.(accentKey, result);
+      
+      // Store result in session storage for later use
+      sessionStorage.setItem('accentProcessingResult', JSON.stringify(result));
+
+      onAccentSelected(selectedAccentSelection);
+      
     } catch (error) {
-      console.error('Failed to send accent selection to backend:', error);
-      // Continue to next stage even if API fails
-      onAccentSelected(selectedAccent);
+      console.error('Error processing accent-specific transcription:', error);
+      onAccentSelected(selectedAccentSelection);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Show loading screen when processing
-  if (isProcessing) {
-    return (
-      <div className="w-full max-w-4xl mx-auto space-y-8 pt-12 pb-12 flex flex-col items-center justify-center">
-        <div className="text-center space-y-6">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Processing Accent Selection</h2>
-            <p className="text-muted-foreground">
-              Generating accent-specific particle suggestions for {selectedAccent?.name} accent...
-            </p>
-          </div>
-          <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 max-w-md mx-auto">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                <span className="text-sm">Analyzing audio with {selectedAccent?.name} accent context</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <span className="text-sm">Detecting {selectedAccent?.name} discourse particles</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                <span className="text-sm">Generating particle placement suggestions</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 pt-12 pb-12">
-      {/* Progress Bar - Second */}
-      <div className="w-full">
-        <StageProgressBar
-          currentStage="accent"
-          completedStages={completedStages}
-          onStageClick={onStageClick}
-        />
-      </div>
+    <div className="w-full max-w-6xl mx-auto space-y-6 flex flex-col items-center justify-center pt-12 pb-12">
+      {/* Progress Bar */}
+      <StageProgressBar
+        currentStage="accent"
+        completedStages={completedStages}
+        onStageClick={onStageClick}
+      />
 
-      {/* Stage Header - At the tippity top */}
+      {/* Stage Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Accent Selection</h2>
+        <h2 className="text-2xl font-bold">Accent & Locale Selection</h2>
         <p className="text-muted-foreground">
-          Based on the transcription, which accent do you think the speaker has?
+          Choose your accent/dialect for accurate particle detection
         </p>
       </div>
 
-      {/* Debug Info */}
-      {/* {process.env.NODE_ENV === 'development' && (
-        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-          Debug: hasProcessedAccent={hasProcessedAccent ? 'true' : 'false'}, 
-          currentAccent={currentAccent?.name || 'none'} (id: {currentAccent?.id || 'none'}), 
-          selectedAccent={selectedAccent?.name || 'none'} (id: {selectedAccent?.id || 'none'}),
-          cachedAccents={Object.keys(cachedResults?.particleDataByAccent || {}).join(', ') || 'none'},
-          fileChanged={hasFileChanged?.(audioFile) ? 'true' : 'false'}
-        </div>
-      )} */}
-
-      {/* Navigation - Third */}
+      {/* Navigation */}
       <div className="w-full">
         <StageNavigation
           onBack={onBack}
           onNext={handleContinue}
           nextText="Next"
-          nextDisabled={!selectedAccent || isProcessing}
+          nextDisabled={!selectedAccentSelection || isProcessing}
         />
       </div>
 
+
       {/* Audio Player */}
-      {(audioFile || audioUrl) && onAudioPlayPause && (
+      {audioUrl && (
         <div className="flex justify-center">
           <Button
             onClick={onAudioPlayPause}
-            disabled={!audioFile && !audioUrl}
             className={`
               px-6 py-4 rounded-2xl transition-all duration-200 
-              ${!audioFile && !audioUrl 
-                ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
-                : isAudioPlaying 
-                  ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
+              ${isAudioPlaying 
+                ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
               }
               shadow-lg hover:shadow-xl border-b-4 
-              ${!audioFile && !audioUrl 
-                ? 'border-muted/70' 
-                : isAudioPlaying ? 'border-accent/70' : 'border-primary/70'
-              }
-              ${!audioFile && !audioUrl ? '' : 'active:border-b-2 active:translate-y-0.5'}
+              ${isAudioPlaying ? 'border-accent/70' : 'border-primary/70'}
+              active:border-b-2 active:translate-y-0.5
             `}
           >
             <div className="flex items-center gap-3">
@@ -388,142 +350,178 @@ export function AccentSelection({ transcriptionText, onAccentSelected, onBack, o
         </div>
       )}
 
-      {/* Transcription Preview - Minimal */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Globe className="h-5 w-5" />
-          <h3 className="text-lg font-semibold">Current Transcription</h3>
+      {/* Locale Dropdown - Card Style */}
+      <div className="w-full max-w-md">
+        <div className="text-center mb-4">
+          <h3 className="text-lg font-semibold mb-2">Specific Locale (Optional)</h3>
+          <p className="text-sm text-muted-foreground">Select for precise accent detection</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm max-h-32 overflow-y-auto">
-          <p className="text-sm leading-relaxed">
-            {transcriptionText}
-          </p>
-        </div>
-      </div>
-
-      {/* Accent Options - Minimal */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Select the accent you hear:</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {accentOptions.map((accent) => (
-            <div
-              key={accent.id}
-              className={`cursor-pointer transition-all duration-200 p-4 rounded-xl border-2 ${
-                selectedAccent?.id === accent.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50 hover:bg-muted/30"
-              }`}
-              onClick={() => handleAccentSelect(accent)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold">{accent.name}</h4>
-                    {selectedAccent?.id === accent.id && (
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                    )}
-                    {hasProcessedAccent && currentAccent?.id === accent.id && (
-                      <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Processed
-                      </Badge>
+        
+        <Card className="w-full">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {selectedLocale ? (
+                      <>
+                        <span>{selectedLocale.flag}</span>
+                        <span className="font-medium">{selectedLocale.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Select Accent</span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {accent.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {accent.examples.map((example, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="text-xs"
-                      >
-                        {example}
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </div>
+                {selectedLocale && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedLocale.particles.slice(0, 3).map((particle, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {particle}
                       </Badge>
                     ))}
+                    {selectedLocale.particles.length > 3 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{selectedLocale.particles.length - 3}
+                      </Badge>
+                    )}
                   </div>
+                )}
+              </CardContent>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 max-h-60 overflow-y-auto">
+              {localeOptions.map((locale) => (
+                <DropdownMenuItem
+                  key={locale.id}
+                  onClick={() => handleLocaleSelect(locale)}
+                  className="flex flex-col items-start gap-2 p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>{locale.flag}</span>
+                    <span className="font-medium">{locale.name}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {locale.particles.slice(0, 3).map((particle, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {particle}
+                      </Badge>
+                    ))}
+                    {locale.particles.length > 3 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{locale.particles.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </Card>
+      </div>
+
+      {/* Regional Groups */}
+      <div className="w-full">
+        <div className="text-center mb-6">
+          <h3 className="text-lg font-semibold mb-2">Quick Regional Selection</h3>
+          <p className="text-sm text-muted-foreground">Choose a regional group for common particles</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accentGroups.map((group) => (
+            <Card
+              key={group.id}
+              className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                selectedAccentSelection?.id === group.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+              }`}
+              onClick={() => handleGroupSelect(group)}
+            >
+              <CardHeader className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">{group.name}</CardTitle>
+                  {selectedAccentSelection?.id === group.id && (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  )}
                 </div>
-              </div>
-            </div>
-          ))}
-          
-          {/* Other Accents Dropdown - Minimal */}
-          <div className="cursor-pointer transition-all duration-200 p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:bg-muted/30">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold">Other Accents</h4>
-                      <ChevronDown className="h-4 w-4" />
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      More accent options from around the world
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="secondary" className="text-xs">Canadian</Badge>
-                      <Badge variant="secondary" className="text-xs">Irish</Badge>
-                      <Badge variant="secondary" className="text-xs">Scottish</Badge>
-                      <Badge variant="secondary" className="text-xs">+ more</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64">
-                  {otherAccentOptions.map((accent) => (
-                    <DropdownMenuItem
-                      key={accent.id}
-                      onClick={() => handleAccentSelect(accent)}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{accent.name}</span>
-                          {selectedAccent?.id === accent.id && (
-                            <CheckCircle className="h-3 w-3 text-primary" />
-                          )}
-                          {hasProcessedAccent && currentAccent?.id === accent.id && (
-                            <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Processed
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{accent.region}</span>
-                      </div>
-                    </DropdownMenuItem>
+                <CardDescription>{group.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {group.examples.slice(0, 4).map((example, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {example}
+                    </Badge>
                   ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  {group.examples.length > 4 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{group.examples.length - 4}
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
 
-      <div className="w-full flex justify-between items-center pb-6 border-b border-border"></div>
+      {/* Processing Indicator */}
+      {isProcessing && (
+        <div className="w-full max-w-md">
+          <Card className="border-accent/20 bg-accent/5">
+            <CardContent className="text-center p-6">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Loader2 className="h-5 w-5 animate-spin text-accent" />
+                <span className="text-lg font-medium text-accent">Processing Accent</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Generating accent-specific particle suggestions for {selectedAccentSelection?.name} accent...
+              </p>
+              <div className="mt-4 text-xs text-muted-foreground">
+                <span className="text-sm">Analyzing audio with {selectedAccentSelection?.name} accent context</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Continue Button */}
-      <div className="flex justify-center pt-4">
-        <Button
-          onClick={handleContinue}
-          disabled={!selectedAccent || isProcessing}
-          size="lg"
-          className="gap-2 px-8"
-        >
-          {isProcessing ? "Processing..." : hasProcessedAccent && currentAccent?.id === selectedAccent?.id ? "Continue with Selected Accent" : "Process Selected Accent"}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {/* Selection Summary - Minimalistic */}
+      {selectedAccentSelection && !isProcessing && (
+        <div className="text-center">
+          <p className="text-lg font-medium">{selectedAccentSelection.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {'locales' in selectedAccentSelection 
+              ? `Covers: ${selectedAccentSelection.locales.join(', ')}`
+              : `Locale: ${selectedAccentSelection.locale}`
+            }
+          </p>
+          {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id && (
+            <Badge variant="secondary" className="text-xs mt-2">
+              Already Processed
+            </Badge>
+          )}
+        </div>
+      )}
 
-      {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground">
-        <p>
-          Select the accent that best matches what you hear in the audio. This will help with particle placement.
-        </p>
-        <p className="mt-1">
-          Click "Continue" to complete this stage and unlock particle placement in the progress bar above.
-        </p>
-      </div>
+      {/* Process Button */}
+      {selectedAccentSelection && !isProcessing && (
+        <div className="flex justify-center">
+          <Button 
+            onClick={handleContinue}
+            disabled={isProcessing}
+            size="lg"
+            className="gap-2 px-8 py-3"
+          >
+            {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id 
+              ? "Continue with Selected Accent" 
+              : "Process Selected Accent"
+            }
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
     </div>
   );
