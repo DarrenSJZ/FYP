@@ -35,6 +35,7 @@ export interface AccentGroup {
   combinedParticles: string[]; // Merged particles from all countries
   discourseParticles: string; // "southeast_asian_combined"
   defaultLocale?: string; // "en-MY" - default for this group
+  flags: string[]; // ["🇲🇾", "🇸🇬", "🇵🇭"] - flags for countries in this group
 }
 
 // Union type for selections
@@ -102,7 +103,8 @@ const accentGroups: AccentGroup[] = [
     locales: ["en-MY", "en-SG", "en-PH"],
     combinedParticles: ["la", "lor", "leh", "mah", "wan", "kan", "ya", "cis", "wei", "nia", "lah", "meh", "sia", "ceh", "hor", "what", "liao", "arh", "po", "opo", "ano", "kasi", "naman"],
     discourseParticles: "southeast_asian_combined",
-    defaultLocale: "en-MY"
+    defaultLocale: "en-MY",
+    flags: ["🇲🇾", "🇸🇬", "🇵🇭"]
   },
   {
     id: "north-american", 
@@ -113,7 +115,8 @@ const accentGroups: AccentGroup[] = [
     locales: ["en-US", "en-CA"],
     combinedParticles: ["dude", "awesome", "totally", "gonna", "wanna", "eh", "about", "sorry", "hoser", "double-double"],
     discourseParticles: "north_american_combined",
-    defaultLocale: "en-US"
+    defaultLocale: "en-US",
+    flags: ["🇺🇸", "🇨🇦"]
   },
   {
     id: "british-isles",
@@ -124,7 +127,8 @@ const accentGroups: AccentGroup[] = [
     locales: ["en-GB", "en-IE"],
     combinedParticles: ["innit", "mate", "cheers", "blimey", "brilliant", "craic", "grand", "feck", "sound", "aye", "wee", "ken"],
     discourseParticles: "british_isles_combined",
-    defaultLocale: "en-GB"
+    defaultLocale: "en-GB",
+    flags: ["🇬🇧", "🇮🇪", "🏴󠁧󠁢󠁳󠁣󠁴󠁿"]
   },
   {
     id: "oceanic",
@@ -135,7 +139,8 @@ const accentGroups: AccentGroup[] = [
     locales: ["en-AU", "en-NZ"],
     combinedParticles: ["mate", "bloody", "fair dinkum", "no worries", "crikey", "choice", "yeah nah", "sweet as", "bro", "chur"],
     discourseParticles: "oceanic_combined",
-    defaultLocale: "en-AU"
+    defaultLocale: "en-AU",
+    flags: ["🇦🇺", "🇳🇿"]
   },
   {
     id: "middle-eastern",
@@ -146,7 +151,8 @@ const accentGroups: AccentGroup[] = [
     locales: ["en-LB", "en-AE"],
     combinedParticles: ["yalla", "habibi", "khalas", "inshallah", "mashallah", "wallah"],
     discourseParticles: "middle_eastern_combined",
-    defaultLocale: "en-LB"
+    defaultLocale: "en-LB",
+    flags: ["🇱🇧", "🇦🇪"]
   },
   {
     id: "unknown",
@@ -156,7 +162,8 @@ const accentGroups: AccentGroup[] = [
     region: "Auto-detect",
     locales: ["en"],
     combinedParticles: [],
-    discourseParticles: "unknown"
+    discourseParticles: "unknown",
+    flags: ["🤖"]
   }
 ];
 
@@ -227,8 +234,8 @@ export function AccentSelection({
         return;
       }
 
-      if (!audioFile) {
-        console.error('No audio file provided for particle detection');
+      if (!audioFile && !audioUrl) {
+        console.error('No audio file or URL provided for particle detection');
         onAccentSelected(selectedAccentSelection);
         setIsProcessing(false);
         return;
@@ -238,7 +245,14 @@ export function AccentSelection({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const formData = new FormData();
-      formData.append('file', audioFile);
+      
+      if (audioFile) {
+        formData.append('file', audioFile);
+      } else if (audioUrl) {
+        // For practice mode, we need to download the audio first or pass the URL
+        console.log('Practice mode: using audio URL for API call');
+        formData.append('audio_url', audioUrl);
+      }
 
       const sessionParticleData = sessionStorage.getItem('particleData');
       if (!sessionParticleData) {
@@ -350,17 +364,74 @@ export function AccentSelection({
         </div>
       )}
 
+      {/* Regional Groups */}
+      <div className="w-full">
+        <div className="text-left mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Globe className="h-6 w-6 text-primary" />
+            <h3 className="text-xl font-semibold">Quick Regional Selection</h3>
+          </div>
+          <p className="text-base text-muted-foreground ml-9">Choose a regional group for common particles</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {accentGroups.map((group) => (
+            <Card
+              key={group.id}
+              className={`cursor-pointer transition-all duration-200 hover:shadow-lg rounded-2xl ${
+                selectedAccentSelection?.id === group.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+              }`}
+              onClick={() => handleGroupSelect(group)}
+            >
+              <CardHeader className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <div className="flex gap-1">
+                    {group.flags.slice(0, 3).map((flag, index) => (
+                      <span key={index} className="text-lg">{flag}</span>
+                    ))}
+                    {group.flags.length > 3 && (
+                      <span className="text-xs text-muted-foreground">+{group.flags.length - 3}</span>
+                    )}
+                  </div>
+                  <CardTitle className="text-lg">{group.name}</CardTitle>
+                  {selectedAccentSelection?.id === group.id && (
+                    <CheckCircle className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <CardDescription>{group.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {group.examples.slice(0, 4).map((example, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {example}
+                    </Badge>
+                  ))}
+                  {group.examples.length > 4 && (
+                    <Badge variant="secondary" className="text-xs">
+                      +{group.examples.length - 4}
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
       {/* Locale Dropdown - Card Style */}
       <div className="w-full max-w-md">
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold mb-2">Specific Locale (Optional)</h3>
-          <p className="text-sm text-muted-foreground">Select for precise accent detection</p>
-        </div>
-        
-        <Card className="w-full">
+        <Card className="w-full rounded-2xl">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-lg">Specific Locale (Optional)</CardTitle>
+            <CardDescription>Select for precise accent detection</CardDescription>
+          </CardHeader>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <CardContent className="p-4 cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardContent className="p-0">
+                <div className="m-4 p-4 bg-muted/30 hover:bg-muted/50 rounded-xl cursor-pointer transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {selectedLocale ? (
@@ -388,6 +459,7 @@ export function AccentSelection({
                     )}
                   </div>
                 )}
+                </div>
               </CardContent>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-80 max-h-60 overflow-y-auto">
@@ -420,57 +492,10 @@ export function AccentSelection({
         </Card>
       </div>
 
-      {/* Regional Groups */}
-      <div className="w-full">
-        <div className="text-center mb-6">
-          <h3 className="text-lg font-semibold mb-2">Quick Regional Selection</h3>
-          <p className="text-sm text-muted-foreground">Choose a regional group for common particles</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {accentGroups.map((group) => (
-            <Card
-              key={group.id}
-              className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                selectedAccentSelection?.id === group.id
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
-              onClick={() => handleGroupSelect(group)}
-            >
-              <CardHeader className="text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Globe className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">{group.name}</CardTitle>
-                  {selectedAccentSelection?.id === group.id && (
-                    <CheckCircle className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-                <CardDescription>{group.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-1 justify-center">
-                  {group.examples.slice(0, 4).map((example, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {example}
-                    </Badge>
-                  ))}
-                  {group.examples.length > 4 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{group.examples.length - 4}
-                    </Badge>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
       {/* Processing Indicator */}
       {isProcessing && (
         <div className="w-full max-w-md">
-          <Card className="border-accent/20 bg-accent/5">
+          <Card className="border-accent/20 bg-accent/5 rounded-2xl">
             <CardContent className="text-center p-6">
               <div className="flex items-center justify-center gap-2 mb-4">
                 <Loader2 className="h-5 w-5 animate-spin text-accent" />
@@ -505,8 +530,11 @@ export function AccentSelection({
         </div>
       )}
 
+      {/* Line Separator */}
+      <div className="w-full border-t border-border"></div>
+
       {/* Process Button */}
-      {selectedAccentSelection && !isProcessing && (
+      {selectedAccentSelection && (
         <div className="flex justify-center">
           <Button 
             onClick={handleContinue}
@@ -514,14 +542,45 @@ export function AccentSelection({
             size="lg"
             className="gap-2 px-8 py-3"
           >
-            {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id 
-              ? "Continue with Selected Accent" 
-              : "Process Selected Accent"
-            }
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id 
+                  ? "Continue with Selected Accent" 
+                  : "Process Selected Accent"
+                }
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Disabled State with Hint */}
+      {!selectedAccentSelection && !isProcessing && (
+        <div className="flex justify-center">
+          <Button 
+            disabled
+            size="lg"
+            className="gap-2 px-8 py-3"
+          >
+            Select Accent to Continue
             <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       )}
+
+      {/* Helper Text */}
+      <div className="text-center text-sm text-muted-foreground max-w-md mx-auto py-4">
+        <p>
+          Choose your accent or regional group for accurate particle detection. 
+          This helps the AI better understand your speech patterns and local expressions.
+        </p>
+      </div>
 
     </div>
   );

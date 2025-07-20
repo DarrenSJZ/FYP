@@ -11,23 +11,15 @@ interface AutocompleteHealth {
   timestamp: string;
 }
 
-interface RandomClip {
-  clip_id: string;
-  sentence: string;
-  audio_url: string;
-  gcs_object_path_in_bucket: string;
-}
 
 export class DockerAPI {
   private baseUrl: string;
   private autocompleteUrl: string;
-  private backendUrl: string;
 
   constructor() {
     // Default to localhost, but these could be environment variables
     this.baseUrl = 'http://localhost:8000';
     this.autocompleteUrl = 'http://localhost:8007';
-    this.backendUrl = 'http://localhost:8080'; // FastAPI backend service
   }
 
   async checkOrchestratorHealth(): Promise<HealthStatus> {
@@ -118,20 +110,6 @@ export class DockerAPI {
     return response.json();
   }
 
-  async getRandomClip(): Promise<RandomClip> {
-    const response = await fetch(`${this.backendUrl}/random-clip`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch random clip: ${response.status}`);
-    }
-
-    return response.json();
-  }
 }
 
 export const dockerAPI = new DockerAPI();

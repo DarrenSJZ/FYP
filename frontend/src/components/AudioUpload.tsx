@@ -114,8 +114,29 @@ export function AudioUpload({
     setTranscriptionProgress(0);
     
     try {
+      // Get current user for folder structure
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Check session validity
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Auth status:', { 
+        user: !!user, 
+        userId: user.id, 
+        hasSession: !!session,
+        sessionExpiry: session?.expires_at 
+      });
+
       const bucketName = "user-contributions";
-      const filePath = `${uploadedFile.name}`; // Use original filename as path
+      const filePath = `${user.id}/${uploadedFile.name}`; // Use user-id/filename path structure
+
+      console.log('Upload attempt:', { bucketName, filePath, userId: user.id });
 
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -126,6 +147,7 @@ export function AudioUpload({
         });
 
       if (uploadError) {
+        console.error('Storage upload error details:', uploadError);
         throw new Error(`Supabase Storage Upload Error: ${uploadError.message}`);
       }
 
@@ -142,12 +164,7 @@ export function AudioUpload({
 
       const formData = new FormData();
       formData.append('file', uploadedFile); // Send file directly to orchestrator
-      formData.append('context', practiceMode ? 'Practice mode analysis' : 'Speech recognition analysis');
-      
-      // Add ground truth for practice mode
-      if (practiceMode && groundTruth) {
-        formData.append('ground_truth', groundTruth);
-      }
+      formData.append('context', 'Speech recognition analysis'); // AudioUpload is always upload mode
       
       // Progress simulation with realistic stages for consensus only
       const progressStages = [
@@ -196,6 +213,46 @@ export function AudioUpload({
           sessionStorage.setItem('uploadedFileBlob', reader.result as string);
         };
         reader.readAsDataURL(uploadedFile);
+      }
+      
+      // Initialize autocomplete service with consensus data
+      try {
+        if (result.autocomplete_data) {
+          console.log('Initializing autocomplete service with consensus data');
+          const autocompleteResponse = await fetch('http://localhost:8000/initialize-autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(result.autocomplete_data),
+          });
+
+          if (autocompleteResponse.ok) {
+            const autocompleteResult = await autocompleteResponse.json();
+            console.log('Autocomplete service initialized successfully:', autocompleteResult);
+            
+            // Store success status
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: true,
+              timestamp: Date.now(),
+              context: 'consensus_result'
+            }));
+          } else {
+            console.warn('Autocomplete initialization failed:', autocompleteResponse.status);
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: false,
+              timestamp: Date.now(),
+              error: 'initialization_failed'
+            }));
+          }
+        }
+      } catch (error) {
+        console.warn('Autocomplete initialization error:', error);
+        sessionStorage.setItem('autocompleteReady', JSON.stringify({
+          prepared: false,
+          timestamp: Date.now(),
+          error: 'network_error'
+        }));
       }
       
       onTranscriptionComplete(primaryTranscription, uploadedFile || undefined, result);

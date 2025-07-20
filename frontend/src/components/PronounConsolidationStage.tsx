@@ -29,8 +29,6 @@ interface PronounConsolidationStageProps {
   onStageClick?: (stage: WorkflowStage) => void;
   isAudioPlaying: boolean;
   onAudioPlayPause: () => void;
-  userEditedTranscription?: string;
-  hasEditedTranscription?: boolean;
 }
 
 export function PronounConsolidationStage({
@@ -43,8 +41,6 @@ export function PronounConsolidationStage({
   onStageClick,
   isAudioPlaying,
   onAudioPlayPause,
-  userEditedTranscription,
-  hasEditedTranscription
 }: PronounConsolidationStageProps) {
   const [selectedOption, setSelectedOption] = useState<'option_a' | 'option_b' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,9 +49,8 @@ export function PronounConsolidationStage({
   // Debug logging
   useEffect(() => {
     console.log('DEBUG: PronounConsolidationStage - pronounConsolitdationChoices:', pronounConsolitdationChoices);
-    console.log('DEBUG: PronounConsolidationStage - userEditedTranscription:', userEditedTranscription);
-    console.log('DEBUG: PronounConsolidationStage - hasEditedTranscription:', hasEditedTranscription);
-  }, [pronounConsolitdationChoices, userEditedTranscription, hasEditedTranscription]);
+    console.log('DEBUG: Full JSON structure:', JSON.stringify(pronounConsolitdationChoices, null, 2));
+  }, [pronounConsolitdationChoices]);
 
   // Helper function to normalize option to full object
   const normalizeOption = (option: string | PronounConsolidationChoice | undefined, defaultLabel: string): PronounConsolidationChoice => {
@@ -80,52 +75,79 @@ export function PronounConsolidationStage({
     }
   };
 
-  // Get the original option A transcription for comparison
-  const originalOptionATranscription = pronounConsolitdationChoices?.option_a 
-    ? (typeof pronounConsolitdationChoices.option_a === 'string' 
-        ? pronounConsolitdationChoices.option_a 
-        : pronounConsolitdationChoices.option_a.transcription)
-    : "";
-
-  // Create modified choices that use user's edited transcription when available
-  // Only show "Your Edited Version" if the user actually changed the text
-  const hasActuallyEditedText = hasEditedTranscription && 
-    userEditedTranscription && 
-    userEditedTranscription.trim() !== originalOptionATranscription.trim();
-
-  // For fallback case when no pronounConsolitdationChoices available
-  const hasActuallyEditedTextFallback = hasEditedTranscription && 
-    userEditedTranscription && 
-    userEditedTranscription.trim() !== "";
-
   const effectiveChoices = pronounConsolitdationChoices ? {
-    option_a: hasActuallyEditedText ? {
-      transcription: userEditedTranscription || originalOptionATranscription,
-      label: "Your Edited Version",
-      description: "Your manually edited transcription with corrections",
-      reasoning: "User edited transcription",
-      confidence: 1.0
-    } : normalizeOption(pronounConsolitdationChoices.option_a, "AI Consensus"),
+    option_a: normalizeOption(pronounConsolitdationChoices.option_a, "AI Consensus"),
     option_b: normalizeOption(pronounConsolitdationChoices.option_b, "Web Validated")
   } : {
     // Fallback choices when backend data is missing
     option_a: {
-      transcription: userEditedTranscription || "No transcription available",
-      label: hasActuallyEditedTextFallback ? "Your Edited Version" : "AI Consensus",
-      description: hasActuallyEditedTextFallback ? "Your manually edited transcription with corrections" : "AI consensus (data unavailable)",
-      confidence: hasActuallyEditedTextFallback ? 1.0 : 0.0,
-      reasoning: hasActuallyEditedTextFallback ? "User edited transcription" : "Fallback option"
+      transcription: "No transcription available",
+      label: "AI Consensus",
+      description: "AI consensus (data unavailable)",
+      confidence: 0.0,
+      reasoning: "Fallback option"
     },
     option_b: {
-      transcription: userEditedTranscription || "No transcription available",
-      label: "Original Version",
-      description: "Original transcription without modifications",
+      transcription: "No transcription available",
+      label: "Web Validated",
+      description: "Web validation (data unavailable)",
       confidence: 0.0,
       reasoning: "Fallback option"
     }
   };
 
   const areTranscriptionsDifferent = effectiveChoices ? effectiveChoices.option_a.transcription !== effectiveChoices.option_b.transcription : false;
+
+  // Extract search terms from reasoning text
+  const extractSearchTerms = (reasoning: string): string[] => {
+    const searchTermsMatch = reasoning.match(/Verified Search Terms: ([^•]+)/);
+    if (searchTermsMatch) {
+      return searchTermsMatch[1].split(',').map(term => term.trim()).filter(term => term.length > 0);
+    }
+    return [];
+  };
+
+  // Clean reasoning text by removing search terms line to avoid duplication
+  const cleanReasoning = (reasoning: string): string => {
+    return reasoning
+      .replace(/Verified Search Terms: [^•\n]+/g, '') // Remove search terms line
+      .replace(/Confirmed: [^•\n]+/g, '') // Remove confirmed terms line  
+      .replace(/Corrected: [^•\n]+/g, '') // Remove corrected terms line
+      .replace(/Primary model: [^•\n]+/gi, '') // Remove primary model line
+      .replace(/\d+\/\d+ models? agreed?[^•\n]*/gi, '') // Remove model agreement line
+      .replace(/\n\s*\n/g, '\n') // Remove extra empty lines
+      .trim();
+  };
+
+  // Extract confirmed terms from reasoning text
+  const extractConfirmedTerms = (reasoning: string): string[] => {
+    const confirmedMatch = reasoning.match(/Confirmed: ([^•]+)/);
+    if (confirmedMatch) {
+      return confirmedMatch[1].split(',').map(term => term.trim()).filter(term => term.length > 0);
+    }
+    return [];
+  };
+
+  // Extract corrected terms from reasoning text
+  const extractCorrectedTerms = (reasoning: string): string[] => {
+    const correctedMatch = reasoning.match(/Corrected: ([^•]+)/);
+    if (correctedMatch) {
+      return correctedMatch[1].split(',').map(term => term.trim()).filter(term => term.length > 0);
+    }
+    return [];
+  };
+
+  // Extract primary model info from reasoning text
+  const extractPrimaryModel = (reasoning: string): string | null => {
+    const primaryMatch = reasoning.match(/Primary model: (\w+)/i);
+    return primaryMatch ? primaryMatch[1] : null;
+  };
+
+  // Extract model agreement info from reasoning text
+  const extractModelAgreement = (reasoning: string): string | null => {
+    const agreementMatch = reasoning.match(/(\d+)\/(\d+) models? agreed?/i);
+    return agreementMatch ? `${agreementMatch[1]}/${agreementMatch[2]} models` : null;
+  };
 
   useEffect(() => {
     if (!areTranscriptionsDifferent) {
@@ -238,11 +260,93 @@ export function PronounConsolidationStage({
         </div>
       )}
 
-      {/* Transcription Options - Left/Right Layout */}
+      {/* Transcription Options - Left/Right Layout or Combined */}
       <div className="w-full max-w-6xl">
-        <div className="flex flex-col md:flex-row gap-8 items-stretch">
-          {/* Option A - AI Consensus (Left) */}
-          <div className="flex-1 space-y-4">
+        {!areTranscriptionsDifferent ? (
+          // Combined card when transcriptions are identical
+          <div className="flex flex-col items-center space-y-4">
+            <div className="flex flex-col justify-center items-center text-center">
+              <div className="flex items-center gap-3 mb-2">
+                <Brain className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Confirmed Transcription</h3>
+                <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
+                  {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
+                </Badge>
+                {selectedOption && (
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">AI consensus confirmed by web validation</p>
+            </div>
+            
+            <div 
+              className={`cursor-pointer transition-all duration-200 hover:shadow-lg p-6 rounded-xl border-2 max-w-4xl w-full ${
+                selectedOption ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+              }`}
+              onClick={() => handleOptionSelect('option_a')} // Either option works since they're the same
+            >
+              <div className="space-y-4">
+                <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
+                  "{effectiveChoices?.option_a.transcription}"
+                </div>
+                
+                {/* Show search terms if any were verified */}
+                {(() => {
+                  const searchTerms = extractSearchTerms(effectiveChoices?.option_b.reasoning || '');
+                  const confirmedTerms = extractConfirmedTerms(effectiveChoices?.option_b.reasoning || '');
+                  const correctedTerms = extractCorrectedTerms(effectiveChoices?.option_b.reasoning || '');
+                  
+                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0) {
+                    return (
+                      <div className="space-y-2">
+                        {searchTerms.length > 0 && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground font-medium">Verified:</span>
+                            {searchTerms.map((term, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {term}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {confirmedTerms.length > 0 && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground font-medium">Confirmed:</span>
+                            {confirmedTerms.map((term, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs bg-[hsl(var(--sage-green))]/20">
+                                {term}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {correctedTerms.length > 0 && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground font-medium">Corrected:</span>
+                            {correctedTerms.map((term, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-900/20">
+                                {term}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Info className="w-3 h-3" />
+                  <span>Web validation confirmed the AI consensus was correct</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Original two-card layout when transcriptions are different
+          <div className="flex flex-col md:flex-row gap-8 items-stretch">
+            {/* Option A - AI Consensus (Left) */}
+            <div className="flex-1 space-y-4">
             {/* Header outside the card - Fixed height */}
             <div className="flex flex-col justify-center items-center text-center">
               <div className="flex items-center gap-3 mb-2">
@@ -267,10 +371,45 @@ export function PronounConsolidationStage({
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
                   "{effectiveChoices?.option_a.transcription}"
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Info className="w-3 h-3" />
-                  <span>{effectiveChoices?.option_a.reasoning}</span>
-                </div>
+                
+                {/* Show AI consensus badges */}
+                {(() => {
+                  const primaryModel = extractPrimaryModel(effectiveChoices?.option_a.reasoning || '');
+                  const modelAgreement = extractModelAgreement(effectiveChoices?.option_a.reasoning || '');
+                  const cleanedReasoning = cleanReasoning(effectiveChoices?.option_a.reasoning || '');
+                  
+                  if (primaryModel || modelAgreement || cleanedReasoning) {
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Info className="w-3 h-3 text-muted-foreground" />
+                          {primaryModel && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Primary:</span>
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                {primaryModel}
+                              </Badge>
+                            </>
+                          )}
+                          {modelAgreement && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Agreement:</span>
+                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 hover:bg-green-200">
+                                {modelAgreement}
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                        {cleanedReasoning && (
+                          <div className="text-xs text-muted-foreground pl-5">
+                            {cleanedReasoning}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>
@@ -308,14 +447,65 @@ export function PronounConsolidationStage({
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
                   "{effectiveChoices?.option_b.transcription}"
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Info className="w-3 h-3" />
-                  <span>{effectiveChoices?.option_b.reasoning}</span>
-                </div>
+                
+                {/* Show search terms badges */}
+                {(() => {
+                  const searchTerms = extractSearchTerms(effectiveChoices?.option_b.reasoning || '');
+                  const confirmedTerms = extractConfirmedTerms(effectiveChoices?.option_b.reasoning || '');
+                  const correctedTerms = extractCorrectedTerms(effectiveChoices?.option_b.reasoning || '');
+                  const cleanedReasoning = cleanReasoning(effectiveChoices?.option_b.reasoning || '');
+                  
+                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0 || cleanedReasoning) {
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Info className="w-3 h-3 text-muted-foreground" />
+                          {searchTerms.length > 0 && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Verified:</span>
+                              {searchTerms.map((term, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {term}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                          {confirmedTerms.length > 0 && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Confirmed:</span>
+                              {confirmedTerms.map((term, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-[hsl(var(--sage-green))]/20">
+                                  {term}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                          {correctedTerms.length > 0 && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Corrected:</span>
+                              {correctedTerms.map((term, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-900/20">
+                                  {term}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                        {cleanedReasoning && (
+                          <div className="text-xs text-muted-foreground pl-5">
+                            {cleanedReasoning}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       

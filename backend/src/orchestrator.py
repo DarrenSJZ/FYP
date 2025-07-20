@@ -1027,6 +1027,17 @@ async def transcribe_consensus(
             
             # Add comparison metrics for educational purposes
             asr_primary = consensus_results.get("primary", "")
+            
+            # Debug logging for practice mode
+            print(f"DEBUG: Practice mode - asr_primary: '{asr_primary}'")
+            print(f"DEBUG: Practice mode - ground_truth: '{ground_truth}'")
+            print(f"DEBUG: Practice mode - consensus_results keys: {list(consensus_results.keys())}")
+            
+            # Fallback if primary transcription is missing
+            if not asr_primary:
+                asr_primary = "ASR transcription unavailable"
+                print("DEBUG: Practice mode - using fallback for empty asr_primary")
+            
             consensus_results["accuracy_comparison"] = {
                 "ground_truth": ground_truth,
                 "asr_result": asr_primary,
@@ -1034,13 +1045,31 @@ async def transcribe_consensus(
                 "word_count_diff": len(ground_truth.split()) - len(asr_primary.split())
             }
             
-            # For practice mode, create educational pronoun consolidation choices
-            # Option A: ASR result, Option B: Ground truth
-            consensus_results["pronoun_consolidation"] = {
-                "option_a": asr_primary,
-                "option_b": ground_truth,
-                "educational_note": "Compare ASR output with validated transcription"
-            }
+            # For practice mode, preserve rich pronoun consolidation data but update transcriptions
+            if "pronoun_consolidation" in consensus_results:
+                # Keep the rich data structure but update transcriptions for practice mode
+                consensus_results["pronoun_consolidation"]["option_a"]["transcription"] = asr_primary
+                consensus_results["pronoun_consolidation"]["option_b"]["transcription"] = ground_truth
+                consensus_results["pronoun_consolidation"]["educational_note"] = "Compare ASR output with validated transcription"
+            else:
+                # Fallback if no rich data exists - create proper object structure
+                consensus_results["pronoun_consolidation"] = {
+                    "option_a": {
+                        "transcription": asr_primary,
+                        "label": "AI Consensus",
+                        "description": "ASR model transcription",
+                        "confidence": 0.8,
+                        "reasoning": "AI consensus result"
+                    },
+                    "option_b": {
+                        "transcription": ground_truth,
+                        "label": "Validated Reference",
+                        "description": "Ground truth transcription",
+                        "confidence": 1.0,
+                        "reasoning": "Validated reference transcription"
+                    },
+                    "educational_note": "Compare ASR output with validated transcription"
+                }
         
         return consensus_results
         

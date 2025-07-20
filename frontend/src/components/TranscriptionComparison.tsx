@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, User, CheckCircle2, Sparkles, Download } from "lucide-react";
+import { ArrowRight, Brain, User, CheckCircle2, Sparkles, Download, Edit3, Volume2 } from "lucide-react";
 import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
 import type { WorkflowStage } from "@/pages/Index";
@@ -15,10 +15,15 @@ interface TranscriptionComparisonProps {
   selectedAccent: AccentOption;
   selectedParticles: PotentialParticle[];
   onTranscriptionSelected: (selection: 'ai' | 'user', finalTranscription: string) => void;
+  onEditRequest?: () => void; // Optional editing callback
   onBack: () => void;
   completedStages: Set<WorkflowStage>;
   onStageClick?: (stage: WorkflowStage) => void;
   aiGeneratedTranscription?: string; // AI-generated transcription from Step 5
+  audioFile?: File;
+  audioUrl?: string;
+  isAudioPlaying: boolean;
+  onAudioPlayPause: () => void;
 }
 
 export function TranscriptionComparison({
@@ -27,10 +32,15 @@ export function TranscriptionComparison({
   selectedAccent,
   selectedParticles,
   onTranscriptionSelected,
+  onEditRequest,
   onBack,
   completedStages,
   onStageClick,
-  aiGeneratedTranscription
+  aiGeneratedTranscription,
+  audioFile,
+  audioUrl,
+  isAudioPlaying,
+  onAudioPlayPause
 }: TranscriptionComparisonProps) {
   const [selectedOption, setSelectedOption] = useState<'ai' | 'user' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -130,6 +140,41 @@ export function TranscriptionComparison({
         />
       </div>
 
+      {/* Audio Player */}
+      <div className="flex justify-center mb-6">
+        <Button
+          onClick={onAudioPlayPause}
+          disabled={!audioFile && !audioUrl}
+          className={`
+            px-6 py-4 rounded-2xl transition-all duration-200 
+            ${!audioFile && !audioUrl 
+              ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
+              : isAudioPlaying 
+                ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
+            }
+            shadow-lg hover:shadow-xl border-b-4 
+            ${!audioFile && !audioUrl 
+              ? 'border-muted/70' 
+              : isAudioPlaying ? 'border-accent/70' : 'border-primary/70'
+            }
+            ${!audioFile && !audioUrl ? '' : 'active:border-b-2 active:translate-y-0.5'}
+          `}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`transition-transform duration-200 ${isAudioPlaying ? 'animate-pulse' : ''}`}>
+              <Volume2 className={`h-6 w-6 ${isAudioPlaying ? 'animate-bounce' : ''}`} />
+            </div>
+            <div className="flex gap-1">
+              <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-4 animate-pulse' : 'h-2'} transition-all duration-300`}></div>
+              <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-6 animate-pulse' : 'h-2'} transition-all duration-300 delay-75`}></div>
+              <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-3 animate-pulse' : 'h-2'} transition-all duration-300 delay-150`}></div>
+              <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-5 animate-pulse' : 'h-2'} transition-all duration-300 delay-225`}></div>
+            </div>
+          </div>
+        </Button>
+      </div>
+
       {/* Conditional Rendering for Comparison Options */}
       {isExactMatch ? (
         <div
@@ -219,8 +264,19 @@ export function TranscriptionComparison({
 
       <div className="w-full border-t border-border my-4"></div>
 
-      {/* Submit Button */}
-      <div className="flex justify-center pt-4">
+      {/* Action Buttons */}
+      <div className="flex justify-center gap-4 pt-4">
+        {onEditRequest && (
+          <Button
+            onClick={onEditRequest}
+            variant="outline"
+            size="lg"
+            className="gap-2 px-6"
+          >
+            <Edit3 className="h-4 w-4" />
+            Edit Before Submitting
+          </Button>
+        )}
         <Button
           onClick={handleSubmit}
           disabled={!selectedOption || isSubmitting}
