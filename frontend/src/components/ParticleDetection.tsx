@@ -112,12 +112,30 @@ export function ParticleDetection({
 
   // Filter potential particles to only show those relevant to the selected accent
   const availableParticles = (particleData.potential_particles || []).filter(
-    particle => relevantParticles.includes(particle.particle) || particle.region === "unknown"
+    particle => {
+      // Include particles that have a particle field and match the accent
+      if (particle.particle && relevantParticles.includes(particle.particle)) {
+        return true;
+      }
+      // Include particles marked as unknown region
+      if (particle.region === "unknown") {
+        return true;
+      }
+      // Include particles that have IPA but no particle field (defensive - show all IPA particles)
+      if (particle.ipa) {
+        return true;
+      }
+      // Include any particle with confidence and position data (fallback)
+      if (particle.confidence && typeof particle.character_position === 'number') {
+        return true;
+      }
+      return false;
+    }
   );
 
   // Get unused particles (not yet placed)
   const unusedParticles = [...availableParticles, ...customParticles].filter(
-    particle => !placedParticles.some(placed => placed.particle.particle === particle.particle)
+    particle => !placedParticles.some(placed => (placed.particle.particle || placed.particle.ipa) === (particle.particle || particle.ipa))
   );
 
   const handleDragStart = (e: React.DragEvent, particle: PotentialParticle, fromPlacement: boolean = false) => {
@@ -133,7 +151,7 @@ export function ParticleDetection({
     // If particle was dragged from placement but not dropped anywhere, remove it
     if (draggedFromPlacement && draggedParticle) {
       setPlacedParticles(prev => prev.filter(
-        placed => placed.particle.particle !== draggedParticle.particle
+        placed => (placed.particle.particle || placed.particle.ipa) !== (draggedParticle.particle || draggedParticle.ipa)
       ));
     }
     setDraggedParticle(null);
@@ -157,7 +175,7 @@ export function ParticleDetection({
     if (draggedParticle) {
       // Remove any existing placement of this particle
       const updatedPlacements = placedParticles.filter(
-        placed => placed.particle.particle !== draggedParticle.particle
+        placed => (placed.particle.particle || placed.particle.ipa) !== (draggedParticle.particle || draggedParticle.ipa)
       );
       
       // Add new placement
@@ -175,7 +193,7 @@ export function ParticleDetection({
   };
 
   const handleRemoveParticle = (particleToRemove: PotentialParticle) => {
-    setPlacedParticles(prev => prev.filter(placed => placed.particle.particle !== particleToRemove.particle));
+    setPlacedParticles(prev => prev.filter(placed => (placed.particle.particle || placed.particle.ipa) !== (particleToRemove.particle || particleToRemove.ipa)));
   };
 
   const handleAddCustomParticle = (particle: string) => {
@@ -201,7 +219,7 @@ export function ParticleDetection({
       // Add particles at this position
       const particlesAtPosition = sortedPlacements.filter(p => p.position === i);
       particlesAtPosition.forEach(p => {
-        result.push(p.particle.particle);
+        result.push(p.particle.particle || p.particle.ipa);
       });
       
       // Add word if not at the end
@@ -353,7 +371,7 @@ export function ParticleDetection({
           Drag Particles into Position
         </CardTitle>
         <CardDescription>
-          Drag the particles below into the sentence where you think they belong
+          Drag the particles below into the sentence where you think they belong. You can also add custom particles or skip this step if none apply.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -378,7 +396,7 @@ export function ParticleDetection({
                     onClick={() => handleRemoveParticle(placed.particle)}
                     title="Click to remove or drag to move"
                   >
-                    {placed.particle.particle}
+                    {placed.particle.particle || placed.particle.ipa}
                     <Badge variant="secondary" className="text-xs ml-1">
                       {Math.round(placed.particle.confidence * 100)}%
                     </Badge>
@@ -430,7 +448,7 @@ export function ParticleDetection({
                         onClick={() => handleRemoveParticle(placed.particle)}
                         title="Click to remove or drag to move"
                       >
-                        {placed.particle.particle}
+                        {placed.particle.particle || placed.particle.ipa}
                         <Badge variant="secondary" className="text-xs ml-1">
                           {Math.round(placed.particle.confidence * 100)}%
                         </Badge>
@@ -485,11 +503,11 @@ export function ParticleDetection({
                 onDragStart={(e) => handleDragStart(e, particle)}
                 onDragEnd={handleDragEnd}
                 className={`flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg cursor-move hover:bg-primary/90 transition-colors shadow-sm border ${
-                  draggedParticle?.particle === particle.particle ? "opacity-50" : ""
+                  (draggedParticle?.particle || draggedParticle?.ipa) === (particle.particle || particle.ipa) ? "opacity-50" : ""
                 }`}
               >
                 <GripVertical className="h-4 w-4" />
-                <span className="font-medium">"{particle.particle}"</span>
+                <span className="font-medium">"{particle.particle || particle.ipa}"</span>
                 <Badge variant="secondary" className="text-xs bg-primary-foreground/20">
                   {particle.ipa}
                 </Badge>

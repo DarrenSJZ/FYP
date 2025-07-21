@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Ribbon } from "@/components/Ribbon";
 import { VimToggle } from "@/components/VimToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -7,7 +8,7 @@ import { TextEditor } from "@/components/TextEditor";
 import { AudioUpload } from "@/components/AudioUpload";
 import { TranscriptionValidation } from "@/components/TranscriptionValidation";
 import { PronounConsolidationStage } from "@/components/PronounConsolidationStage";
-import { AccentSelection, type AccentOption } from "@/components/AccentSelection";
+import { AccentSelection, type AccentSelection as AccentSelectionType, type LocaleOption, type AccentGroup } from "@/components/AccentSelection";
 import { ParticleDetection, type ParticleDetectionData, type PotentialParticle } from "@/components/ParticleDetection";
 import { TranscriptionComparison } from "@/components/TranscriptionComparison";
 import { DataSourceSelection } from "@/components/DataSourceSelection";
@@ -18,10 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Volume2 } from "lucide-react";
 import { dockerAPI } from "@/lib/api";
 
-export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "pronoun-consolidation" | "accent" | "particle-placement" | "comparison";
+export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "pronoun-consolidation" | "accent" | "particle-placement" | "comparison" | "submitting" | "completed";
 
 const Index = () => {
   const [fontSize, setFontSize] = useState(24);
+  const [fontFamily, setFontFamily] = useState("Monaco, Menlo, 'Ubuntu Mono', monospace");
+  const [selectedHighlighter, setSelectedHighlighter] = useState<string | null>(null);
+  const [activeFormatting, setActiveFormatting] = useState<Set<string>>(new Set());
   const [isVimEnabled, setIsVimEnabled] = useState(false);
   const [vimMode, setVimMode] = useState<"NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "COMMAND">("NORMAL");
   const [transcriptionText, setTranscriptionText] = useState("");
@@ -29,16 +33,18 @@ const Index = () => {
   const [selectedAnalysis, setSelectedAnalysis] = useState("basic");
   const [currentStage, setCurrentStage] = useState<WorkflowStage>("mode-selection");
   const [audioFile, setAudioFile] = useState<File | undefined>(undefined);
-  const [selectedAccent, setSelectedAccent] = useState<AccentOption | null>(null);
+  const [selectedAccent, setSelectedAccent] = useState<AccentSelectionType | null>(null);
   const [particleData, setParticleData] = useState<ParticleDetectionData | null>(null);
   const [selectedParticles, setSelectedParticles] = useState<PotentialParticle[]>([]);
   const [userTranscription, setUserTranscription] = useState<string>("");
   const [practiceMode, setPracticeMode] = useState<'practice' | 'upload' | null>(null);
   const [practiceAudioUrl, setPracticeAudioUrl] = useState<string | undefined>(undefined);
+  const [practiceGroundTruth, setPracticeGroundTruth] = useState<string | undefined>(undefined);
   const [completedStages, setCompletedStages] = useState<Set<WorkflowStage>>(new Set());
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [hasEditedTranscription, setHasEditedTranscription] = useState(false);
   const [selectedPronounConsolidationChoice, setSelectedPronounConsolidationChoice] = useState<'option_a' | 'option_b' | null>(null);
+  const [isPracticeLoading, setIsPracticeLoading] = useState(false);
+  const [practiceProgress, setPracticeProgress] = useState(0);
   
   // Cache for API results to avoid redundant calls
   const [cachedResults, setCachedResults] = useState<{
@@ -55,6 +61,7 @@ const Index = () => {
   }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
+  const textEditorRef = useRef<any>(null);
 
   // Helper function to check if file has changed
   const hasFileChanged = (file?: File) => {
@@ -85,13 +92,17 @@ const Index = () => {
     setUserTranscription("");
     setCompletedStages(new Set());
     setPracticeAudioUrl(undefined);
+    setPracticeGroundTruth(undefined);
     setSelectedPronounConsolidationChoice(null);
-    setHasEditedTranscription(false);
     
     // Clear session storage as well
     sessionStorage.removeItem('particleData');
     sessionStorage.removeItem('uploadedFileName');
     sessionStorage.removeItem('uploadedFileBlob');
+    sessionStorage.removeItem('accentProcessingResult');
+    
+    // Clear any other potentially problematic cached data
+    sessionStorage.clear();
     
     console.log('Cache and all related state cleared, including session storage');
   };
@@ -109,6 +120,15 @@ const Index = () => {
 
   const handleVimToggle = () => {
     setIsVimEnabled(!isVimEnabled);
+  };
+
+  const handleClearHighlights = () => {
+    // Clear highlights from the text editor
+    if (textEditorRef.current?.clearAllHighlights) {
+      textEditorRef.current.clearAllHighlights();
+    }
+    // Also clear the ribbon highlighter selection when clearing highlights
+    setSelectedHighlighter(null);
   };
 
   const handleAudioPlayPause = () => {
@@ -291,19 +311,14 @@ const Index = () => {
       setTranscriptionText(selectedTranscription);
     }
     
-    if (isValid) {
-      // Always go to pronoun consolidation stage (step 2)
-      setCurrentStage("pronoun-consolidation");
-    } else {
-      setCurrentStage("editor");
-    }
+    // Both upvote and downvote go to pronoun consolidation
+    setCurrentStage("pronoun-consolidation");
   };
 
   const handleEditRequest = async () => {
     console.log('DEBUG: handleEditRequest called');
     console.log('DEBUG: cachedResults.consensusData exists:', !!cachedResults.consensusData);
     
-    setHasEditedTranscription(completedStages.has("editor")); // Enable if already completed
     
     // Initialize autocomplete service with consensus data
     if (cachedResults.consensusData) {
@@ -362,7 +377,6 @@ const Index = () => {
 
   const handleTranscriptionChange = (newValue: string) => {
     if (newValue !== transcriptionText){
-      setHasEditedTranscription(true);
     }
     setTranscriptionText(newValue);
   };
@@ -370,7 +384,6 @@ const Index = () => {
   // Reset editor flag when entering editor stage
   useEffect(() => {
     if (currentStage === "editor") {
-      setHasEditedTranscription(completedStages.has("editor"));
     }
   }, [currentStage, completedStages]);
 
@@ -477,42 +490,48 @@ const Index = () => {
     }
   }, [currentStage, cachedResults.consensusData]);
 
-  const handleAccentSelected = async (accent: AccentOption) => {
-    setSelectedAccent(accent);
+  const handleAccentSelected = async (accentSelection: AccentSelectionType) => {
+    setSelectedAccent(accentSelection);
     setCompletedStages(prev => new Set([...prev, "accent"]));
     
     // Cache accent selection
     setCachedResults(prev => ({
       ...prev,
-      selectedAccentData: accent
+      selectedAccentData: accentSelection
     }));
     
-    // Get the particle data from session storage (stored during transcription)
-    const storedParticleData = sessionStorage.getItem('particleData');
+    // Check if we have accent processing result from the API call
+    const accentProcessingResult = sessionStorage.getItem('accentProcessingResult');
+    let particleDataToUse = null;
     
-    if (storedParticleData) {
+    if (accentProcessingResult) {
       try {
-        const parsedData = JSON.parse(storedParticleData);
-        parsedData.primary = transcriptionText; // Use the latest transcription
-        setParticleData(parsedData);
+        particleDataToUse = JSON.parse(accentProcessingResult);
+        console.log('Using accent-specific particle data from API:', particleDataToUse);
       } catch (error) {
-        console.error('Failed to parse stored particle data:', error);
-        // Fallback to a basic structure
-        const fallbackData: ParticleDetectionData = {
-          status: "success",
-          primary: transcriptionText,
-          alternatives: {},
-          potential_particles: [],
-          metadata: {
-            confidence: 0.0,
-            processing_time: 0,
-            models_used: 0
-          }
-        };
-        setParticleData(fallbackData);
+        console.error('Failed to parse accent processing result:', error);
       }
+    }
+    
+    // Fallback to stored particle data if no accent-specific data
+    if (!particleDataToUse) {
+      const storedParticleData = sessionStorage.getItem('particleData');
+      if (storedParticleData) {
+        try {
+          particleDataToUse = JSON.parse(storedParticleData);
+          console.log('Using fallback particle data:', particleDataToUse);
+        } catch (error) {
+          console.error('Failed to parse stored particle data:', error);
+        }
+      }
+    }
+    
+    // Set particle data or create fallback
+    if (particleDataToUse) {
+      particleDataToUse.primary = transcriptionText; // Use the latest transcription
+      setParticleData(particleDataToUse);
     } else {
-      // If no stored data, create basic fallback
+      // Create basic fallback structure
       const fallbackData: ParticleDetectionData = {
         status: "success",
         primary: transcriptionText,
@@ -544,7 +563,7 @@ const Index = () => {
     setCurrentStage("comparison");
   };
 
-  const handleTranscriptionSelected = (selection: 'ai' | 'user', finalTranscription: string) => {
+  const handleTranscriptionSelected = async (selection: 'ai' | 'user', finalTranscription: string) => {
     setCompletedStages(prev => new Set([...prev, "comparison"]));
     
     // Cache final transcription choice
@@ -553,7 +572,153 @@ const Index = () => {
       finalTranscriptionChoice: { selection, finalTranscription }
     }));
     
-    // Here you would typically submit the final data to the backend/database
+    // Show submitting stage
+    setCurrentStage("submitting");
+    
+    // Write to database for both upload and practice modes
+    if ((practiceMode === 'upload' || practiceMode === 'practice') && selectedAccent) {
+      try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          console.error('No authenticated user found');
+          return;
+        }
+
+        // Extract accent name and locale(s) from the accent selection
+        let accentName: string;
+        let localeCode: string | string[];
+        
+        if ('locales' in selectedAccent) {
+          // Regional group selection
+          accentName = selectedAccent.name;
+          localeCode = selectedAccent.locales;
+        } else {
+          // Specific locale selection
+          accentName = selectedAccent.name;
+          localeCode = selectedAccent.locale;
+        }
+
+        // Prepare transcription results for database (unified for both modes)
+        const transcriptionResults = {
+          consensus_data: cachedResults.consensusData,
+          final_selection: selection,
+          final_transcription: finalTranscription,
+          accent_selection: selectedAccent,
+          particles_detected: selectedParticles || [],
+          user_transcription: userTranscription,
+          workflow_completed_at: new Date().toISOString(),
+          session_mode: practiceMode,
+          ...(practiceMode === 'practice' && {
+            practice_ground_truth: practiceGroundTruth,
+            practice_audio_url: practiceAudioUrl
+          })
+        };
+
+        // Prepare data for unified CV22 schema
+        let insertData;
+        
+        if (practiceMode === 'practice') {
+          // Practice mode: Save session data with reference to original clip
+          insertData = {
+            // CV22 Standard Fields
+            client_id: user.email || `user_${user.id}`,
+            path: practiceAudioUrl || '', // Original practice clip URL
+            sentence: practiceGroundTruth || finalTranscription, // Ground truth sentence
+            up_votes: 0,
+            down_votes: 0,
+            age: null,
+            gender: null,
+            accents: accentName,
+            locale: typeof localeCode === 'string' ? localeCode : localeCode[0],
+            segment: null,
+            sentence_id: cachedResults.practiceAudioId || `practice_${Date.now()}`,
+            
+            // Session Fields
+            user_id: user.id,
+            session_type: 'practice',
+            practice_clip_id: cachedResults.practiceAudioId, // Reference to original clip
+            validation_status: 'validated', // Use 'validated' instead of 'completed' for practice sessions
+            transcription_results: transcriptionResults,
+            
+            // Upload-specific fields (honest data for practice mode)
+            audio_url: practiceAudioUrl, // Same as path - actual CV22 audio URL
+            original_filename: cachedResults.practiceFilename, // Use cached practice filename
+            file_size_bytes: null, // We don't know the file size of CV22 clips
+            file_mime_type: null, // We don't know the MIME type of CV22 clips
+            accent_detected: accentName,
+            locale_detected: typeof localeCode === 'string' ? localeCode : localeCode[0]
+          };
+        } else {
+          // Upload mode: Save user contribution
+          const bucketName = "user-contributions";
+          const filePath = audioFile?.name || 'unknown';
+          const { data: publicUrlData } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(filePath);
+
+          insertData = {
+            // CV22 Standard Fields  
+            client_id: user.email || `user_${user.id}`,
+            path: publicUrlData.publicUrl,
+            sentence: finalTranscription,
+            up_votes: 0,
+            down_votes: 0,
+            age: null, // Could be collected in future
+            gender: null, // Could be collected in future  
+            accents: accentName,
+            locale: typeof localeCode === 'string' ? localeCode : localeCode[0],
+            segment: null,
+            sentence_id: `upload_${Date.now()}`,
+            
+            // Session Fields
+            user_id: user.id,
+            session_type: 'upload',
+            practice_clip_id: null,
+            validation_status: 'pending',
+            transcription_results: transcriptionResults,
+            
+            // Upload-specific fields (legacy)
+            audio_url: publicUrlData.publicUrl,
+            original_filename: audioFile?.name,
+            file_size_bytes: audioFile?.size,
+            file_mime_type: audioFile?.type,
+            accent_detected: accentName,
+            locale_detected: typeof localeCode === 'string' ? localeCode : JSON.stringify(localeCode)
+          };
+        }
+
+        // Insert into user_contributions table with unified CV22 schema
+        const { data, error } = await supabase
+          .from('user_contributions')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          console.error(`Database write failed for ${practiceMode} mode:`, error);
+          // Could show toast notification here
+        } else {
+          console.log(`Successfully saved ${practiceMode} session:`, data);
+          console.log('Session type:', practiceMode);
+          console.log('Accent saved:', accentName);
+          console.log('Locale saved:', localeCode);
+          if (practiceMode === 'practice') {
+            console.log('Practice clip ID:', cachedResults.practiceAudioId);
+            console.log('Ground truth:', practiceGroundTruth);
+          }
+          
+          // Show completion screen after successful database write
+          setCurrentStage("completed");
+          return; // Don't proceed to handleNext() immediately
+        }
+
+      } catch (error) {
+        console.error('Error saving contribution:', error);
+      }
+    }
+    
     console.log("Selected transcription type:", selection);
     console.log("Final transcription:", finalTranscription);
     console.log("Selected accent:", selectedAccent?.name);
@@ -580,7 +745,8 @@ const Index = () => {
         setCurrentStage("validation");
         break;
       case "editor":
-        setCurrentStage("validation");
+        // Editor only accessible from comparison stage
+        setCurrentStage("comparison");
         break;
       case "accent":
         // Step 4: Accent → Pronoun Consolidation (always go back sequentially)
@@ -621,9 +787,21 @@ const Index = () => {
         setCurrentStage("accent");
         break;
       case "editor":
-        // Editor → Pronoun Consolidation (always)
+        // Editor only accessible from comparison stage - go back to comparison
+        // Update userTranscription with the edited text
+        setUserTranscription(transcriptionText);
+        
+        // Update cache with the edited transcription
+        setCachedResults(prev => ({
+          ...prev,
+          selectedParticlesData: prev.selectedParticlesData ? {
+            ...prev.selectedParticlesData,
+            userTranscription: transcriptionText
+          } : { particles: selectedParticles, userTranscription: transcriptionText }
+        }));
+        
         setCompletedStages(prev => new Set([...prev, "editor"]));
-        setCurrentStage("pronoun-consolidation");
+        setCurrentStage("comparison");
         break;
       case "accent":
         // Step 4: Accent → Particle Placement
@@ -636,7 +814,6 @@ const Index = () => {
       case "comparison":
         // Final stage - reset everything and start over
         setCompletedStages(new Set());
-        setHasEditedTranscription(false);
         setTranscriptionText("");
         setAudioFile(undefined);
         setPracticeAudioUrl(undefined);
@@ -655,64 +832,213 @@ const Index = () => {
   };
 
   const handleModeSelect = (mode: 'practice' | 'upload') => {
+    console.log('Mode selected:', mode);
+    
+    // Clear cache only when switching between different modes
+    if (practiceMode && practiceMode !== mode) {
+      console.log(`Switching from ${practiceMode} to ${mode} mode - clearing cache`);
+      clearCache();
+    }
+    
     setPracticeMode(mode);
     setCompletedStages(prev => new Set([...prev, "mode-selection"]));
     if (mode === 'practice') {
+      console.log('Starting practice mode...');
       // Fetch random dataset item and go directly to validation
       handlePracticeMode();
     } else {
+      console.log('Going to upload stage...');
       // Go to upload stage
       setCurrentStage("upload");
     }
   };
 
-  const handlePracticeMode = async () => {
+  const processPracticeAudio = async (audioUrl: string, groundTruth: string) => {
     try {
-      // Fetch random dataset item from backend
-      const randomClip = await dockerAPI.getRandomClip();
+      console.log('Processing practice audio:', audioUrl);
       
-      setTranscriptionText(randomClip.sentence);
-      setPracticeAudioUrl(randomClip.audio_url);
-      setAudioFile(undefined); // No file for practice mode
+      // Start progress simulation
+      setPracticeProgress(10);
+
+      // Download the audio file
+      const response = await fetch(audioUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download practice audio: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioFile = new File([audioBlob], 'practice-audio.mp3', { 
+        type: audioBlob.type || 'audio/mp3' 
+      });
+
+      setPracticeProgress(25);
+
+      // Process through ASR with ground truth
+      const formData = new FormData();
+      formData.append('file', audioFile);
+      formData.append('context', 'Practice mode analysis');
+      formData.append('ground_truth', groundTruth);
+
+      setPracticeProgress(40);
+
+      const asr_response = await fetch('http://localhost:8000/transcribe-consensus', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setPracticeProgress(80);
+
+      if (!asr_response.ok) {
+        const errorData = await asr_response.json();
+        throw new Error(errorData.detail || `ASR processing failed: ${asr_response.status}`);
+      }
+
+      const result = await asr_response.json();
+      
+      // Store results and set transcription
+      const primaryTranscription = result.primary || groundTruth;
+      setTranscriptionText(primaryTranscription);
+      
+      // Cache the results for the workflow
+      setCachedResults(prev => ({
+        ...prev,
+        consensusData: result
+      }));
+
+      // Store for session continuity
+      sessionStorage.setItem('particleData', JSON.stringify(result));
       
       // Initialize autocomplete service for practice mode
       try {
-        const practiceAudioId = `practice_${Date.now()}`;
-        const autocompleteData = {
-          final_transcription: randomClip.sentence,
-          confidence_score: 1.0,
-          detected_particles: [],
-          asr_alternatives: {},
-        };
+        if (result.autocomplete_data) {
+          console.log('Initializing autocomplete service for practice mode');
+          const autocompleteResponse = await fetch('http://localhost:8000/initialize-autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(result.autocomplete_data),
+          });
 
-        const initResponse = await fetch('http://localhost:8007/initialize?audio_id=' + practiceAudioId, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(autocompleteData),
-        });
-        
-        if (initResponse.ok) {
-          console.log('Autocomplete service initialized successfully for practice mode:', practiceAudioId);
-          // Store the practice audio ID for later use in the editor
-          setCachedResults(prev => ({
-            ...prev,
-            practiceAudioId: practiceAudioId
-          }));
-        } else {
-          console.error('Failed to initialize autocomplete service for practice mode:', initResponse.status, initResponse.statusText);
+          if (autocompleteResponse.ok) {
+            console.log('Practice mode autocomplete initialized successfully');
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: true,
+              timestamp: Date.now(),
+              context: 'practice_mode'
+            }));
+          } else {
+            console.warn('Practice mode autocomplete initialization failed');
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: false,
+              timestamp: Date.now(),
+              error: 'initialization_failed'
+            }));
+          }
         }
       } catch (error) {
-        console.error('Failed to initialize autocomplete service for practice mode:', error);
+        console.warn('Practice mode autocomplete error:', error);
+        sessionStorage.setItem('autocompleteReady', JSON.stringify({
+          prepared: false,
+          timestamp: Date.now(),
+          error: 'network_error'
+        }));
       }
       
+      setPracticeProgress(100);
+      console.log('Practice audio processed successfully');
+      
+    } catch (error) {
+      console.error('Practice audio processing failed:', error);
+      // Fallback to ground truth
+      setTranscriptionText(groundTruth);
+      throw error;
+    }
+  };
+
+  const handlePracticeMode = async () => {
+    console.log('handlePracticeMode started');
+    setIsPracticeLoading(true);
+    setPracticeProgress(0);
+    try {
+      // Fetch random dataset item directly from Supabase
+      // First get total count, then get random offset
+      const { count } = await supabase
+        .from('cv22_clips')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!count || count === 0) {
+        throw new Error('No practice clips available in database');
+      }
+      
+      const randomOffset = Math.floor(Math.random() * count);
+      
+      const { data: randomClipData, error } = await supabase
+        .from('cv22_clips')
+        .select('id, sentence, path')
+        .range(randomOffset, randomOffset)
+        .single();
+
+      if (error) {
+        throw new Error(`Supabase query failed: ${error.message}`);
+      }
+
+      // Extract filename from Supabase storage path
+      const getFilenameFromPath = (path: string): string => {
+        try {
+          const url = new URL(path);
+          const pathname = url.pathname;
+          const filename = pathname.split('/').pop() || 'unknown_file';
+          return filename;
+        } catch {
+          // Fallback if URL parsing fails
+          return path.split('/').pop() || 'unknown_file';
+        }
+      };
+
+      // Transform to expected format
+      const randomClip = {
+        clip_id: randomClipData.id,
+        sentence: randomClipData.sentence,
+        audio_url: randomClipData.path,
+        original_filename: getFilenameFromPath(randomClipData.path)
+      };
+      
+      // Store practice clip data for processing
+      setPracticeAudioUrl(randomClip.audio_url);
+      setAudioFile(undefined); // No local file for practice mode
+      
+      // Store ground truth for comparison
+      setCachedResults(prev => ({
+        ...prev,
+        practiceGroundTruth: randomClip.sentence,
+        practiceAudioUrl: randomClip.audio_url,
+        practiceAudioId: randomClip.clip_id, // Store the clip ID for database reference
+        practiceFilename: randomClip.original_filename // Store the original filename
+      }));
+      
+      // Store ground truth in state for validation component
+      setPracticeGroundTruth(randomClip.sentence);
+      
+      // Process practice audio directly in background
+      console.log('About to process practice audio...');
+      await processPracticeAudio(randomClip.audio_url, randomClip.sentence);
+      
+      // Only proceed if processing succeeded
+      console.log('Practice audio processed successfully, going to validation');
       setCurrentStage("validation");
     } catch (error) {
-      console.error('Failed to fetch practice dataset:', error);
-      // Fallback to error message in transcription text
-      setTranscriptionText('Failed to load practice audio. Please check your backend connection and try again.');
-      setCurrentStage("validation");
+      console.error('Practice mode failed:', error);
+      
+      // Show error and stay on mode selection
+      alert(`Practice Mode Error: ${error.message || 'Failed to load practice data'}\n\nPlease try again or use Upload Mode instead.`);
+      
+      // Reset to mode selection - don't proceed with broken state
+      setCurrentStage("mode-selection");
+      setPracticeMode(null);
+    } finally {
+      setIsPracticeLoading(false);
+      setPracticeProgress(0);
     }
   };
 
@@ -738,23 +1064,62 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col items-center justify-center px-6 min-h-0 ${currentStage === "editor" ? "justify-start pt-16" : ""}`}>
+      <div className={`flex-1 flex flex-col items-center px-6 min-h-0 ${currentStage === "editor" ? "justify-start pt-16 min-h-screen" : "justify-center"}`}>
         
         <div className="w-full max-w-6xl flex justify-center items-center">
           {/* Stage Content */}
           {currentStage === "mode-selection" && (
-            <DataSourceSelection 
-              onModeSelect={handleModeSelect} 
-              onBack={handleBack}
-            />
+            <>
+              {isPracticeLoading ? (
+                <div className="space-y-6 w-full max-w-2xl flex flex-col items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <div className="p-6 rounded-lg bg-card border border-border shadow-lg">
+                      <div className="flex items-center justify-center gap-2 mb-4">
+                        <div className="w-3 h-3 rounded-full bg-primary animate-pulse"></div>
+                        <span className="text-lg font-medium text-primary">Loading Practice Mode</span>
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Setting up ASR analysis with validated transcription...
+                      </p>
+                      <div className="space-y-2">
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${practiceProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {practiceProgress < 25 ? 'Downloading practice audio...' :
+                           practiceProgress < 50 ? 'Processing through ASR models...' :
+                           practiceProgress < 90 ? 'Analyzing results vs ground truth...' :
+                           'Almost ready...'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <DataSourceSelection 
+                  onModeSelect={handleModeSelect} 
+                  onBack={handleBack}
+                />
+              )}
+            </>
           )}
 
           {currentStage === "upload" && (
             <div className="space-y-6 w-full max-w-6xl flex flex-col items-center justify-center">
               {/* Page Title - At the tippity top */}
               <div className="text-center">
-                <h2 className="text-2xl font-bold">Upload Audio File</h2>
-                <p className="text-muted-foreground">Select an audio file to transcribe</p>
+                <h2 className="text-2xl font-bold">
+                  {practiceMode === 'practice' ? 'Practice Mode - ASR Analysis' : 'Upload Audio File'}
+                </h2>
+                <p className="text-muted-foreground">
+                  {practiceMode === 'practice' 
+                    ? 'Compare ASR model performance against validated transcription'
+                    : 'Select an audio file to transcribe'
+                  }
+                </p>
               </div>
               
               {/* Debug Info */}
@@ -791,12 +1156,14 @@ const Index = () => {
               audioFile={audioFile}
               audioUrl={practiceAudioUrl}
               originalTranscription={transcriptionText}
+              practiceGroundTruth={practiceGroundTruth}
               onValidationComplete={handleValidationComplete}
-              onEditRequest={handleEditRequest}
               onBack={handleBack}
-              onNext={handleNext}
               completedStages={completedStages}
               onStageClick={handleStageClick}
+              isAudioPlaying={isAudioPlaying}
+              onAudioPlayPause={handleAudioPlayPause}
+              cachedValidationResult={cachedResults.validationResult}
             />
           )}
 
@@ -811,13 +1178,11 @@ const Index = () => {
               onStageClick={handleStageClick}
               isAudioPlaying={isAudioPlaying}
               onAudioPlayPause={handleAudioPlayPause}
-              userEditedTranscription={transcriptionText}
-              hasEditedTranscription={hasEditedTranscription}
             />
           )}
 
           {currentStage === "editor" && (
-            <div className="space-y-6 w-full max-w-6xl flex flex-col items-center">
+            <div className="space-y-6 w-full max-w-6xl flex flex-col items-center pb-52">
               {/* Page Title - At the tippity top */}
               <div className="text-center">
                 <h2 className="text-2xl font-bold">Edit Transcription</h2>
@@ -880,6 +1245,13 @@ const Index = () => {
                 <Ribbon
                   fontSize={fontSize}
                   onFontSizeChange={setFontSize}
+                  fontFamily={fontFamily}
+                  onFontFamilyChange={setFontFamily}
+                  selectedHighlighter={selectedHighlighter}
+                  onHighlighterChange={setSelectedHighlighter}
+                  activeFormatting={activeFormatting}
+                  onFormattingChange={setActiveFormatting}
+                  onClearHighlights={handleClearHighlights}
                 />
                 
                 {/* VIM Toggle positioned to the right with gap */}
@@ -895,7 +1267,9 @@ const Index = () => {
               
               {/* Text Editor */}
               <TextEditor
+                ref={textEditorRef}
                 fontSize={fontSize}
+                fontFamily={fontFamily}
                 vimMode={vimMode}
                 onVimModeChange={setVimMode}
                 isVimEnabled={isVimEnabled}
@@ -903,6 +1277,17 @@ const Index = () => {
                 initialContent={transcriptionText}
                 onChange={handleTranscriptionChange}
                 audioId={null}
+                highlightColor={selectedHighlighter}
+                onHighlightApplied={(from, to, color) => {
+                  // Optional: Handle highlight application
+                }}
+                activeFormatting={activeFormatting}
+                onFormattingApplied={(from, to, formats) => {
+                  // Optional: Handle formatting application
+                }}
+                onFormattingChange={setActiveFormatting}
+                onHighlighterChange={setSelectedHighlighter}
+                onClearHighlights={handleClearHighlights}
               />
               
               {/* Clear Button */}
@@ -910,8 +1295,7 @@ const Index = () => {
                 <Button
                   onClick={() => {
                     setTranscriptionText("");
-                    setHasEditedTranscription(true);
-                  }}
+                                }}
                   variant="destructive"
                   className="border-0"
                   size="sm"
@@ -923,11 +1307,14 @@ const Index = () => {
               {/* Divider */}
               <div className="w-full h-px bg-border"></div>
               
+              {/* Spacer to push submit button down */}
+              <div className="flex-1"></div>
+              
               {/* Submit Button */}
               <div className="flex justify-center">
                 <Button
                   onClick={handleNext}
-                  disabled={!hasEditedTranscription}
+                  disabled={false}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3"
                 >
                   Submit Edited Transcription
@@ -937,6 +1324,9 @@ const Index = () => {
               <p className="text-xs text-muted-foreground text-center">
                 Make corrections using autocomplete suggestions or clear the text to start fresh
               </p>
+              
+              {/* Bottom spacer */}
+              <div className="flex-1"></div>
             </div>
           )}
 
@@ -945,7 +1335,6 @@ const Index = () => {
               transcriptionText={transcriptionText}
               onAccentSelected={handleAccentSelected}
               onBack={handleBack}
-              onNext={handleNext}
               completedStages={completedStages}
               onStageClick={handleStageClick}
               cachedResults={cachedResults}
@@ -1007,11 +1396,98 @@ const Index = () => {
               selectedAccent={selectedAccent}
               selectedParticles={selectedParticles}
               onTranscriptionSelected={handleTranscriptionSelected}
+              onEditRequest={() => setCurrentStage("editor")}
               onBack={handleBack}
               completedStages={completedStages}
               onStageClick={handleStageClick}
               aiGeneratedTranscription={particleData?.ai_generated_transcription}
+              audioFile={audioFile}
+              audioUrl={practiceAudioUrl}
+              isAudioPlaying={isAudioPlaying}
+              onAudioPlayPause={handleAudioPlayPause}
             />
+          )}
+
+          {currentStage === "submitting" && (
+            <div className="w-full max-w-2xl mx-auto space-y-8 pt-20 mb-8 flex flex-col items-center justify-center min-h-[60vh]">
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary"></div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold">Submitting Your Contribution</h2>
+                  <p className="text-muted-foreground">
+                    Saving your transcription and analysis results to the database...
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                  <span>Processing your {practiceMode} session</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStage === "completed" && (
+            <div className="w-full max-w-2xl mx-auto space-y-8 pt-20 mb-8 flex flex-col items-center justify-center min-h-[60vh]">
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border-2 border-primary">
+                    <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-primary">Contribution Saved!</h2>
+                  <p className="text-muted-foreground">
+                    {practiceMode === 'practice' 
+                      ? 'Your practice session has been recorded and saved to your history.'
+                      : 'Your audio contribution has been uploaded and saved for review.'
+                    }
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-card rounded-lg p-4 space-y-2 border border-border">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Session Type:</span>
+                      <span className="font-medium capitalize">{practiceMode}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Accent:</span>
+                      <span className="font-medium">{selectedAccent?.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className="font-medium" style={{ color: 'hsl(var(--sage-green))' }}>
+                        {practiceMode === 'practice' ? 'Validated' : 'Pending Review'}
+                      </span>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      // Reset everything and start over
+                      setCompletedStages(new Set());
+                      setTranscriptionText("");
+                      setAudioFile(undefined);
+                      setPracticeAudioUrl(undefined);
+                      setSelectedAccent(null);
+                      setParticleData(null);
+                      setSelectedParticles([]);
+                      setUserTranscription("");
+                      setPracticeMode(null);
+                      setSelectedPronounConsolidationChoice(null);
+                      clearCache();
+                      setCurrentStage("mode-selection");
+                    }}
+                    size="lg" 
+                    className="w-full"
+                  >
+                    Start New Session
+                  </Button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

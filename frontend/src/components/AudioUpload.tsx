@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { Upload, FileAudio, X, Play, Pause, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export function AudioUpload({
       setAudioUrl(url);
     }
   }, [currentFile, uploadedFile]);
+
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -112,9 +114,57 @@ export function AudioUpload({
     setTranscriptionProgress(0);
     
     try {
+      // Get current user for folder structure
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Check session validity
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Auth status:', { 
+        user: !!user, 
+        userId: user.id, 
+        hasSession: !!session,
+        sessionExpiry: session?.expires_at 
+      });
+
+      const bucketName = "user-contributions";
+      const filePath = `${user.id}/${uploadedFile.name}`; // Use user-id/filename path structure
+
+      console.log('Upload attempt:', { bucketName, filePath, userId: user.id });
+
+      // Upload file to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, uploadedFile, {
+          cacheControl: '3600',
+          upsert: true, // Overwrite if file with same name exists
+        });
+
+      if (uploadError) {
+        console.error('Storage upload error details:', uploadError);
+        throw new Error(`Supabase Storage Upload Error: ${uploadError.message}`);
+      }
+
+      // Get public URL of the uploaded file
+      const { data: publicUrlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      if (!publicUrlData || !publicUrlData.publicUrl) {
+        throw new Error("Could not get public URL for the uploaded file.");
+      }
+
+      const audioPublicUrl = publicUrlData.publicUrl;
+
       const formData = new FormData();
-      formData.append('file', uploadedFile);
-      formData.append('context', 'Speech recognition analysis');
+      formData.append('file', uploadedFile); // Send file directly to orchestrator
+      formData.append('context', 'Speech recognition analysis'); // AudioUpload is always upload mode
       
       // Progress simulation with realistic stages for consensus only
       const progressStages = [
@@ -165,6 +215,46 @@ export function AudioUpload({
         reader.readAsDataURL(uploadedFile);
       }
       
+      // Initialize autocomplete service with consensus data
+      try {
+        if (result.autocomplete_data) {
+          console.log('Initializing autocomplete service with consensus data');
+          const autocompleteResponse = await fetch('http://localhost:8000/initialize-autocomplete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(result.autocomplete_data),
+          });
+
+          if (autocompleteResponse.ok) {
+            const autocompleteResult = await autocompleteResponse.json();
+            console.log('Autocomplete service initialized successfully:', autocompleteResult);
+            
+            // Store success status
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: true,
+              timestamp: Date.now(),
+              context: 'consensus_result'
+            }));
+          } else {
+            console.warn('Autocomplete initialization failed:', autocompleteResponse.status);
+            sessionStorage.setItem('autocompleteReady', JSON.stringify({
+              prepared: false,
+              timestamp: Date.now(),
+              error: 'initialization_failed'
+            }));
+          }
+        }
+      } catch (error) {
+        console.warn('Autocomplete initialization error:', error);
+        sessionStorage.setItem('autocompleteReady', JSON.stringify({
+          prepared: false,
+          timestamp: Date.now(),
+          error: 'network_error'
+        }));
+      }
+      
       onTranscriptionComplete(primaryTranscription, uploadedFile || undefined, result);
       
     } catch (error) {
@@ -194,6 +284,7 @@ export function AudioUpload({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
 
   return (
     <div className="w-full space-y-4">

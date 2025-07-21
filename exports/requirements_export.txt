@@ -1,0 +1,2 @@
+# CV22 Export Script Dependencies
+psycopg2-binary>=2.9.0

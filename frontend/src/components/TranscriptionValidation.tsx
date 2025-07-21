@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, XCircle, Volume2, Edit3, Play, Pause, Speaker, Lightbulb } from "lucide-react";
+import { CheckCircle, XCircle, Volume2, ThumbsUp, ThumbsDown, Play, Pause, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
@@ -11,29 +11,37 @@ interface TranscriptionValidationProps {
   audioFile?: File;
   audioUrl?: string; // For practice mode
   originalTranscription: string;
-  onValidationComplete: (isValid: boolean) => void;
-  onEditRequest: () => void;
+  practiceGroundTruth?: string; // Ground truth sentence for practice mode
+  onValidationComplete: (asrWasCorrect: boolean) => void;
   onBack: () => void;
-  onNext?: () => void;
   completedStages: Set<WorkflowStage>;
   onStageClick?: (stage: WorkflowStage) => void;
+  isAudioPlaying?: boolean;
+  onAudioPlayPause?: () => void;
+  cachedValidationResult?: { isValid: boolean; selectedTranscription?: string };
 }
 
 export function TranscriptionValidation({
   audioFile,
   audioUrl,
   originalTranscription,
+  practiceGroundTruth,
   onValidationComplete,
-  onEditRequest,
   onBack,
-  onNext,
   completedStages,
   onStageClick,
+  isAudioPlaying = false,
+  onAudioPlayPause,
+  cachedValidationResult,
 }: TranscriptionValidationProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedValidation, setSelectedValidation] = useState<boolean | null>(null);
   const [hasValidated, setHasValidated] = useState(completedStages.has("validation"));
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioSrcRef = useRef<string | null>(null);
+  
+  // Determine if this is practice mode
+  const isPracticeMode = !!audioUrl && !!practiceGroundTruth;
+  
+  // Use ground truth for practice mode, AI transcription for upload mode
+  const displayTranscription = isPracticeMode ? practiceGroundTruth : originalTranscription;
   
   // Check if transcription failed
   const isTranscriptionFailed = originalTranscription.includes('Transcription failed') || 
@@ -46,244 +54,201 @@ export function TranscriptionValidation({
     setHasValidated(completedStages.has("validation"));
   }, [completedStages]);
 
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      // Pause the audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-      }
-    } else {
-      // Play the audio
-      if (audioRef.current) {
-        // Resume existing audio
-        audioRef.current.play();
-        setIsPlaying(true);
-      } else {
-        // Create new audio
-        let audioSrc: string;
-        
-        if (audioFile) {
-          audioSrc = URL.createObjectURL(audioFile);
-        } else if (audioUrl) {
-          audioSrc = audioUrl;
-        } else {
-          return;
-        }
-        
-        const audio = new Audio(audioSrc);
-        audioRef.current = audio;
-        audioSrcRef.current = audioSrc;
-        
-        setIsPlaying(true);
-        audio.play();
-        
-        audio.onended = () => {
-          setIsPlaying(false);
-          audioRef.current = null;
-          if (audioFile && audioSrcRef.current) {
-            URL.revokeObjectURL(audioSrcRef.current);
-            audioSrcRef.current = null;
-          }
-        };
-        
-        audio.onerror = () => {
-          setIsPlaying(false);
-          audioRef.current = null;
-          if (audioFile && audioSrcRef.current) {
-            URL.revokeObjectURL(audioSrcRef.current);
-            audioSrcRef.current = null;
-          }
-        };
-      }
+  // Restore validation selection from cache when component mounts
+  useEffect(() => {
+    if (cachedValidationResult && selectedValidation === null) {
+      setSelectedValidation(cachedValidationResult.isValid);
+    }
+  }, [cachedValidationResult, selectedValidation]);
+
+  const handleValidation = (asrWasCorrect: boolean) => {
+    setSelectedValidation(asrWasCorrect);
+    onValidationComplete(asrWasCorrect);
+  };
+
+  const handleNext = () => {
+    if (selectedValidation !== null) {
+      onValidationComplete(selectedValidation);
     }
   };
 
-  const handleYes = () => {
-    setHasValidated(true);
-    onValidationComplete(true);
-  };
-
-  const handleNo = () => {
-    setHasValidated(true);
-    onValidationComplete(false);
-    onEditRequest();
-  };
-
-  // Cleanup audio when component unmounts
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if (audioFile && audioSrcRef.current) {
-        URL.revokeObjectURL(audioSrcRef.current);
-        audioSrcRef.current = null;
-      }
-    };
-  }, [audioFile]);
-
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-8 flex flex-col items-center justify-center">
-      {/* Progress Bar - Second */}
+    <div className="w-full max-w-4xl mx-auto space-y-6 flex flex-col items-center justify-center pt-12 pb-12">
+      {/* Progress Bar */}
       <StageProgressBar
         currentStage="validation"
         completedStages={completedStages}
         onStageClick={onStageClick}
       />
 
-      {/* Stage Header - At the tippity top */}
+      {/* Stage Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Transcription Validation</h2>
+        <h2 className="text-2xl font-bold">ASR Quality Validation</h2>
         <p className="text-muted-foreground">
-          Please verify if the transcription below matches the audio
+          Listen to the audio and verify if the AI transcription is correct
         </p>
       </div>
 
-      {/* Navigation - Third */}
+      {/* Navigation */}
       <div className="w-full">
         <StageNavigation
           onBack={onBack}
-          onNext={onNext}
+          onNext={handleNext}
           nextText="Next"
-          nextDisabled={!hasValidated || isTranscriptionFailed}
+          nextDisabled={selectedValidation === null}
         />
       </div>
 
-      {/* Duolingo-style Audio Button - Above transcription */}
-      {true && (
+      {/* Audio Player */}
+      {(audioFile || audioUrl) && (
         <div className="flex justify-center">
           <Button
-            onClick={handlePlayPause}
-            disabled={(!audioFile && !audioUrl) || isTranscriptionFailed}
+            onClick={onAudioPlayPause}
             className={`
               px-6 py-4 rounded-2xl transition-all duration-200 
-              ${(!audioFile && !audioUrl) || isTranscriptionFailed 
-                ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50' 
-                : isPlaying 
-                  ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
-                  : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
+              ${isAudioPlaying 
+                ? 'bg-accent hover:bg-accent/90 text-accent-foreground' 
+                : 'bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105'
               }
               shadow-lg hover:shadow-xl border-b-4 
-              ${(!audioFile && !audioUrl) || isTranscriptionFailed 
-                ? 'border-muted/70' 
-                : isPlaying ? 'border-accent/70' : 'border-primary/70'
-              }
-              ${(!audioFile && !audioUrl) || isTranscriptionFailed ? '' : 'active:border-b-2 active:translate-y-0.5'}
+              ${isAudioPlaying ? 'border-accent/70' : 'border-primary/70'}
+              active:border-b-2 active:translate-y-0.5
             `}
           >
             <div className="flex items-center gap-3">
-              <div className={`transition-transform duration-200 ${isPlaying ? 'animate-pulse' : ''}`}>
-                <Volume2 className={`h-6 w-6 ${isPlaying ? 'animate-bounce' : ''}`} />
+              <div className={`transition-transform duration-200 ${isAudioPlaying ? 'animate-pulse' : ''}`}>
+                <Volume2 className={`h-6 w-6 ${isAudioPlaying ? 'animate-bounce' : ''}`} />
               </div>
               <div className="flex gap-1">
-                <div className={`w-1 ${isPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isPlaying ? 'h-4 animate-pulse' : 'h-2'} transition-all duration-300`}></div>
-                <div className={`w-1 ${isPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isPlaying ? 'h-6 animate-pulse' : 'h-2'} transition-all duration-300 delay-75`}></div>
-                <div className={`w-1 ${isPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isPlaying ? 'h-3 animate-pulse' : 'h-2'} transition-all duration-300 delay-150`}></div>
-                <div className={`w-1 ${isPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isPlaying ? 'h-5 animate-pulse' : 'h-2'} transition-all duration-300 delay-225`}></div>
+                <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-4 animate-pulse' : 'h-2'} transition-all duration-300`}></div>
+                <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-6 animate-pulse' : 'h-2'} transition-all duration-300 delay-75`}></div>
+                <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-3 animate-pulse' : 'h-2'} transition-all duration-300 delay-150`}></div>
+                <div className={`w-1 ${isAudioPlaying ? 'bg-accent-foreground' : 'bg-primary-foreground'} rounded-full ${isAudioPlaying ? 'h-5 animate-pulse' : 'h-2'} transition-all duration-300 delay-225`}></div>
               </div>
             </div>
           </Button>
         </div>
       )}
 
-      {/* Transcription Display - Boxed */}
-      <div className="w-full max-w-2xl mx-auto space-y-2">
-        <div className="flex items-center gap-3 mb-2">
-          <Lightbulb className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-semibold">Generated Transcription</h3>
+      {/* Transcription Display - Minimal Design */}
+      <div className="w-full max-w-2xl space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Brain className="h-5 w-5" />
+          <span className="text-base font-medium">
+            {isPracticeMode ? "Reference Transcription" : "AI Transcription"}
+          </span>
         </div>
-        <p className="text-sm text-muted-foreground pb-4">Review the automatically generated transcription below</p>
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-          <p className="text-lg leading-relaxed text-left">
-            {originalTranscription || "No transcription available"}
-          </p>
-        </div>
-      </div>
-      <div className="w-full flex justify-between items-center pb-6 border-b border-border"></div>
-      
-
-      {/* Validation Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Button
-          onClick={handleYes}
-          size="lg"
-          className={`gap-2 px-8 py-3 text-white ${
-            isTranscriptionFailed 
-              ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-              : 'hover:opacity-90'
-          }`}
-          style={{
-            backgroundColor: isTranscriptionFailed ? undefined : 'hsl(var(--sage-green))'
-          }}
-          onMouseEnter={(e) => {
-            if (!isTranscriptionFailed) {
-              e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green) / 0.9)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isTranscriptionFailed) {
-              e.currentTarget.style.backgroundColor = 'hsl(var(--sage-green))';
-            }
-          }}
-          disabled={isTranscriptionFailed}
-        >
-          <CheckCircle className="h-5 w-5" />
-          Yes, this is correct
-        </Button>
         
-        <Button
-          onClick={handleNo}
-          size="lg"
-          className={`gap-2 px-8 py-3 text-white ${
-            isTranscriptionFailed 
-              ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-              : 'hover:opacity-90'
-          }`}
-          style={{
-            backgroundColor: isTranscriptionFailed ? undefined : 'hsl(var(--dusty-rose))'
-          }}
-          onMouseEnter={(e) => {
-            if (!isTranscriptionFailed) {
-              e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose) / 0.9)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isTranscriptionFailed) {
-              e.currentTarget.style.backgroundColor = 'hsl(var(--dusty-rose))';
-            }
-          }}
-          disabled={isTranscriptionFailed}
-        >
-          <XCircle className="h-5 w-5" />
-          No, needs correction
-        </Button>
-      </div>
-
-      {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground">
         {isTranscriptionFailed ? (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-            <p className="text-destructive font-medium">
-              ⚠️ Transcription Failed
-            </p>
-            <p className="text-destructive/80 text-sm mt-1">
-              Please check your backend connection and try uploading again.
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+            <XCircle className="h-6 w-6 text-destructive mx-auto mb-2" />
+            <p className="text-destructive font-medium">Transcription Failed</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              The AI could not process this audio. Please try a different file.
             </p>
           </div>
         ) : (
-          <>
-            <p>
-              Click <strong>"Yes"</strong> if the transcription is correct, or <strong>"No"</strong> to edit it.
+          <div className="p-6 bg-card border border-border rounded-2xl">
+            <p className="text-lg font-mono text-left leading-relaxed">
+              "{displayTranscription}"
             </p>
-            <p className="mt-1">
-              Complete this validation to unlock the next stage in the progress bar above.
-            </p>
-          </>
+          </div>
         )}
       </div>
 
+      {/* Validation Buttons */}
+      {!isTranscriptionFailed && (
+        <div className="w-full max-w-2xl">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-semibold mb-2">
+              {isPracticeMode ? "Does this match what you hear?" : "Is this transcription correct?"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {isPracticeMode 
+                ? "Compare the reference transcription above with the audio you hear" 
+                : "Your feedback helps improve AI transcription quality"
+              }
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Correct/Upvote */}
+            <Card 
+              className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                selectedValidation === true
+                  ? "border-[hsl(var(--sage-green))] bg-[hsl(var(--sage-green))]/10"
+                  : "border-border hover:border-[hsl(var(--sage-green))]/50"
+              }`}
+              onClick={() => handleValidation(true)}
+            >
+              <CardContent className="p-6 text-center relative">
+                {selectedValidation === true && (
+                  <CheckCircle className="h-5 w-5 text-[hsl(var(--sage-green))] absolute top-4 right-4" />
+                )}
+                <div className="flex flex-col items-center gap-3">
+                  <ThumbsUp className={`h-8 w-8 text-[hsl(var(--sage-green))]`} />
+                  <div>
+                    <h4 className="font-semibold text-[hsl(var(--sage-green))]">
+                      {isPracticeMode ? "Yes, Matches" : "Yes, Correct"}
+                    </h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isPracticeMode 
+                        ? "The reference transcription matches what I hear"
+                        : "The transcription matches the audio perfectly"
+                      }
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Incorrect/Downvote */}
+            <Card 
+              className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
+                selectedValidation === false
+                  ? "border-destructive bg-destructive/10"
+                  : "border-border hover:border-destructive/50"
+              }`}
+              onClick={() => handleValidation(false)}
+            >
+              <CardContent className="p-6 text-center relative">
+                {selectedValidation === false && (
+                  <CheckCircle className="h-5 w-5 text-destructive absolute top-4 right-4" />
+                )}
+                <div className="flex flex-col items-center gap-3">
+                  <ThumbsDown className={`h-8 w-8 text-destructive`} />
+                  <div>
+                    <h4 className="font-semibold text-destructive">
+                      {isPracticeMode ? "No, Different" : "No, Incorrect"}
+                    </h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isPracticeMode 
+                        ? "The reference transcription doesn't match what I hear"
+                        : "The transcription has errors or missing words"
+                      }
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Line Separator */}
+      {!isTranscriptionFailed && (
+        <div className="w-full border-t border-border"></div>
+      )}
+
+      {/* Helper Text */}
+      <div className="text-center text-sm text-muted-foreground max-w-md mx-auto py-4">
+        <p>
+          {isPracticeMode 
+            ? "Listen carefully and compare the reference transcription with what you hear. This helps you understand accent recognition challenges."
+            : "Listen carefully and compare the transcription with what you hear. Your validation helps track ASR accuracy for research purposes."
+          }
+        </p>
+      </div>
     </div>
   );
 }

@@ -124,14 +124,10 @@ export function DataSourceSelection({ onModeSelect, onBack }: DataSourceSelectio
       {/* Info Section */}
       <div className="text-center space-y-2 pt-4">
         <p className="text-sm text-muted-foreground">
-          Both modes will take you through the same 3-stage validation process
+          Both modes will take you through all the validation stages
         </p>
         <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-          <span>1. Transcription Validation</span>
-          <span>•</span>
-          <span>2. Accent Selection</span>
-          <span>•</span>
-          <span>3. Particle Placement</span>
+          <span>Transcription • Pronoun Consolidation • Accent • Particle Detection • Comparison</span>
         </div>
       </div>
 

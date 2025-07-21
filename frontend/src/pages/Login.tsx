@@ -10,13 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, User } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Login = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Form states
   const [signInEmail, setSignInEmail] = useState('');
@@ -25,6 +24,47 @@ const Login = () => {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpPasswordConfirm, setSignUpPasswordConfirm] = useState('');
   const [signUpName, setSignUpName] = useState('');
+  
+  // Validation errors
+  const [signInErrors, setSignInErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+  const [signUpErrors, setSignUpErrors] = useState<{
+    email?: string;
+    password?: string;
+    passwordConfirm?: string;
+  }>({});
+
+  // Validation patterns
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  
+  // Validation functions
+  const validateEmail = (email: string): string | null => {
+    if (!email) return 'Email is required';
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address (e.g., user@example.com)';
+    }
+    return null;
+  };
+
+  const validatePassword = (password: string): string | null => {
+    if (!password) return 'Password is required';
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!passwordRegex.test(password)) {
+      return 'Password must contain at least: 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@$!%*?&)';
+    }
+    return null;
+  };
+
+  const validatePasswordConfirm = (password: string, confirmPassword: string): string | null => {
+    if (!confirmPassword) return 'Please confirm your password';
+    if (password !== confirmPassword) return 'Passwords do not match';
+    return null;
+  };
 
   // Redirect if already logged in
   useEffect(() => {
@@ -35,22 +75,49 @@ const Login = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Let browser handle required field validation first
+    const form = e.target as HTMLFormElement;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    
     setIsLoading(true);
-    setError(null);
+    setSignInErrors({});
+
+    // Additional custom validation for email format
+    const emailError = validateEmail(signInEmail);
+    
+    if (emailError) {
+      setSignInErrors({ 
+        email: emailError
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await authService.signIn(signInEmail, signInPassword);
       
       if (error) {
-        setError(error.message);
+        toast.error(error.message, {
+          duration: 30000, // 30 seconds
+          dismissible: true,
+        });
       } else if (data.user) {
-        setSuccess('Successfully signed in! Redirecting...');
+        toast.success('Successfully signed in! Redirecting...', {
+          duration: 2000,
+        });
         setTimeout(() => {
           navigate('/');
         }, 1000);
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      toast.error('An unexpected error occurred', {
+        duration: 30000,
+        dismissible: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -58,19 +125,29 @@ const Login = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-
-    // Check if passwords match
-    if (signUpPassword !== signUpPasswordConfirm) {
-      setError('Passwords do not match');
-      setIsLoading(false);
+    
+    // Let browser handle required field validation first
+    const form = e.target as HTMLFormElement;
+    if (!form.checkValidity()) {
+      form.reportValidity();
       return;
     }
+    
+    setIsLoading(true);
+    setSignUpErrors({});
 
-    // Check minimum password length
-    if (signUpPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
+    // Additional custom validation
+    const emailError = validateEmail(signUpEmail);
+    const passwordError = validatePassword(signUpPassword);
+    const passwordConfirmError = validatePasswordConfirm(signUpPassword, signUpPasswordConfirm);
+
+    // If there are validation errors, show them
+    if (emailError || passwordError || passwordConfirmError) {
+      setSignUpErrors({
+        email: emailError || undefined,
+        password: passwordError || undefined,
+        passwordConfirm: passwordConfirmError || undefined,
+      });
       setIsLoading(false);
       return;
     }
@@ -83,13 +160,22 @@ const Login = () => {
       );
       
       if (error) {
-        setError(error.message);
+        toast.error(error.message, {
+          duration: 30000, // 30 seconds
+          dismissible: true,
+        });
       } else {
+        toast.success('Account created successfully! Check your email to verify.', {
+          duration: 5000,
+        });
         // Redirect to signup success page
         navigate('/signup-success');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      toast.error('An unexpected error occurred', {
+        duration: 30000,
+        dismissible: true,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +211,7 @@ const Login = () => {
         {/* Login Card */}
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl">Welcome to Accentric</CardTitle>
             <CardDescription>
               Sign in to your account or create a new one to get started with voice transcription
             </CardDescription>
@@ -138,17 +224,6 @@ const Login = () => {
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
 
-              {error && (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="mt-4">
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
 
               <TabsContent value="signin" className="mt-6">
                 <form onSubmit={handleSignIn} className="space-y-4">
@@ -161,11 +236,27 @@ const Login = () => {
                         type="email"
                         placeholder="your.email@example.com"
                         value={signInEmail}
-                        onChange={(e) => setSignInEmail(e.target.value)}
-                        className="pl-10"
+                        onChange={(e) => {
+                          setSignInEmail(e.target.value);
+                          // Clear error when user starts typing
+                          if (signInErrors.email) {
+                            setSignInErrors(prev => ({ ...prev, email: undefined }));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Show validation error on blur
+                          const emailError = validateEmail(e.target.value);
+                          if (emailError) {
+                            setSignInErrors(prev => ({ ...prev, email: emailError }));
+                          }
+                        }}
+                        className={`pl-10 ${signInErrors.email ? 'border-red-500' : ''}`}
                         required
                       />
                     </div>
+                    {signInErrors.email && (
+                      <p className="text-sm text-red-500">{signInErrors.email}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -178,10 +269,13 @@ const Login = () => {
                         placeholder="Your password"
                         value={signInPassword}
                         onChange={(e) => setSignInPassword(e.target.value)}
-                        className="pl-10"
+                        className={`pl-10 ${signInErrors.password ? 'border-red-500' : ''}`}
                         required
                       />
                     </div>
+                    {signInErrors.password && (
+                      <p className="text-sm text-red-500">{signInErrors.password}</p>
+                    )}
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
@@ -218,11 +312,27 @@ const Login = () => {
                         type="email"
                         placeholder="your.email@example.com"
                         value={signUpEmail}
-                        onChange={(e) => setSignUpEmail(e.target.value)}
-                        className="pl-10"
+                        onChange={(e) => {
+                          setSignUpEmail(e.target.value);
+                          // Clear error when user starts typing
+                          if (signUpErrors.email) {
+                            setSignUpErrors(prev => ({ ...prev, email: undefined }));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Show validation error on blur
+                          const emailError = validateEmail(e.target.value);
+                          if (emailError) {
+                            setSignUpErrors(prev => ({ ...prev, email: emailError }));
+                          }
+                        }}
+                        className={`pl-10 ${signUpErrors.email ? 'border-red-500' : ''}`}
                         required
                       />
                     </div>
+                    {signUpErrors.email && (
+                      <p className="text-sm text-red-500">{signUpErrors.email}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -234,12 +344,28 @@ const Login = () => {
                         type="password"
                         placeholder="Choose a strong password"
                         value={signUpPassword}
-                        onChange={(e) => setSignUpPassword(e.target.value)}
-                        className="pl-10"
+                        onChange={(e) => {
+                          setSignUpPassword(e.target.value);
+                          // Clear error when user starts typing
+                          if (signUpErrors.password) {
+                            setSignUpErrors(prev => ({ ...prev, password: undefined }));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Show validation error on blur
+                          const passwordError = validatePassword(e.target.value);
+                          if (passwordError) {
+                            setSignUpErrors(prev => ({ ...prev, password: passwordError }));
+                          }
+                        }}
+                        className={`pl-10 ${signUpErrors.password ? 'border-red-500' : ''}`}
                         required
-                        minLength={6}
+                        minLength={8}
                       />
                     </div>
+                    {signUpErrors.password && (
+                      <p className="text-sm text-red-500">{signUpErrors.password}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -251,12 +377,28 @@ const Login = () => {
                         type="password"
                         placeholder="Re-enter your password"
                         value={signUpPasswordConfirm}
-                        onChange={(e) => setSignUpPasswordConfirm(e.target.value)}
-                        className="pl-10"
+                        onChange={(e) => {
+                          setSignUpPasswordConfirm(e.target.value);
+                          // Clear error when user starts typing
+                          if (signUpErrors.passwordConfirm) {
+                            setSignUpErrors(prev => ({ ...prev, passwordConfirm: undefined }));
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Show validation error on blur
+                          const passwordConfirmError = validatePasswordConfirm(signUpPassword, e.target.value);
+                          if (passwordConfirmError) {
+                            setSignUpErrors(prev => ({ ...prev, passwordConfirm: passwordConfirmError }));
+                          }
+                        }}
+                        className={`pl-10 ${signUpErrors.passwordConfirm ? 'border-red-500' : ''}`}
                         required
-                        minLength={6}
+                        minLength={8}
                       />
                     </div>
+                    {signUpErrors.passwordConfirm && (
+                      <p className="text-sm text-red-500">{signUpErrors.passwordConfirm}</p>
+                    )}
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
