@@ -7,7 +7,6 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   CalendarDays, 
-  Download, 
   Eye, 
   FileAudio, 
   MessageSquare, 
@@ -121,21 +120,6 @@ export function UserHistory() {
     });
   };
 
-  const exportUserData = async () => {
-    try {
-      const dataStr = JSON.stringify(contributions, null, 2);
-      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      
-      const exportFileDefaultName = `my_contributions_${new Date().toISOString().split('T')[0]}.json`;
-      
-      const linkElement = document.createElement('a');
-      linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', exportFileDefaultName);
-      linkElement.click();
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
 
   if (loading) {
     return (
@@ -176,19 +160,13 @@ export function UserHistory() {
             Track your audio uploads and their validation status
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={fetchUserContributions} variant="outline">
-            Refresh
-          </Button>
-          <Button onClick={exportUserData} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export Data
-          </Button>
-        </div>
+        <Button onClick={fetchUserContributions} variant="outline">
+          Refresh
+        </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Contributions</CardTitle>
@@ -214,16 +192,6 @@ export function UserHistory() {
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
               {contributions.filter(c => c.validation_status === 'pending').length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Audio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatFileSize(contributions.reduce((sum, c) => sum + (c.file_size_bytes || 0), 0))}
             </div>
           </CardContent>
         </Card>
