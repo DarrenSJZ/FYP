@@ -65,7 +65,7 @@ class CV22Exporter:
                 'validated' as validation_status,
                 NULL as session_type,
                 created_at,
-                updated_at
+                created_at as updated_at
             FROM cv22_clips
             
             UNION ALL

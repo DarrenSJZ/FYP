@@ -1,18 +1,9 @@
 #!/bin/bash
-# CV22 Export Examples with UV Environment Management
-# Replace with your actual Supabase connection string
+# CV22 Export Examples - Standard CV22 Format Only
+# Automated UV environment setup with working Supabase connection
 
-# Replace this with your actual Supabase connection string:
-# DB_URL="postgresql://postgres:your_password@db.your_project.supabase.co:5432/postgres"
-DB_URL="postgresql://user:password@host:port/database"
-
-# Check if DB_URL is still the placeholder
-if [[ "$DB_URL" == *"host:port"* ]]; then
-    echo "❌ Please update DB_URL with your actual Supabase connection string!"
-    echo "   Edit this file and replace the DB_URL variable with:"
-    echo "   DB_URL=\"postgresql://postgres:your_password@db.your_project.supabase.co:5432/postgres\""
-    exit 1
-fi
+# Database connection string with working password
+DB_URL="postgresql://postgres.hzquxnzusgiiclvrzbqy:4NtuyG5Cu7X1KVmP@aws-0-us-east-2.pooler.supabase.com:6543/postgres"
 
 # Function to setup UV environment
 setup_uv_env() {
@@ -48,8 +39,8 @@ setup_uv_env() {
     echo ""
 }
 
-echo "🔄 CV22 Export Examples"
-echo "========================"
+echo "🔄 CV22 Export Examples - Standard Format Only"
+echo "=============================================="
 
 # Setup UV environment
 setup_uv_env
@@ -75,29 +66,34 @@ python export_cv22.py \
 
 echo ""
 
-# Example 3: Extended format with metadata
-echo "📦 Example 3: Extended format with metadata"
+# Example 3: Medium quality and above
+echo "📦 Example 3: Medium quality and above"
 python export_cv22.py \
     --db-url "$DB_URL" \
-    --output "cv22_extended_export.csv" \
+    --output "cv22_medium_quality.csv" \
     --format csv \
-    --cv22-format extended
+    --cv22-format cv22 \
+    --quality-filter medium
 
 echo ""
 
-# Example 4: JSON export for analysis
-echo "📦 Example 4: JSON export for analysis"
+# Example 4: Validated content only
+echo "📦 Example 4: Validated content only"
 python export_cv22.py \
     --db-url "$DB_URL" \
-    --output "cv22_export.json" \
-    --format json \
-    --quality-filter medium
+    --output "cv22_validated.csv" \
+    --format csv \
+    --cv22-format cv22 \
+    --quality-filter validated
 
 echo ""
 echo "✅ All examples completed!"
 echo ""
-echo "Output files:"
-echo "- cv22_standard_export.csv (Standard CV22 format)"
+echo "Output files (Standard CV22 format):"
+echo "- cv22_standard_export.csv (All data)"
 echo "- cv22_high_quality.csv (High quality only)"
-echo "- cv22_extended_export.csv (With metadata)"
-echo "- cv22_export.json (JSON format)"
+echo "- cv22_medium_quality.csv (Medium+ quality)"
+echo "- cv22_validated.csv (Validated content only)"
+echo ""
+echo "All files contain standard Common Voice 22 fields:"
+echo "client_id, path, sentence, up_votes, down_votes, age, gender, accents, locale, segment, sentence_id"
