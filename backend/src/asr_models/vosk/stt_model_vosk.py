@@ -9,7 +9,17 @@ import numpy as np
 # Import base transcriber and utilities
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../asr_utils'))
 from base_transcriber import BaseTranscriber
-from audio_utils import load_audio
+
+def load_audio_simple(file_path: str, target_sr: int = 16000) -> np.ndarray:
+    """Simple audio loading for vosk without torch dependency"""
+    import soundfile as sf
+    audio, sr = sf.read(file_path)
+    if sr != target_sr:
+        # Simple resampling (not perfect but works for testing)
+        # For production, use proper resampling
+        import scipy.signal as signal
+        audio = signal.resample(audio, int(len(audio) * target_sr / sr))
+    return audio
 
 class VoskTranscriber(BaseTranscriber):
     def __init__(self, model_lang="en-us", rate=16000):
@@ -33,7 +43,7 @@ class VoskTranscriber(BaseTranscriber):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
-                audio_data = load_audio(audio_file)
+                audio_data = load_audio_simple(audio_file)
                 
                 # Convert to WAV format if needed
                 if not audio_file.lower().endswith('.wav'):

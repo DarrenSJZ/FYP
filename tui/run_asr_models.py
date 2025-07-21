@@ -19,32 +19,39 @@ class ASRModelRunner:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.script_dir = os.path.join(project_root, 'backend', 'src', 'asr_models')
         
-        # Define model configurations
+        # Define model configurations - start with simpler models
         self.models = {
             "vosk": {
                 "script": "run_vosk.sh",
-                "args": []
+                "args": [],
+                "timeout": 60
             },
             "wav2vec": {
                 "script": "run_wav2vec.sh",
-                "args": []
+                "args": [],
+                "timeout": 60
             },
             "whisper": {
                 "script": "run_whisper.sh",
-                "args": ["medium"]  # Using medium model by default
+                "args": ["medium"],  # Medium model - good balance of speed/accuracy
+                "timeout": 120
             },
             "moonshine": {
                 "script": "run_moonshine.sh",
-                "args": []
+                "args": [],
+                "timeout": 60
             },
             "mesolitica": {
                 "script": "run_mesolitica.sh",
-                "args": []
+                "args": [],
+                "timeout": 60
             },
-            "allosaurus": {
-                "script": "run_allosaurus.sh",
-                "args": ["eng"]  # Using English by default
-            }
+            # Skip allosaurus for now as it often hangs during setup
+            # "allosaurus": {
+            #     "script": "run_allosaurus.sh",
+            #     "args": ["eng"],  # Using English by default
+            #     "timeout": 180
+            # }
         }
 
     @staticmethod
@@ -131,14 +138,19 @@ class ASRModelRunner:
         try:
             # Construct command with model-specific arguments and audio file
             cmd = [script_path] + model_config["args"] + [self.audio_file]
+            timeout = model_config.get("timeout", 60)
             
-            # Run the model
+            if self.diagnostic:
+                print(f"Running {model_name}...")
+            
+            # Run the model with timeout
             start_time = time.time()
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                timeout=timeout
             )
             end_time = time.time()
             
@@ -162,21 +174,39 @@ class ASRModelRunner:
             
             return base_result
             
+        except subprocess.TimeoutExpired:
+            return {
+                "model": model_name,
+                "status": "timeout", 
+                "error": f"Model timed out after {timeout} seconds",
+                "processing_time": timeout,
+                "command": " ".join(cmd) if self.diagnostic else None
+            }
         except subprocess.CalledProcessError as e:
             error_result = {
                 "model": model_name,
                 "status": "error",
-                "error": e.stderr
+                "error": e.stderr if e.stderr else "Process failed with no error output"
             }
             
             # Add diagnostic information if in diagnostic mode
             if self.diagnostic:
                 error_result.update({
                     "processing_time": time.time() - start_time,
-                    "command": " ".join(cmd)
+                    "command": " ".join(cmd),
+                    "stdout": e.stdout,
+                    "returncode": e.returncode
                 })
             
             return error_result
+        except Exception as e:
+            return {
+                "model": model_name,
+                "status": "error",
+                "error": f"Unexpected error: {str(e)}",
+                "processing_time": time.time() - start_time if 'start_time' in locals() else 0,
+                "command": " ".join(cmd) if self.diagnostic else None
+            }
 
     def run_all_models(self):
         """Run all ASR models and save results to JSON"""

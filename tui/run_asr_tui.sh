@@ -30,17 +30,23 @@ while [[ $# -gt 0 ]]; do
             PLAY_AUDIO=true
             shift
             ;;
+        --audio-dir)
+            AUDIO_DIR="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
             echo "  --services              Use Docker services instead of local Python models"
             echo "  --orchestrator-url URL  Orchestrator service URL (default: http://localhost:8000)"
+            echo "  --audio-dir DIR         Specify custom audio directory path"
             echo "  --verbose               Show detailed output"
             echo "  --play-audio            Play audio after transcription"
             echo "  -h, --help             Show this help message"
             echo ""
             echo "Examples:"
             echo "  $0                                    # Interactive TUI mode"
+            echo "  $0 --audio-dir /path/to/audio         # Use custom audio directory"
             echo "  $0 --services --format clean           # Use Docker services, clean output"
             echo "  $0 --services --play-audio             # Play audio after transcription"
             exit 0
@@ -90,13 +96,49 @@ if ! command -v ffplay &> /dev/null; then
     PLAY_AUDIO=false
 fi
 
-# Directory containing the audio files
-AUDIO_DIR="/home/laughdiemeh/common_voice_datasets/cv-corpus-17.0-delta-2024-03-15/en/clips"
+# Directory containing the audio files - check multiple common locations
+AUDIO_DIRS=(
+    "/home/laughdiemeh/common_voice_datasets/cv-corpus-17.0-delta-2024-03-15/en/clips"
+    "$HOME/common_voice_datasets/cv-corpus-17.0-delta-2024-03-15/en/clips"
+    "$HOME/Downloads/clips"
+    "$HOME/audio_samples"
+    "$(pwd)/audio_samples"
+    "$(pwd)/clips"
+)
 
-# Check if directory exists
-if [ ! -d "$AUDIO_DIR" ]; then
-    dialog --msgbox "Error: Audio directory not found at $AUDIO_DIR" 10 60
+AUDIO_DIR=""
+for dir in "${AUDIO_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        AUDIO_DIR="$dir"
+        break
+    fi
+done
+
+# Check if custom audio directory was specified via command line
+if [ -n "$AUDIO_DIR" ] && [ ! -d "$AUDIO_DIR" ]; then
+    dialog --msgbox "Error: Specified audio directory not found at $AUDIO_DIR" 10 60
     exit 1
+fi
+
+# If no directory found and not specified via command line, search for directories
+if [ -z "$AUDIO_DIR" ]; then
+    for dir in "${AUDIO_DIRS[@]}"; do
+        if [ -d "$dir" ]; then
+            AUDIO_DIR="$dir"
+            break
+        fi
+    done
+fi
+
+# If still no directory found, try current directory with audio files
+if [ -z "$AUDIO_DIR" ]; then
+    # Try to find any audio files in current directory
+    if find . -maxdepth 2 -name "*.mp3" -o -name "*.wav" -o -name "*.flac" | head -1 | grep -q .; then
+        AUDIO_DIR="$(pwd)"
+    else
+        dialog --msgbox "Error: No audio directory found. Please place audio files in:\n- $HOME/audio_samples\n- $(pwd)/audio_samples\n- $(pwd)/clips\n\nOr use --audio-dir to specify a custom path.\nRun with --help for more options." 15 70
+        exit 1
+    fi
 fi
 
 # Create a temporary file for the file list
@@ -111,21 +153,44 @@ get_audio_files() {
 show_simple_file_selector() {
     local audio_dir="$1"
     local files_list
-    files_list=$(find "$audio_dir" -maxdepth 1 -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.flac" \) | sort)
+    
+    # Limit to first 50 files for performance
+    files_list=$(find "$audio_dir" -maxdepth 1 -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.flac" \) | sort | head -50)
     if [ -z "$files_list" ]; then
         dialog --msgbox "No audio files found in $audio_dir" 10 60
         return 1
     fi
+    
+    # Count total files for user info
+    local total_count=$(find "$audio_dir" -maxdepth 1 -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.flac" \) | wc -l)
+    
     local menu_items="Back BACK "
     local file
+    local file_map=""
+    local counter=1
+    
     for file in $files_list; do
-        menu_items+="$(basename "$file") $file "
+        menu_items+="$counter $(basename "$file") "
+        file_map+="$counter:$file "
+        counter=$((counter + 1))
     done
-    local selected_file
-    selected_file=$(dialog --menu "Select an audio file:" 20 80 15 $menu_items 3>&1 1>&2 2>&3)
-    if [ $? -ne 0 ] || [ -z "$selected_file" ] || [ "$selected_file" = "BACK" ]; then
+    
+    local title="Select audio file (showing first 50 of $total_count files):"
+    local selected_index
+    selected_index=$(dialog --menu "$title" 20 80 15 $menu_items 3>&1 1>&2 2>&3)
+    if [ $? -ne 0 ] || [ -z "$selected_index" ] || [ "$selected_index" = "BACK" ]; then
         return 1
     fi
+    
+    # Get the full path from the file_map using the selected index
+    local selected_file=""
+    for mapping in $file_map; do
+        if [[ "$mapping" == "$selected_index:"* ]]; then
+            selected_file="${mapping#*:}"
+            break
+        fi
+    done
+    
     echo "$selected_file"
     return 0
 }
@@ -133,14 +198,15 @@ show_simple_file_selector() {
 # Function to show main menu
 show_main_menu() {
     while true; do
-        local menu_text="ASR Benchmark Tool"
-        local menu_height=15
-        local menu_options=3
+        local menu_text="ASR Benchmark Tool\nAudio Directory: $AUDIO_DIR"
+        local menu_height=16
+        local menu_options=4
 
         choice=$(dialog --menu "$menu_text" $menu_height 70 $menu_options \
             1 "Run Benchmark (Local ASR Models)" \
             2 "Run Benchmark (Docker Services)" \
             3 "Results" \
+            4 "Check Audio Directory" \
             3>&1 1>&2 2>&3)
 
         case $choice in
@@ -155,11 +221,48 @@ show_main_menu() {
             3)
                 show_results_menu
                 ;;
+            4)
+                check_audio_directory
+                ;;
             *)
                 break
                 ;;
         esac
     done
+}
+
+# Function to check audio directory status
+check_audio_directory() {
+    local dir_info="Audio Directory Information\n\n"
+    dir_info+="Current Directory: $AUDIO_DIR\n"
+    
+    if [ -d "$AUDIO_DIR" ]; then
+        dir_info+="Status: ✓ Directory exists\n\n"
+        
+        # Count audio files
+        local mp3_count=$(find "$AUDIO_DIR" -maxdepth 1 -name "*.mp3" | wc -l)
+        local wav_count=$(find "$AUDIO_DIR" -maxdepth 1 -name "*.wav" | wc -l)
+        local flac_count=$(find "$AUDIO_DIR" -maxdepth 1 -name "*.flac" | wc -l)
+        local total_count=$((mp3_count + wav_count + flac_count))
+        
+        dir_info+="Audio Files Found:\n"
+        dir_info+="  MP3: $mp3_count\n"
+        dir_info+="  WAV: $wav_count\n"
+        dir_info+="  FLAC: $flac_count\n"
+        dir_info+="  Total: $total_count\n\n"
+        
+        if [ $total_count -eq 0 ]; then
+            dir_info+="⚠️  No audio files found!\n"
+            dir_info+="Please add audio files to this directory."
+        else
+            dir_info+="✓ Ready for benchmarking"
+        fi
+    else
+        dir_info+="Status: ❌ Directory does not exist\n"
+        dir_info+="Please check the path or use --audio-dir option."
+    fi
+    
+    dialog --msgbox "$dir_info" 20 70
 }
 
 # Function to play audio file
@@ -444,6 +547,20 @@ run_benchmark() {
     fi
     
     while true; do
+        # Check audio directory status
+        if [ ! -d "$AUDIO_DIR" ]; then
+            dialog --msgbox "Error: Audio directory not accessible: $AUDIO_DIR" 10 60
+            return 0
+        fi
+        
+        # Count audio files before showing selector
+        local file_count=$(find "$AUDIO_DIR" -maxdepth 1 -type f \( -name "*.mp3" -o -name "*.wav" -o -name "*.flac" \) | wc -l)
+        
+        if [ "$file_count" -eq 0 ]; then
+            dialog --msgbox "No audio files found in:\n$AUDIO_DIR\n\nPlease add some .mp3, .wav, or .flac files to this directory, or use --audio-dir to specify a different path." 12 70
+            return 0
+        fi
+        
         selected_file=$(show_simple_file_selector "$AUDIO_DIR")
         if [ $? -ne 0 ] || [ -z "$selected_file" ]; then
             return 0  # Go back to main menu
@@ -462,20 +579,79 @@ run_benchmark() {
         timestamp=$(date +%Y%m%d_%H%M%S)
         result_file="results/asr_results_${timestamp}.json"
         
-        # Process file with progress bar
-        (
-            echo "0"
-            echo "Processing file..."
-            echo "XXX"
-            echo "0"
-            echo "Starting ASR models..."
-            echo "XXX"
-            python3 "$(dirname "$0")/run_asr_models.py" "$selected_file" --output "$result_file" --parallel
-            echo "100"
-            echo "Done!"
-        ) | dialog --gauge "Processing file..." 10 60 0
+        # Check if ASR models directory exists before running
+        # Get the absolute path of the script directory
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        project_root="$(dirname "$script_dir")"
+        asr_models_dir="$project_root/backend/src/asr_models"
         
-        dialog --msgbox "Benchmark completed! Results saved to $result_file" 10 60
+        if [ ! -d "$asr_models_dir" ]; then
+            dialog --msgbox "ERROR: ASR models directory not found at:\n$asr_models_dir\n\nPlease check your installation." 12 60
+            continue
+        fi
+        
+        # Check if Python script exists
+        python_script="$script_dir/run_asr_models.py"
+        if [ ! -f "$python_script" ]; then
+            dialog --msgbox "ERROR: Python script not found at:\n$python_script" 12 60
+            continue
+        fi
+        
+        # Run ASR models with progress dialog
+        (
+            echo "10"
+            echo "Initializing ASR models..."
+            sleep 1
+            echo "20"
+            echo "Starting model execution..."
+            
+            # Run the Python script in parallel mode
+            python3 "$python_script" "$selected_file" --output "$result_file" --parallel > /tmp/asr_output.log 2>&1 &
+            python_pid=$!
+            
+            # Progress updates while Python script runs
+            progress=30
+            while kill -0 $python_pid 2>/dev/null; do
+                echo "$progress"
+                echo "Running 5 ASR models in parallel (30-60 seconds)..."
+                sleep 3
+                progress=$((progress + 5))
+                if [ $progress -gt 90 ]; then
+                    progress=90
+                fi
+            done
+            
+            # Wait for completion
+            wait $python_pid
+            exit_code=$?
+            
+            echo "95"
+            echo "Finalizing results..."
+            sleep 1
+            echo "100"
+            echo "Complete!"
+            
+        ) | dialog --gauge "Processing ASR Models..." 10 60 0
+        
+        if [ -f "$result_file" ]; then
+            dialog --msgbox "Benchmarking completed successfully!\n\nResults saved to: $result_file" 10 60
+            
+            # Show results summary
+            dialog --yesno "Would you like to view the detailed results?" 8 50
+            if [ $? -eq 0 ]; then
+                dialog --textbox "$result_file" 20 80
+            fi
+        else
+            dialog --msgbox "ERROR: Benchmarking failed!\n\nCheck /tmp/asr_output.log for details." 10 60
+            
+            # Offer to show error log
+            if [ -f "/tmp/asr_output.log" ]; then
+                dialog --yesno "Would you like to view the error log?" 8 50
+                if [ $? -eq 0 ]; then
+                    dialog --textbox "/tmp/asr_output.log" 20 80
+                fi
+            fi
+        fi
         return 0
     done
 }

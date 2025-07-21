@@ -323,7 +323,7 @@ export function PronounConsolidationStage({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-muted-foreground font-medium">Corrected:</span>
                             {correctedTerms.map((term, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-900/20">
+                              <Badge key={index} variant="secondary" className="text-xs bg-[hsl(var(--chip-brown))]/20 text-[hsl(var(--chip-brown))] hover:bg-[hsl(var(--chip-brown))]/30">
                                 {term}
                               </Badge>
                             ))}
@@ -386,7 +386,7 @@ export function PronounConsolidationStage({
                           {primaryModel && (
                             <>
                               <span className="text-xs text-muted-foreground font-medium">Primary:</span>
-                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200">
+                              <Badge variant="secondary" className="text-xs bg-[hsl(var(--accent))]/20 text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent))]/30">
                                 {primaryModel}
                               </Badge>
                             </>
@@ -394,7 +394,7 @@ export function PronounConsolidationStage({
                           {modelAgreement && (
                             <>
                               <span className="text-xs text-muted-foreground font-medium">Agreement:</span>
-                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 hover:bg-green-200">
+                              <Badge variant="secondary" className="text-xs bg-[hsl(var(--sage-green))]/20 text-[hsl(var(--sage-green))] hover:bg-[hsl(var(--sage-green))]/30">
                                 {modelAgreement}
                               </Badge>
                             </>
@@ -484,7 +484,7 @@ export function PronounConsolidationStage({
                             <>
                               <span className="text-xs text-muted-foreground font-medium">Corrected:</span>
                               {correctedTerms.map((term, index) => (
-                                <Badge key={index} variant="secondary" className="text-xs bg-yellow-100 dark:bg-yellow-900/20">
+                                <Badge key={index} variant="secondary" className="text-xs bg-[hsl(var(--chip-brown))]/20 text-[hsl(var(--chip-brown))] hover:bg-[hsl(var(--chip-brown))]/30">
                                   {term}
                                 </Badge>
                               ))}

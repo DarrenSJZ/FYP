@@ -1,0 +1,8 @@
+vosk>=0.3.45
+soundfile>=0.12.1
+numpy>=1.26.0
+scipy>=1.10.0
+playsound3>=3.2.3
+websockets>=11,<15
+# Skip torch and librosa - vosk doesn't actually need them
+# This avoids Python 3.12 compatibility issues

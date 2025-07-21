@@ -1,0 +1,10 @@
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.52.0
+huggingface-hub>=0.32.0
+tokenizers>=0.21.0
+safetensors>=0.5.0
+soundfile>=0.12.1
+numpy>=1.26.0
+scipy>=1.10.0
+# Skip librosa to avoid Python 3.12 compatibility issues

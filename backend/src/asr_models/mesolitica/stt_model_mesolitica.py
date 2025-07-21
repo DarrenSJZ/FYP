@@ -5,11 +5,22 @@ import torch
 from transformers.models.wav2vec2 import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 # Import base transcriber and utilities
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from path_utils import setup_asr_utils_path
-setup_asr_utils_path()
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../asr_utils'))
 from base_transcriber import BaseTranscriber
-from audio_utils import load_audio, get_device
+
+def get_device():
+    """Get the appropriate device (CPU/GPU) for model inference."""
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def load_audio_simple(file_path: str, target_sr: int = 16000):
+    """Simple audio loading for mesolitica without complex dependencies"""
+    import soundfile as sf
+    audio, sr = sf.read(file_path)
+    if sr != target_sr:
+        # Simple resampling
+        import scipy.signal as signal
+        audio = signal.resample(audio, int(len(audio) * target_sr / sr))
+    return audio
 
 class MesoliticaTranscriber(BaseTranscriber):
     def __init__(self, model_name="mesolitica/wav2vec2-xls-r-300m-mixed", rate=16000):
@@ -31,7 +42,7 @@ class MesoliticaTranscriber(BaseTranscriber):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
-                audio = load_audio(audio_file)
+                audio = load_audio_simple(audio_file)
                 inputs = self.processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
                 if torch.cuda.is_available():
                     inputs = {k: v.to(self.device) for k, v in inputs.items()}

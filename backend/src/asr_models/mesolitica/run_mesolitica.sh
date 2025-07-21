@@ -47,20 +47,13 @@ if [ ! -d "env_mesolitica" ]; then
     echo "Installing required packages..."
     
     echo "Using uv pip for faster installation..."
-    # Install project with mesolitica dependencies
-    cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-    uv pip install ".[mesolitica]"
-    cd "$SCRIPT_DIR"  # Return to script directory
+    # Install from requirements file
+    uv pip install -r requirements.txt
     
-    # Install system dependencies if needed
-    if [ -x "$(command -v apt-get)" ]; then
-        echo "Detected apt package manager, installing system dependencies..."
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg python3-dev
-    elif [ -x "$(command -v pacman)" ]; then
-        echo "Detected pacman package manager, installing system dependencies..."
-        sudo pacman -S --noconfirm ffmpeg python-dev
-    fi
+    # Note: System dependencies (ffmpeg, python3-dev) should be installed manually:
+    # For Ubuntu/Debian: sudo apt-get install ffmpeg python3-dev
+    # For Arch: sudo pacman -S ffmpeg python-dev
+    echo "Note: Ensure system dependencies are installed: ffmpeg, python3-dev"
     
     echo "Environment setup complete."
 else
@@ -70,9 +63,7 @@ else
     # Check if transformers is installed (main dependency for mesolitica)
     if ! package_installed transformers; then
         echo "Mesolitica dependencies not found, installing..."
-        cd "$PROJECT_ROOT"  # Go to project root where pyproject.toml is located
-        uv pip install ".[mesolitica]"
-        cd "$SCRIPT_DIR"  # Return to script directory
+        uv pip install -r requirements.txt
     fi
 fi
 

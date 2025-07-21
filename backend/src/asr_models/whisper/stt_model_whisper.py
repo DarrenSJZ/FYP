@@ -36,7 +36,8 @@ class WhisperTranscriber(BaseTranscriber):
                 warnings.simplefilter("ignore")
                 print("Loading and processing audio...")
                 if audio_file.lower().endswith('.mp3') or audio_file.lower().endswith('.wav'):
-                    result = self.model.transcribe(audio_file)
+                    # Force English language for consistent results
+                    result = self.model.transcribe(audio_file, language='en')
                     return result["text"]
                 else:
                     return "Unsupported file format. Please use MP3 or WAV files."
