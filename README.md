@@ -1,61 +1,312 @@
-# Advanced Transcription and Validation Platform
+<p align="center">
+  <img src="frontend/public/favicon.ico" alt="Project Logo" width="120" height="120"/>
+</p>
 
-## Project Objectives
+# 🗣️ Accentric: Gamifying Speech Truth Through Crowd Validation and Accent Diversity 🗣️
 
-This project creates a high-quality transcription platform that combines multiple ASR (Automatic Speech Recognition) models with Docker orchestration for scalable, reliable transcription processing.
 
-## Core Features
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/frontend-react%20%7C%20typescript-blue?style=for-the-badge" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/asr-6%20models%20%7C%20parallel-green?style=for-the-badge" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/ai-gemini%20%7C%20nlp-purple?style=for-the-badge" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/storage-postgresql%20%7C%20supabase-yellow?style=for-the-badge" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/infra-docker%20%7C%20microservices-lightgrey?style=for-the-badge" /></a>
+</p>
+<p align="left">
+  Powered by 6 parallel ASR models, Gemini AI, and FastAPI microservices. Designed for accent-aware speech recognition with cultural discourse particle detection and crowd validation.
+</p>
 
-### Multi-Model ASR Pipeline
-- **6 ASR Models Available:**
-  - **Whisper** (8001): OpenAI's speech-to-text model
-  - **Wav2Vec** (8002): Facebook's self-supervised speech model  
-  - **Moonshine** (8003): Useful Sensors' edge-optimized model
-  - **Mesolitica** (8004): Malaysian speech recognition model
-  - **Vosk** (8005): Offline speech recognition toolkit
-  - **Allosaurus** (8006): Universal phoneme recognition model
+This repository contains our Final Year Project submission for accent-aware speech recognition with gamification elements and cultural context preservation.
 
-- **Docker Architecture:**
-  - Each model runs as an HTTP microservice in Docker containers
-  - Shared base Docker layer for optimized builds and reduced disk usage
-  - All services accept any audio format (MP3, WAV, FLAC, etc.)
-  - Parallel execution with `asyncio.gather()` for fast processing
+**Key Resources:**
 
-### Docker Orchestrator
+*   🎨 **Live Demo:** [Coming Soon - Frontend Integration Complete]
+*   📄 **Documentation:** [Comprehensive System Docs](./docs/) | [User Manual](./docs/user-manual.md) | [Architecture Diagrams](./docs/system-diagrams.md)
+*   🎥 **Demo Videos:** [System Walkthrough - Coming Soon]
+*   📊 **Research Data:** [Dataset Examples](./exports/) | [Evaluation Results - Coming Soon]
 
-**Main Components:**
-- **Orchestrator Service** (8000): FastAPI service managing parallel ASR requests
-- **Individual ASR Services**: Each model as independent HTTP microservice
-- **Shared Base Layer**: Common dependencies (PyTorch, FastAPI, etc.)
+---
 
-**Key Features:**
-1. **Parallel Execution**: All models process simultaneously
-2. **Health Monitoring**: Built-in health checks for all services
-3. **Flexible Input**: Accepts any audio format with automatic conversion
-4. **Model Selection**: Run specific models or all available models
+## 📺 System Demonstration
 
-## Quick Start
+<div align="center">
+  
+  <!-- Video placeholders - you can replace these with your actual demo videos -->
+  
+  <p><h3>🎙️ Multi-Model ASR Processing</h3>
+  "Watch how our system processes audio through 6 different ASR models simultaneously, then uses AI consensus to create the most accurate transcription."
+  
+  *[Demo video coming soon - Frontend integration complete]*
+  </p>
 
-### 1. Start All Services
+  <p><h3>🌍 Accent-Aware Particle Detection</h3>
+  "See our cultural discourse particle detection in action - identifying Malaysian 'lah', Singaporean 'sia', and British 'innit' with IPA phoneme analysis."
+  
+  *[Demo video coming soon - Particle detection system operational]*
+  </p>
+
+  <p><h3>🎮 Gamified Crowd Validation</h3>
+  "Experience the gamification system where users earn points for validating transcriptions and contributing to accent diversity research."
+  
+  *[Demo video coming soon - Validation system implemented]*
+  </p>
+
+</div>
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+**System Requirements:**
+- **Node.js 18+** for frontend development
+- **Python 3.11+** for backend services  
+- **Docker & Docker Compose** for ASR model services
+- **Git** for version control
+
+### Quick Start (Automated Setup)
+
+**For Linux Users (Arch/Ubuntu/Debian):**
 ```bash
-docker-compose up --build
+# Clone the repository
+git clone [your-repo-url]
+cd accentric
+
+# Make setup scripts executable
+chmod +x build-all-docker.sh cleanup-docker.sh tui/run_asr_tui.sh
+
+# Automated Docker build and setup
+./build-all-docker.sh --parallel --start
 ```
 
-### 2. Test Individual Service
+**Manual Setup:**
+
+### 1. Frontend Setup
+
 ```bash
-curl -X POST -F "file=@audio.mp3" http://localhost:8001/transcribe  # Whisper
-curl -X POST -F "file=@audio.mp3" http://localhost:8005/transcribe  # Vosk
+# Check Node.js version
+node --version  # Should be 18+
+
+# Install frontend dependencies
+cd frontend/
+npm install
+
+# Start React development server
+npm run dev
 ```
 
-### 3. Parallel Transcription (All Models)
+### 2. Backend ASR Services Setup
+
 ```bash
-curl -X POST -F "file=@audio.mp3" http://localhost:8000/transcribe
+# Build all ASR services with shared base layer
+./build-all-docker.sh
+
+# Or step-by-step manual build:
+docker-compose up --build -d
 ```
 
-### 4. Health Check
+**API Keys Setup:**
+The build script will guide you through setting up required API keys:
+- **Gemini API Key**: For AI consensus analysis ([Get here](https://makersuite.google.com/app/apikey))
+- **Tavily API Key**: For web validation ([Get here](https://tavily.com/))
+
+### 3. Start All Services
+
 ```bash
+# Start all services (6 ASR models + orchestrator + autocomplete + Redis)
+docker-compose up -d
+
+# Check service health
 curl http://localhost:8000/health
+curl http://localhost:8007/health
 ```
+
+### 4. Test the System
+
+```bash
+# Test individual ASR service
+curl -X POST -F "file=@test-audio.mp3" http://localhost:8001/transcribe
+
+# Test full AI pipeline
+curl -X POST -F "file=@test-audio.mp3" http://localhost:8000/transcribe-consensus
+
+# Test with particle detection
+curl -X POST -F "file=@accented-speech.mp3" -F "accent_hint=singaporean" http://localhost:8000/transcribe-with-particles
+```
+
+---
+
+## 🐧 Linux Distribution Compatibility
+
+### **Arch Linux** ✅ **Fully Supported**
+```bash
+# Install dependencies
+sudo pacman -S docker docker-compose nodejs npm python python-pip git curl jq dialog ffmpeg
+
+# Enable Docker service
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER  # Logout and login again
+
+# Run setup
+./build-all-docker.sh --parallel --start
+```
+
+### **Ubuntu/Debian** ✅ **Fully Supported**
+```bash
+# Install dependencies
+sudo apt update
+sudo apt install docker.io docker-compose nodejs npm python3 python3-pip git curl jq dialog ffmpeg
+
+# Enable Docker service
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER  # Logout and login again
+
+# Run setup
+./build-all-docker.sh --parallel --start
+```
+
+### **Fedora/RHEL** ✅ **Compatible**
+```bash
+# Install dependencies
+sudo dnf install docker docker-compose nodejs npm python3 python3-pip git curl jq dialog ffmpeg
+
+# Enable Docker service  
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER  # Logout and login again
+
+# Run setup
+./build-all-docker.sh --parallel --start
+```
+
+### **Other Linux Distributions**
+The system should work on any Linux distribution with:
+- Docker Engine 20.10+
+- Docker Compose v2
+- Node.js 18+
+- Python 3.11+
+
+---
+
+## 🛠️ Build Scripts and Utilities
+
+### **Automated Build Script**
+```bash
+# Full automated setup with parallel builds
+./build-all-docker.sh --parallel --start
+
+# Available options:
+./build-all-docker.sh --help
+  -p, --parallel        Build ASR services in parallel
+  -v, --verbose         Show detailed build output  
+  -f, --force           Force rebuild (--no-cache)
+  --start               Start services after build
+  --no-orchestrator     Skip orchestrator service
+```
+
+### **System Cleanup**
+```bash
+# Clean up Docker images and containers
+./cleanup-docker.sh
+
+# Reset everything for fresh build
+./cleanup-docker.sh && ./build-all-docker.sh --force --start
+```
+
+### **TUI Interface for Testing**
+```bash
+# Interactive Terminal User Interface
+./tui/run_asr_tui.sh
+
+# Command-line usage
+./tui/run_asr_tui.sh --services --audio-dir /path/to/audio/
+```
+
+### **Service Management**
+```bash
+# View running services
+docker-compose ps
+
+# View logs  
+docker-compose logs -f orchestrator
+docker-compose logs -f whisper-service
+
+# Restart specific service
+docker-compose restart wav2vec-service
+
+# Scale services
+docker-compose up -d --scale whisper-service=3
+```
+
+---
+
+## ⚙️ Tech Stack Overview
+
+### Frontend
+- **React 18** with **TypeScript** for modern UI development
+- **Tailwind CSS** + **Shadcn/UI** for beautiful, accessible components  
+- **Supabase Client** for direct database integration
+- **VIM Mode Support** for power users and accessibility
+
+### Backend & ASR
+- **FastAPI** for high-performance API routing and async processing
+- **6 Parallel ASR Models**: Whisper, Wav2Vec, Moonshine, Mesolitica, Vosk, Allosaurus
+- **Docker Microservices** for scalable, fault-tolerant architecture
+- **Gemini 2.0 Flash** for AI consensus analysis and NLP enhancement
+
+### AI & Analysis  
+- **Multi-Strategy Aggregation**: Majority voting + confidence weighting
+- **Cultural Particle Detection**: IPA phoneme analysis for accent markers
+- **Web Validation**: Tavily API for fact-checking and proper noun correction
+- **Semantic Enhancement**: Context understanding and grammar refinement
+
+### Storage & Data
+- **Supabase PostgreSQL** for user data and validated transcriptions
+- **Supabase Storage** for audio file management
+- **Local Processing** with automatic cleanup for privacy
+- **JSONL Logging** for complete audit trails and research data
+
+### Infrastructure
+- **Docker Compose** for multi-container orchestration
+- **Redis** for autocomplete caching and session management  
+- **Supabase Authentication** for user management and secure access
+- **Automated Health Monitoring** across all microservices
+
+---
+
+## 🏗️ System Architecture & Features
+
+### **📊 Core Processing Capabilities:**
+
+**🎙️ Multi-Model ASR Pipeline:**
+- ✅ **6 Parallel ASR Models** running simultaneously in Docker containers
+- ✅ **Advanced AI Consensus** using Gemini 2.0 Flash for intelligent aggregation
+- ✅ **Cultural Particle Detection** across Southeast Asian, British, North American accents
+- ✅ **IPA Phoneme Analysis** using Allosaurus for linguistic research accuracy
+- ✅ **Web Validation** via Tavily API for proper noun and technical term verification
+
+**🎮 Gamification & Validation:**
+- ✅ **Human-in-the-Loop Validation** with A/B testing interface
+- ✅ **Crowd Validation System** with user feedback and scoring mechanisms
+- ✅ **Practice Mode** with pre-validated clips for educational purposes
+- ✅ **Real-time Autocomplete** with confidence-based suggestions
+- ✅ **User Progress Tracking** and validation accuracy metrics
+
+**🔬 Research & Analysis Features:**
+- ✅ **Accent Diversity Analysis** through discourse particle distribution
+- ✅ **Dataset Export** in Common Voice TSV format with enhanced metadata
+- ✅ **Performance Benchmarking** with Word Error Rate (WER) calculations
+- ✅ **Mixed-Method Evaluation** combining quantitative and qualitative assessment
+- ✅ **Privacy-First Architecture** with local processing and automatic cleanup
+
+### **Service Status & Architecture:**
+| Service Type | Count | Ports | Status |
+|-------------|-------|-------|---------|
+| **ASR Models** | 6 | 8001-8006 | ✅ All Operational |
+| **Orchestrator** | 1 | 8000 | ✅ Advanced Pipeline Working |
+| **Autocomplete** | 1 | 8007 | ✅ Redis Integration Complete |
+| **Frontend** | 1 | 3000 | ✅ React + Supabase Integrated |
+| **Total Endpoints** | **25+** | - | **All Systems Operational** |
 
 ## Complete API Endpoints Summary
 
@@ -276,5 +527,3 @@ npm run frontend:preview
 - **Real-time Results** display from backend ASR services
 - **VIM Editor** for post-processing and editing transcribed text
 - **Multi-model Support** - Switch between different ASR models and analysis modes
-
-**Status: 🎉 FRONTEND FULLY INTEGRATED AND OPERATIONAL**

@@ -57,15 +57,37 @@ export function UserHistory() {
         return;
       }
 
-      // Fetch user's contributions
+      console.log('DEBUG: Fetching contributions for user:', {
+        userId: user.id,
+        userEmail: user.email
+      });
+
+      // Fetch user's contributions with debug logging
       const { data, error } = await supabase
         .from('user_contributions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      console.log('DEBUG: UserHistory query result:', {
+        data: data,
+        error: error,
+        dataLength: data?.length || 0
+      });
+
       if (error) {
+        console.error('DEBUG: UserHistory query error:', error);
         throw error;
+      }
+
+      // Debug each contribution's validation status
+      if (data && data.length > 0) {
+        console.log('DEBUG: Contributions breakdown:');
+        data.forEach((contrib, index) => {
+          console.log(`  ${index + 1}. ${contrib.original_filename} - Status: ${contrib.validation_status} - Session: ${contrib.session_type}`);
+        });
+      } else {
+        console.log('DEBUG: No contributions found for this user');
       }
 
       setContributions(data || []);

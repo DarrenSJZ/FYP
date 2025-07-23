@@ -648,7 +648,7 @@ const Index = () => {
             file_size_bytes: null, // We don't know the file size of CV22 clips
             file_mime_type: null, // We don't know the MIME type of CV22 clips
             accent_detected: accentName,
-            locale_detected: typeof localeCode === 'string' ? localeCode : localeCode[0]
+            locale_detected: (typeof localeCode === 'string' ? localeCode : localeCode[0])?.substring(0, 10)
           };
         } else {
           // Upload mode: Save user contribution
@@ -668,9 +668,10 @@ const Index = () => {
             age: null, // Could be collected in future
             gender: null, // Could be collected in future  
             accents: accentName,
-            locale: typeof localeCode === 'string' ? localeCode : localeCode[0],
+            locale: (typeof localeCode === 'string' ? localeCode : localeCode[0])?.substring(0, 10),
             segment: null,
             sentence_id: `upload_${Date.now()}`,
+            
             
             // Session Fields
             user_id: user.id,
@@ -685,20 +686,59 @@ const Index = () => {
             file_size_bytes: audioFile?.size,
             file_mime_type: audioFile?.type,
             accent_detected: accentName,
-            locale_detected: typeof localeCode === 'string' ? localeCode : JSON.stringify(localeCode)
+            locale_detected: (typeof localeCode === 'string' ? localeCode : localeCode[0])?.substring(0, 10)
           };
         }
 
         // Insert into user_contributions table with unified CV22 schema
+        console.log('DEBUG: About to save contribution - FULL DATA:', insertData);
+        console.log('DEBUG: Field lengths check:', {
+          locale: insertData.locale?.length || 0,
+          locale_detected: insertData.locale_detected?.length || 0,
+          validation_status: insertData.validation_status?.length || 0,
+          session_type: insertData.session_type?.length || 0,
+          accents: insertData.accents?.length || 0,
+          accent_detected: insertData.accent_detected?.length || 0
+        });
+
         const { data, error } = await supabase
           .from('user_contributions')
           .insert(insertData)
           .select()
           .single();
 
+        console.log('DEBUG: Save contribution result:', {
+          success: !error,
+          data: data,
+          error: error
+        });
+
         if (error) {
           console.error(`Database write failed for ${practiceMode} mode:`, error);
-          // Could show toast notification here
+          
+          // Check for duplicate file error based on common database constraint violations
+          let userFriendlyMessage = "Failed to save your contribution to the database.";
+          
+          if (error.message?.includes('duplicate') || 
+              error.message?.includes('unique') || 
+              error.code === '23505' || // PostgreSQL unique violation
+              error.message?.includes('already exists')) {
+            userFriendlyMessage = "It looks like you've already uploaded this file before. Please try uploading a different audio file.";
+          } else if (error.message?.includes('RLS') || 
+                     error.message?.includes('row level security') ||
+                     error.message?.includes('policy')) {
+            userFriendlyMessage = "You don't have permission to save this data. Please make sure you're logged in and try again.";
+          } else if (error.message?.includes('network') || 
+                     error.message?.includes('connection')) {
+            userFriendlyMessage = "Network connection issue. Please check your internet connection and try again.";
+          }
+          
+          // Show user-friendly error message
+          alert(userFriendlyMessage);
+          
+          // Reset to comparison stage so user can try again
+          setCurrentStage("comparison");
+          return;
         } else {
           console.log(`Successfully saved ${practiceMode} session:`, data);
           console.log('Session type:', practiceMode);

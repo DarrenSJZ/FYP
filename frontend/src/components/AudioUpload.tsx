@@ -134,9 +134,21 @@ export function AudioUpload({
       });
 
       const bucketName = "user-contributions";
-      const filePath = `${user.id}/${uploadedFile.name}`; // Use user-id/filename path structure
+      
+      // Generate unique filename to avoid duplicates entirely
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2);
+      const fileExtension = uploadedFile.name.split('.').pop();
+      const uniqueFileName = `${timestamp}-${randomId}.${fileExtension}`;
+      const filePath = `${user.id}/${uniqueFileName}`;
 
-      console.log('Upload attempt:', { bucketName, filePath, userId: user.id });
+      console.log('Upload attempt:', { 
+        bucketName, 
+        filePath, 
+        userId: user.id, 
+        originalName: uploadedFile.name,
+        uniqueName: uniqueFileName 
+      });
 
       // Upload file to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -148,7 +160,28 @@ export function AudioUpload({
 
       if (uploadError) {
         console.error('Storage upload error details:', uploadError);
-        throw new Error(`Supabase Storage Upload Error: ${uploadError.message}`);
+        
+        // Handle specific storage errors with user-friendly messages
+        let userFriendlyMessage = "Failed to upload your audio file.";
+        
+        if (uploadError.statusCode === '403' || 
+            uploadError.message?.includes('policy') ||
+            uploadError.message?.includes('Unauthorized')) {
+          userFriendlyMessage = "You don't have permission to upload files. Please make sure you're logged in and try again.";
+        } else if (uploadError.message?.includes('size') || 
+                   uploadError.message?.includes('too large')) {
+          userFriendlyMessage = "Your audio file is too large. Please try a smaller file (max 10MB).";
+        } else if (uploadError.message?.includes('format') || 
+                   uploadError.message?.includes('type')) {
+          userFriendlyMessage = "Unsupported audio format. Please use MP3, WAV, or M4A files.";
+        } else if (uploadError.statusCode === '401') {
+          userFriendlyMessage = "You need to be logged in to upload files. Please log in and try again.";
+        } else if (uploadError.message?.includes('network') || 
+                   uploadError.message?.includes('connection')) {
+          userFriendlyMessage = "Network connection issue. Please check your internet connection and try again.";
+        }
+        
+        throw new Error(userFriendlyMessage);
       }
 
       // Get public URL of the uploaded file
