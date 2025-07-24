@@ -70,7 +70,7 @@ This repository contains our Final Year Project submission for accent-aware spee
 **For Linux Users (Arch/Ubuntu/Debian):**
 ```bash
 # Clone the repository
-git clone [your-repo-url]
+git clone https://github.com/DarrenSJZ/FYP.git
 cd accentric
 
 # Make setup scripts executable
