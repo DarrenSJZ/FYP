@@ -71,7 +71,7 @@ This repository contains our Final Year Project submission for accent-aware spee
 ```bash
 # Clone the repository
 git clone https://github.com/DarrenSJZ/FYP.git
-cd accentric
+cd FYP
 
 # Make setup scripts executable
 chmod +x build-all-docker.sh cleanup-docker.sh tui/run_asr_tui.sh
