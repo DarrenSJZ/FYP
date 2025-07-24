@@ -530,6 +530,11 @@ export function PronounConsolidationStage({
                   }
                   return null;
                 })()}
+                
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Info className="w-3 h-3" />
+                  <span>Primary model with alternative consensus from other ASR models</span>
+                </div>
               </div>
             </div>
           </div>
