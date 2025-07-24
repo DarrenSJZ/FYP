@@ -55,6 +55,17 @@ export function PronounConsolidationStage({
   // Helper function to normalize option to full object
   const normalizeOption = (option: string | PronounConsolidationChoice | undefined, defaultLabel: string): PronounConsolidationChoice => {
     if (typeof option === 'string') {
+      // Handle specific error cases
+      if (option === "ASR transcription unavailable" || option === "Consensus transcription unavailable") {
+        return {
+          transcription: "Transcription processing failed - please try refreshing",
+          label: `${defaultLabel} (Error)`,
+          description: "There was an issue processing the transcription",
+          confidence: 0.0,
+          reasoning: "Processing error - refresh recommended"
+        };
+      }
+      
       return {
         transcription: option,
         label: defaultLabel,
@@ -63,6 +74,18 @@ export function PronounConsolidationStage({
         reasoning: "AI consensus result"
       };
     } else if (option && typeof option === 'object') {
+      // Also check if the object contains error transcriptions
+      const transcription = option.transcription;
+      if (transcription === "ASR transcription unavailable" || transcription === "Consensus transcription unavailable") {
+        return {
+          ...option,
+          transcription: "Transcription processing failed - please try refreshing",
+          label: `${option.label} (Error)`,
+          description: "There was an issue processing the transcription",
+          confidence: 0.0,
+          reasoning: "Processing error - refresh recommended"
+        };
+      }
       return option;
     } else {
       return {
@@ -156,6 +179,8 @@ export function PronounConsolidationStage({
         description: "Both options are identical because the web validation confirmed the AI consensus was already correct.",
         variant: "default",
       });
+      // Auto-select the option since there's only one choice
+      setSelectedOption('option_a');
     }
   }, [areTranscriptionsDifferent, toast]);
 
@@ -260,25 +285,88 @@ export function PronounConsolidationStage({
         </div>
       )}
 
-      {/* Transcription Options - Left/Right Layout or Combined */}
-      <div className="w-full max-w-6xl">
+      {/* Error State Check */}
+      {(() => {
+        const hasError = effectiveChoices && (
+          effectiveChoices.option_a.label.includes('(Error)') || 
+          effectiveChoices.option_b.label.includes('(Error)') ||
+          effectiveChoices.option_a.transcription.includes('processing failed') ||
+          effectiveChoices.option_b.transcription.includes('processing failed')
+        );
+
+        if (hasError) {
+          return (
+            <div className="w-full max-w-2xl mx-auto">
+              <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-xl text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <Info className="h-6 w-6 text-destructive" />
+                  <h3 className="text-lg font-semibold text-destructive">Transcription Processing Error</h3>
+                </div>
+                <p className="text-destructive mb-4">
+                  There was an issue processing the transcription data from the previous stage.
+                </p>
+                <div className="space-y-2 text-sm text-muted-foreground mb-4">
+                  <p>This could be due to:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Backend connection issues</li>
+                    <li>Audio processing failures</li>
+                    <li>Missing consensus data</li>
+                  </ul>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    variant="destructive"
+                    className="gap-2"
+                  >
+                    <Info className="h-4 w-4" />
+                    Refresh Page
+                  </Button>
+                  <Button 
+                    onClick={onBack} 
+                    variant="outline"
+                  >
+                    Go Back
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* A/B Choice Instructions - Only show if no error */}
+      {!effectiveChoices || (!effectiveChoices.option_a.label.includes('(Error)') && !effectiveChoices.option_b.label.includes('(Error)')) ? (
+        <div className="w-full">
+          {!areTranscriptionsDifferent ? (
+            // Centered instructions for combined/identical transcriptions
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <Info className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-semibold">Confirmed Transcription</h3>
+              </div>
+              <p className="text-base text-muted-foreground max-w-2xl mx-auto">Web validation confirmed the AI consensus was correct - click to proceed with the verified transcription</p>
+            </div>
+          ) : (
+            // Left-aligned instructions for different A/B transcriptions
+            <div className="text-left mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <Info className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-semibold">A/B Choice Selection</h3>
+              </div>
+              <p className="text-base text-muted-foreground ml-9">Compare the AI consensus vs web-validated transcription cards, then select an option that best matches the audio</p>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Transcription Options - Left/Right Layout or Combined - Only show if no error */}
+      {!effectiveChoices || (!effectiveChoices.option_a.label.includes('(Error)') && !effectiveChoices.option_b.label.includes('(Error)')) ? (
+        <div className="w-full max-w-6xl">
         {!areTranscriptionsDifferent ? (
           // Combined card when transcriptions are identical
           <div className="flex flex-col items-center space-y-4">
-            <div className="flex flex-col justify-center items-center text-center">
-              <div className="flex items-center gap-3 mb-2">
-                <Brain className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold">Confirmed Transcription</h3>
-                <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
-                  {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
-                </Badge>
-                {selectedOption && (
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">AI consensus confirmed by web validation</p>
-            </div>
-            
             <div 
               className={`cursor-pointer transition-all duration-200 hover:shadow-lg p-6 rounded-xl border-2 max-w-4xl w-full ${
                 selectedOption ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
@@ -286,6 +374,25 @@ export function PronounConsolidationStage({
               onClick={() => handleOptionSelect('option_a')} // Either option works since they're the same
             >
               <div className="space-y-4">
+                {/* Header inside card */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Brain className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Confirmed Transcription</h3>
+                  </div>
+                  {selectedOption && (
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                  )}
+                </div>
+                
+                {/* Confidence and Description */}
+                <div className="flex items-center justify-between">
+                  <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
+                    {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">AI consensus confirmed by web validation</p>
+                
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
                   "{effectiveChoices?.option_a.transcription}"
                 </div>
@@ -346,28 +453,32 @@ export function PronounConsolidationStage({
           // Original two-card layout when transcriptions are different
           <div className="flex flex-col md:flex-row gap-8 items-stretch">
             {/* Option A - AI Consensus (Left) */}
-            <div className="flex-1 space-y-4">
-            {/* Header outside the card - Fixed height */}
-            <div className="flex flex-col justify-center items-center text-center">
-              <div className="flex items-center gap-3 mb-2">
-                {getIcon('option_a')}
-                <h3 className="text-lg font-semibold">{effectiveChoices?.option_a.label}</h3>
-                <Badge className={getConfidenceColor(effectiveChoices?.option_a.confidence || 0)}>
-                  {formatConfidence(effectiveChoices?.option_a.confidence || 0)}% confident
-                </Badge>
-                {selectedOption === 'option_a' && (
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{effectiveChoices?.option_a.description}</p>
-            </div>
-            
+            <div className="flex-1">
             {/* Card bubble */}
             <div 
               className={`cursor-pointer transition-all duration-200 hover:shadow-lg p-6 rounded-xl border-2 ${getSelectionColor('option_a')}`}
               onClick={() => handleOptionSelect('option_a')}
             >
               <div className="space-y-3">
+                {/* Header inside card */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getIcon('option_a')}
+                    <h3 className="text-lg font-semibold">{effectiveChoices?.option_a.label}</h3>
+                  </div>
+                  {selectedOption === 'option_a' && (
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                  )}
+                </div>
+                
+                {/* Confidence and Description */}
+                <div className="flex items-center justify-between">
+                  <Badge className={getConfidenceColor(effectiveChoices?.option_a.confidence || 0)}>
+                    {formatConfidence(effectiveChoices?.option_a.confidence || 0)}% confident
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{effectiveChoices?.option_a.description}</p>
+                
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
                   "{effectiveChoices?.option_a.transcription}"
                 </div>
@@ -422,28 +533,32 @@ export function PronounConsolidationStage({
           </div>
 
           {/* Option B - Web Validated (Right) */}
-          <div className="flex-1 space-y-4">
-            {/* Header outside the card - Fixed height */}
-            <div className="flex flex-col justify-center items-center text-center">
-              <div className="flex items-center gap-3 mb-2">
-                {getIcon('option_b')}
-                <h3 className="text-lg font-semibold">{effectiveChoices?.option_b.label}</h3>
-                <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
-                  {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
-                </Badge>
-                {selectedOption === 'option_b' && (
-                  <CheckCircle2 className="w-5 h-5 text-accent" />
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{effectiveChoices?.option_b.description}</p>
-            </div>
-            
+          <div className="flex-1">
             {/* Card bubble */}
             <div 
               className={`cursor-pointer transition-all duration-200 hover:shadow-lg p-6 rounded-xl border-2 ${getSelectionColor('option_b')}`}
               onClick={() => handleOptionSelect('option_b')}
             >
               <div className="space-y-3">
+                {/* Header inside card */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {getIcon('option_b')}
+                    <h3 className="text-lg font-semibold">{effectiveChoices?.option_b.label}</h3>
+                  </div>
+                  {selectedOption === 'option_b' && (
+                    <CheckCircle2 className="w-5 h-5 text-accent" />
+                  )}
+                </div>
+                
+                {/* Confidence and Description */}
+                <div className="flex items-center justify-between">
+                  <Badge className={getConfidenceColor(effectiveChoices?.option_b.confidence || 0)}>
+                    {formatConfidence(effectiveChoices?.option_b.confidence || 0)}% confident
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{effectiveChoices?.option_b.description}</p>
+                
                 <div className="font-mono text-sm bg-card border border-border rounded-lg p-4">
                   "{effectiveChoices?.option_b.transcription}"
                 </div>
@@ -507,14 +622,15 @@ export function PronounConsolidationStage({
           </div>
         )}
       </div>
+      ) : null}
 
-      
+      {/* Line Separator - Only show if no error */}
+      {!effectiveChoices || (!effectiveChoices.option_a.label.includes('(Error)') && !effectiveChoices.option_b.label.includes('(Error)')) ? (
+        <>
+          <div className="w-full border-t border-border"></div>
 
-      {/* Line Separator */}
-      <div className="w-full border-t border-border"></div>
-
-      {/* Confirm Button */}
-      <div className="flex justify-center pt-8">
+          {/* Confirm Button */}
+          <div className="flex justify-center pt-8">
         <Button
           onClick={handleConfirm}
           disabled={!selectedOption || isSubmitting}
@@ -535,15 +651,17 @@ export function PronounConsolidationStage({
         </Button>
       </div>
 
-      {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground">
-        <p>
-          Choose the transcription option that best matches what you heard in the audio.
-        </p>
-        <p className="mt-1">
-          Complete this selection to unlock the next stage in the progress bar above.
-        </p>
-      </div>
+          {/* Helper Text */}
+          <div className="text-center text-sm text-muted-foreground">
+            <p>
+              Choose the transcription option that best matches what you heard in the audio.
+            </p>
+            <p className="mt-1">
+              Complete this selection to unlock the next stage in the progress bar above.
+            </p>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

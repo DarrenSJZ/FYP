@@ -14,9 +14,12 @@ import { TranscriptionComparison } from "@/components/TranscriptionComparison";
 import { DataSourceSelection } from "@/components/DataSourceSelection";
 import { StageNavigation } from "@/components/StageNavigation";
 import { DockerStatus as ConnectionStatus } from "@/components/DockerStatus";
+import { DockerLoadingDialog } from "@/components/DockerLoadingDialog";
+import { AdvancedEditorFeaturesDialog } from "@/components/AdvancedEditorFeaturesDialog";
 import { UserProfile } from "@/components/UserProfile";
 import { Button } from "@/components/ui/button";
-import { Volume2 } from "lucide-react";
+import { Volume2, Sparkles, Edit3 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { dockerAPI } from "@/lib/api";
 
 export type WorkflowStage = "mode-selection" | "upload" | "validation" | "editor" | "pronoun-consolidation" | "accent" | "particle-placement" | "comparison" | "submitting" | "completed";
@@ -45,6 +48,11 @@ const Index = () => {
   const [selectedPronounConsolidationChoice, setSelectedPronounConsolidationChoice] = useState<'option_a' | 'option_b' | null>(null);
   const [isPracticeLoading, setIsPracticeLoading] = useState(false);
   const [practiceProgress, setPracticeProgress] = useState(0);
+  const [showDockerDialog, setShowDockerDialog] = useState(false);
+  const [dockerServicesReady, setDockerServicesReady] = useState(false);
+  const [showEditorFeaturesDialog, setShowEditorFeaturesDialog] = useState(false);
+  const [hasShownEditorToast, setHasShownEditorToast] = useState(false);
+  const { toast } = useToast();
   
   // Cache for API results to avoid redundant calls
   const [cachedResults, setCachedResults] = useState<{
@@ -58,6 +66,7 @@ const Index = () => {
     selectedAccentData?: any;
     selectedParticlesData?: { particles: PotentialParticle[]; userTranscription: string };
     finalTranscriptionChoice?: { selection: 'ai' | 'user'; finalTranscription: string };
+    processedAccents?: Set<string>; // Track which specific accents have been processed
   }>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioSrcRef = useRef<string | null>(null);
@@ -65,6 +74,16 @@ const Index = () => {
 
   // Helper function to check if file has changed
   const hasFileChanged = (file?: File) => {
+    // For practice mode, compare audio URLs instead of file objects
+    if (practiceMode === 'practice') {
+      const currentAudioUrl = practiceAudioUrl;
+      const lastAudioUrl = cachedResults.practiceAudioUrl;
+      const hasChanged = currentAudioUrl !== lastAudioUrl;
+      console.log('Practice mode file change check:', { currentAudioUrl, lastAudioUrl, hasChanged });
+      return hasChanged;
+    }
+    
+    // For upload mode, compare file objects
     if (!file || !cachedResults.lastProcessedFile) return true;
     
     const currentFile = {
@@ -74,11 +93,13 @@ const Index = () => {
     };
     
     const lastFile = cachedResults.lastProcessedFile;
-    return (
+    const hasChanged = (
       currentFile.name !== lastFile.name ||
       currentFile.size !== lastFile.size ||
       currentFile.lastModified !== lastFile.lastModified
     );
+    console.log('Upload mode file change check:', { currentFile, lastFile, hasChanged });
+    return hasChanged;
   };
 
   // Helper function to clear cache
@@ -107,6 +128,22 @@ const Index = () => {
     console.log('Cache and all related state cleared, including session storage');
   };
 
+  // Helper function to check if a specific accent has been processed
+  const hasAccentBeenProcessed = (accentId: string) => {
+    const isProcessed = cachedResults.processedAccents?.has(accentId) || false;
+    console.log(`Checking if accent ${accentId} is processed:`, isProcessed, 'Processed accents:', Array.from(cachedResults.processedAccents || []));
+    return isProcessed;
+  };
+
+  // Helper function to mark an accent as processed
+  const markAccentAsProcessed = (accentId: string) => {
+    console.log(`Marking accent as processed: ${accentId}`);
+    setCachedResults(prev => ({
+      ...prev,
+      processedAccents: new Set([...(prev.processedAccents || []), accentId])
+    }));
+  };
+
   // Helper function to update cache for accent-specific particle data
   const updateCacheForAccent = (accentKey: string, particleData: any) => {
     setCachedResults(prev => ({
@@ -116,6 +153,108 @@ const Index = () => {
         [accentKey]: particleData
       }
     }));
+  };
+
+  // Docker dialog handlers
+  const handleServicesReady = () => {
+    setDockerServicesReady(true);
+    setShowDockerDialog(false);
+    // Auto-continue with practice mode now that services are ready
+    initiatePracticeMode();
+  };
+
+  const handleProceedAnyway = () => {
+    setDockerServicesReady(false); // User chose to proceed without full services
+    setShowDockerDialog(false);
+    // Continue with practice mode despite services not being fully ready
+    initiatePracticeMode();
+  };
+
+  // Separate function for the actual practice mode logic
+  const initiatePracticeMode = async () => {
+    console.log('initiatePracticeMode started');
+    setIsPracticeLoading(true);
+    setPracticeProgress(0);
+    try {
+      // Fetch random dataset item directly from Supabase
+      // First get total count, then get random offset
+      const { count } = await supabase
+        .from('cv22_clips')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!count || count === 0) {
+        throw new Error('No practice clips available in database');
+      }
+      
+      const randomOffset = Math.floor(Math.random() * count);
+      
+      const { data: randomClipData, error } = await supabase
+        .from('cv22_clips')
+        .select('id, sentence, path')
+        .range(randomOffset, randomOffset)
+        .single();
+
+      if (error) {
+        throw new Error(`Supabase query failed: ${error.message}`);
+      }
+
+      // Extract filename from Supabase storage path
+      const getFilenameFromPath = (path: string): string => {
+        try {
+          const url = new URL(path);
+          const pathname = url.pathname;
+          const filename = pathname.split('/').pop() || 'unknown_file';
+          return filename;
+        } catch {
+          // Fallback if URL parsing fails
+          return path.split('/').pop() || 'unknown_file';
+        }
+      };
+
+      // Transform to expected format
+      const randomClip = {
+        clip_id: randomClipData.id,
+        sentence: randomClipData.sentence,
+        audio_url: randomClipData.path,
+        original_filename: getFilenameFromPath(randomClipData.path)
+      };
+      
+      // Store practice clip data for processing
+      setPracticeAudioUrl(randomClip.audio_url);
+      setAudioFile(undefined); // No local file for practice mode
+      
+      // Store ground truth for comparison
+      setCachedResults(prev => ({
+        ...prev,
+        practiceGroundTruth: randomClip.sentence,
+        practiceAudioUrl: randomClip.audio_url,
+        practiceAudioId: randomClip.clip_id, // Store the clip ID for database reference
+        practiceFilename: randomClip.original_filename // Store the original filename
+      }));
+      
+      // Store ground truth in state for validation component
+      setPracticeGroundTruth(randomClip.sentence);
+      
+      // Process practice audio directly in background
+      console.log('About to process practice audio...');
+      await processPracticeAudio(randomClip.audio_url, randomClip.sentence);
+      
+      // Only proceed if processing succeeded
+      console.log('Practice audio processed successfully, going to validation');
+      setCurrentStage("validation");
+    } catch (error) {
+      console.error('Practice mode failed:', error);
+      
+      // Show error and stay on mode selection
+      alert(`Practice Mode Error: ${error.message || 'Failed to load practice data'}\n\nPlease try again or use Upload Mode instead.`);
+      
+      // Reset to mode selection - don't proceed with broken state
+      setCurrentStage("mode-selection");
+      setPracticeMode(null);
+    } finally {
+      setIsPracticeLoading(false);
+      setPracticeProgress(0);
+    }
   };
 
   const handleVimToggle = () => {
@@ -261,7 +400,9 @@ const Index = () => {
           name: file.name,
           size: file.size,
           lastModified: file.lastModified
-        } : prev.lastProcessedFile
+        } : prev.lastProcessedFile,
+        // For practice mode, ensure practiceAudioUrl is tracked
+        practiceAudioUrl: practiceMode === 'practice' ? practiceAudioUrl : prev.practiceAudioUrl
       }));
 
       // Initialize autocomplete service
@@ -381,11 +522,27 @@ const Index = () => {
     setTranscriptionText(newValue);
   };
 
-  // Reset editor flag when entering editor stage
+  // Show editor features toast when entering editor stage
   useEffect(() => {
-    if (currentStage === "editor") {
+    if (currentStage === "editor" && !hasShownEditorToast) {
+      setHasShownEditorToast(true);
+      toast({
+        title: "💡 Advanced Editor Features Available",
+        description: "This isn't just a text box - discover powerful editing tools like Vim mode, highlighting, and smart features.",
+        action: (
+          <Button
+            onClick={() => setShowEditorFeaturesDialog(true)}
+            size="sm"
+            className="gap-1 bg-primary hover:bg-primary/90"
+          >
+            <Sparkles className="h-4 w-4" />
+            Explore
+          </Button>
+        ),
+        duration: 10000, // Show for 10 seconds
+      });
     }
-  }, [currentStage, completedStages]);
+  }, [currentStage, hasShownEditorToast, toast]);
 
   // Initialize cache from session storage on mount
   useEffect(() => {
@@ -490,9 +647,14 @@ const Index = () => {
     }
   }, [currentStage, cachedResults.consensusData]);
 
-  const handleAccentSelected = async (accentSelection: AccentSelectionType) => {
+  const handleAccentSelected = async (accentSelection: AccentSelectionType, wasApiProcessed: boolean = false) => {
     setSelectedAccent(accentSelection);
     setCompletedStages(prev => new Set([...prev, "accent"]));
+    
+    // Only mark accent as processed if it was actually processed via API call
+    if (wasApiProcessed) {
+      markAccentAsProcessed(accentSelection.id);
+    }
     
     // Cache accent selection
     setCachedResults(prev => ({
@@ -998,88 +1160,16 @@ const Index = () => {
 
   const handlePracticeMode = async () => {
     console.log('handlePracticeMode started');
-    setIsPracticeLoading(true);
-    setPracticeProgress(0);
-    try {
-      // Fetch random dataset item directly from Supabase
-      // First get total count, then get random offset
-      const { count } = await supabase
-        .from('cv22_clips')
-        .select('*', { count: 'exact', head: true });
-      
-      if (!count || count === 0) {
-        throw new Error('No practice clips available in database');
-      }
-      
-      const randomOffset = Math.floor(Math.random() * count);
-      
-      const { data: randomClipData, error } = await supabase
-        .from('cv22_clips')
-        .select('id, sentence, path')
-        .range(randomOffset, randomOffset)
-        .single();
-
-      if (error) {
-        throw new Error(`Supabase query failed: ${error.message}`);
-      }
-
-      // Extract filename from Supabase storage path
-      const getFilenameFromPath = (path: string): string => {
-        try {
-          const url = new URL(path);
-          const pathname = url.pathname;
-          const filename = pathname.split('/').pop() || 'unknown_file';
-          return filename;
-        } catch {
-          // Fallback if URL parsing fails
-          return path.split('/').pop() || 'unknown_file';
-        }
-      };
-
-      // Transform to expected format
-      const randomClip = {
-        clip_id: randomClipData.id,
-        sentence: randomClipData.sentence,
-        audio_url: randomClipData.path,
-        original_filename: getFilenameFromPath(randomClipData.path)
-      };
-      
-      // Store practice clip data for processing
-      setPracticeAudioUrl(randomClip.audio_url);
-      setAudioFile(undefined); // No local file for practice mode
-      
-      // Store ground truth for comparison
-      setCachedResults(prev => ({
-        ...prev,
-        practiceGroundTruth: randomClip.sentence,
-        practiceAudioUrl: randomClip.audio_url,
-        practiceAudioId: randomClip.clip_id, // Store the clip ID for database reference
-        practiceFilename: randomClip.original_filename // Store the original filename
-      }));
-      
-      // Store ground truth in state for validation component
-      setPracticeGroundTruth(randomClip.sentence);
-      
-      // Process practice audio directly in background
-      console.log('About to process practice audio...');
-      await processPracticeAudio(randomClip.audio_url, randomClip.sentence);
-      
-      // Only proceed if processing succeeded
-      console.log('Practice audio processed successfully, going to validation');
-      setCurrentStage("validation");
-    } catch (error) {
-      console.error('Practice mode failed:', error);
-      
-      // Show error and stay on mode selection
-      alert(`Practice Mode Error: ${error.message || 'Failed to load practice data'}\n\nPlease try again or use Upload Mode instead.`);
-      
-      // Reset to mode selection - don't proceed with broken state
-      setCurrentStage("mode-selection");
-      setPracticeMode(null);
-    } finally {
-      setIsPracticeLoading(false);
-      setPracticeProgress(0);
+    
+    // Check Docker services first before proceeding
+    if (!dockerServicesReady) {
+      console.log('Docker services not confirmed ready, showing dialog');
+      setShowDockerDialog(true);
+      return; // Don't proceed until services are ready or user chooses to proceed anyway
     }
+    
+    // If services are ready, proceed directly
+    await initiatePracticeMode();
   };
 
   return (
@@ -1204,6 +1294,12 @@ const Index = () => {
               isAudioPlaying={isAudioPlaying}
               onAudioPlayPause={handleAudioPlayPause}
               cachedValidationResult={cachedResults.validationResult}
+              onAbort={() => {
+                // Clear all state and return to mode selection
+                clearCache();
+                setCurrentStage("mode-selection");
+                setPracticeMode(null);
+              }}
             />
           )}
 
@@ -1279,6 +1375,18 @@ const Index = () => {
                   </Button>
                 </div>
               )}
+
+              {/* Editor Instructions */}
+              <div className="w-full">
+                <div className="text-left mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Edit3 className="h-6 w-6 text-primary" />
+                    <h3 className="text-xl font-semibold">Advanced Text Editor</h3>
+                  </div>
+                  <p className="text-base text-muted-foreground ml-9">Refine your transcription using professional editing tools and features</p>
+                </div>
+              </div>
+
               
               {/* Ribbon and Toggles Row - Below audio player */}
               <div className="flex items-start justify-center gap-4">
@@ -1377,12 +1485,15 @@ const Index = () => {
               onBack={handleBack}
               completedStages={completedStages}
               onStageClick={handleStageClick}
-              cachedResults={cachedResults}
+              cachedResults={{
+                ...cachedResults,
+                processedAccents: cachedResults.processedAccents
+              }}
               hasFileChanged={hasFileChanged}
               audioFile={audioFile}
               onCacheUpdate={updateCacheForAccent}
               currentAccent={selectedAccent}
-              hasProcessedAccent={completedStages.has("accent")}
+              hasProcessedAccent={selectedAccent ? hasAccentBeenProcessed(selectedAccent.id) : false}
               audioUrl={practiceAudioUrl}
               isAudioPlaying={isAudioPlaying}
               onAudioPlayPause={handleAudioPlayPause}
@@ -1531,6 +1642,19 @@ const Index = () => {
           )}
         </div>
       </div>
+
+      {/* Docker Loading Dialog */}
+      <DockerLoadingDialog
+        isOpen={showDockerDialog}
+        onServicesReady={handleServicesReady}
+        onProceedAnyway={handleProceedAnyway}
+      />
+
+      {/* Advanced Editor Features Dialog */}
+      <AdvancedEditorFeaturesDialog
+        isOpen={showEditorFeaturesDialog}
+        onClose={() => setShowEditorFeaturesDialog(false)}
+      />
     </div>
   );
 };

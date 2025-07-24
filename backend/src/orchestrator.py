@@ -629,7 +629,7 @@ class ASROrchestrator:
             },
             "option_b": {
                 "transcription": validated_data['final_consensus'],
-                "label": "With Spelling Context",
+                "label": "Web Validated Spelling",
                 "description": "AI consensus with proper noun spelling verification",
                 "confidence": validated_data['validation_confidence'],
                 "reasoning": self._format_search_explanations(search_data, validated_data)
@@ -1020,6 +1020,18 @@ async def transcribe_consensus(
         # Add asr_generated_phonemes to the response
         consensus_results["asr_generated_phonemes"] = allosaurus_transcription.split() if allosaurus_transcription else []
         
+        # Ensure primary field is populated before practice mode processing
+        if not consensus_results.get("primary"):
+            consensus_data = consensus_results.get("consensus_data", {})
+            validation_data = consensus_results.get("validation_data", {})
+            consensus_results["primary"] = (
+                consensus_data.get("consensus_transcription", "") or
+                validation_data.get("final_consensus", "") or
+                consensus_results.get("ai_generated_transcription", "") or
+                "Consensus transcription unavailable"
+            )
+            print(f"DEBUG: Fixed missing primary field: '{consensus_results['primary']}'")
+        
         # If ground truth provided (practice mode), add comparison metadata
         if ground_truth:
             consensus_results["ground_truth"] = ground_truth
@@ -1033,10 +1045,19 @@ async def transcribe_consensus(
             print(f"DEBUG: Practice mode - ground_truth: '{ground_truth}'")
             print(f"DEBUG: Practice mode - consensus_results keys: {list(consensus_results.keys())}")
             
-            # Fallback if primary transcription is missing
+            # Try alternative sources for primary transcription
             if not asr_primary:
-                asr_primary = "ASR transcription unavailable"
-                print("DEBUG: Practice mode - using fallback for empty asr_primary")
+                # Try to get from consensus_data or validation_data
+                consensus_data = consensus_results.get("consensus_data", {})
+                validation_data = consensus_results.get("validation_data", {})
+                
+                asr_primary = (
+                    consensus_data.get("consensus_transcription", "") or
+                    validation_data.get("final_consensus", "") or
+                    consensus_results.get("ai_generated_transcription", "") or
+                    "ASR transcription unavailable"
+                )
+                print(f"DEBUG: Practice mode - found alternative primary: '{asr_primary}'")
             
             consensus_results["accuracy_comparison"] = {
                 "ground_truth": ground_truth,

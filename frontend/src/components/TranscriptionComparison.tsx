@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, User, CheckCircle2, Sparkles, Download, Edit3, Volume2 } from "lucide-react";
+import { ArrowRight, Brain, User, CheckCircle2, Sparkles, Download, Edit3, Volume2, Info } from "lucide-react";
 import { StageNavigation } from "./StageNavigation";
 import { StageProgressBar } from "./StageProgressBar";
 import type { WorkflowStage } from "@/pages/Index";
@@ -175,6 +175,29 @@ export function TranscriptionComparison({
         </Button>
       </div>
 
+      {/* A/B Choice Instructions */}
+      <div className="w-full">
+        {isExactMatch ? (
+          // Centered instructions for identical transcriptions
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <Info className="h-6 w-6 text-primary" />
+              <h3 className="text-xl font-semibold">Perfect Match Confirmation</h3>
+            </div>
+            <p className="text-base text-muted-foreground max-w-2xl mx-auto">Your manual particle placement matches the AI transcription perfectly - click to proceed with the confirmed result</p>
+          </div>
+        ) : (
+          // Left-aligned instructions for different transcriptions
+          <div className="text-left mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Info className="h-6 w-6 text-primary" />
+              <h3 className="text-xl font-semibold">A/B Final Selection</h3>
+            </div>
+            <p className="text-base text-muted-foreground ml-9">Compare AI-generated transcription vs your manual particle placement and choose the best final result</p>
+          </div>
+        )}
+      </div>
+
       {/* Conditional Rendering for Comparison Options */}
       {isExactMatch ? (
         <div
@@ -289,9 +312,10 @@ export function TranscriptionComparison({
       </div>
 
       {/* Helper Text */}
-      <div className="text-center text-sm text-muted-foreground py-4">
-        <p>
+      <div className="text-center text-sm text-muted-foreground max-w-lg mx-auto py-4">
+        <p className="leading-relaxed">
           {hasAiTranscription ? 'The AI Generated Transcript represents the final integration of all pipeline steps.' : 'Select the transcription that best represents the audio.'}
+          {onEditRequest && ' Use "Edit Before Submitting" to manually refine your transcription if needed.'}
         </p>
       </div>
     </div>

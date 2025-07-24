@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, ArrowRight, CheckCircle, ChevronDown, CheckCircle2, Volume2, Loader2 } from "lucide-react";
+import { Globe, ArrowRight, CheckCircle, ChevronDown, CheckCircle2, Volume2, Loader2, Brain } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +43,7 @@ export type AccentSelection = LocaleOption | AccentGroup;
 
 interface AccentSelectionProps {
   transcriptionText: string;
-  onAccentSelected: (selection: AccentSelection) => void;
+  onAccentSelected: (selection: AccentSelection, wasApiProcessed?: boolean) => void;
   onBack: () => void;
   onNext?: () => void;
   completedStages: Set<WorkflowStage>;
@@ -51,6 +51,7 @@ interface AccentSelectionProps {
   cachedResults?: {
     particleDataByAccent?: { [accentKey: string]: any };
     lastProcessedFile?: { name: string; size: number; lastModified: number };
+    processedAccents?: Set<string>;
   };
   hasFileChanged?: (file?: File) => boolean;
   audioFile?: File;
@@ -215,9 +216,18 @@ export function AccentSelection({
       currentAccent?.id === selectedAccentSelection.id && 
       !fileHasChanged;
 
+    // Debug logging
+    console.log('Accent processing check:', {
+      hasProcessedAccent,
+      currentAccentId: currentAccent?.id,
+      selectedAccentId: selectedAccentSelection.id,
+      fileHasChanged,
+      isAlreadyProcessed
+    });
+
     if (isAlreadyProcessed) {
       console.log(`Accent ${selectedAccentSelection.name} already processed for this file. Skipping API call.`);
-      onAccentSelected(selectedAccentSelection);
+      onAccentSelected(selectedAccentSelection, false); // Not a new API processing
       return;
     }
     
@@ -229,14 +239,14 @@ export function AccentSelection({
       const cachedData = cachedResults?.particleDataByAccent?.[accentKey];
       if (cachedData && !fileHasChanged) {
         console.log(`Using cached data for accent: ${accentKey}`);
-        onAccentSelected(selectedAccentSelection);
+        onAccentSelected(selectedAccentSelection, false); // Using cache, not new processing
         setIsProcessing(false);
         return;
       }
 
       if (!audioFile && !audioUrl) {
         console.error('No audio file or URL provided for particle detection');
-        onAccentSelected(selectedAccentSelection);
+        onAccentSelected(selectedAccentSelection, false); // No processing done
         setIsProcessing(false);
         return;
       }
@@ -295,11 +305,11 @@ export function AccentSelection({
       // Store result in session storage for later use
       sessionStorage.setItem('accentProcessingResult', JSON.stringify(result));
 
-      onAccentSelected(selectedAccentSelection);
+      onAccentSelected(selectedAccentSelection, true); // Mark as API processed
       
     } catch (error) {
       console.error('Error processing accent-specific transcription:', error);
-      onAccentSelected(selectedAccentSelection);
+      onAccentSelected(selectedAccentSelection, false); // Error occurred, not processed
     } finally {
       setIsProcessing(false);
     }
@@ -363,6 +373,19 @@ export function AccentSelection({
           </Button>
         </div>
       )}
+
+      {/* Selected Transcription Display */}
+      <div className="w-full max-w-2xl space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground justify-center">
+          <Brain className="h-5 w-5" />
+          <span className="text-base font-medium">Selected Transcription</span>
+        </div>
+        <div className="p-6 bg-card border border-border rounded-2xl">
+          <p className="text-lg font-mono text-center leading-relaxed">
+            "{transcriptionText}"
+          </p>
+        </div>
+      </div>
 
       {/* Regional Groups */}
       <div className="w-full">
@@ -522,9 +545,9 @@ export function AccentSelection({
               : `Locale: ${selectedAccentSelection.locale}`
             }
           </p>
-          {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id && (
+          {cachedResults?.processedAccents?.has(selectedAccentSelection.id) && (
             <Badge variant="secondary" className="text-xs mt-2">
-              Already Processed
+              ✓ Already Processed
             </Badge>
           )}
         </div>
@@ -549,8 +572,8 @@ export function AccentSelection({
               </>
             ) : (
               <>
-                {hasProcessedAccent && currentAccent?.id === selectedAccentSelection.id 
-                  ? "Continue with Selected Accent" 
+                {cachedResults?.processedAccents?.has(selectedAccentSelection.id) && !hasFileChanged?.(audioFile)
+                  ? "Continue with Processed Accent" 
                   : "Process Selected Accent"
                 }
                 <ArrowRight className="w-4 h-4" />
