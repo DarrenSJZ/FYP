@@ -479,7 +479,7 @@ run_services_benchmark() {
     # Build curl command
     local curl_cmd="curl -s -X POST -F \"file=@$audio_file\""
     
-    curl_cmd="$curl_cmd $ORCHESTRATOR_URL/transcribe-with-gemini"
+    curl_cmd="$curl_cmd $ORCHESTRATOR_URL/transcribe-consensus"
     
     # Execute request
     local response=$(eval "$curl_cmd")

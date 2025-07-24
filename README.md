@@ -21,7 +21,7 @@ This repository contains our Final Year Project submission for accent-aware spee
 **Key Resources:**
 
 *   🎨 **Live Demo:** [Coming Soon - Frontend Integration Complete]
-*   📄 **Documentation:** [Comprehensive System Docs](./docs/) | [User Manual](./docs/user-manual.md) | [Architecture Diagrams](./docs/system-diagrams.md)
+*   📄 **Documentation:** [System Architecture & Setup](https://github.com/DarrenSJZ/Accentric/tree/documentation) | [Sprint Planning & Progress](https://github.com/DarrenSJZ/Accentric/blob/main/sprint-planning-table.md) | [Frontend Navigation Flow](https://github.com/DarrenSJZ/Accentric/blob/main/frontend-navigation-flowcharts.md)
 *   🎥 **Demo Videos:** [System Walkthrough - Coming Soon]
 *   📊 **Research Data:** [Dataset Examples](./exports/) | [Evaluation Results - Coming Soon]
 
@@ -128,11 +128,14 @@ curl http://localhost:8007/health
 # Test individual ASR service
 curl -X POST -F "file=@test-audio.mp3" http://localhost:8001/transcribe
 
-# Test full AI pipeline
+# Test Stage 1: Multi-model consensus pipeline
 curl -X POST -F "file=@test-audio.mp3" http://localhost:8000/transcribe-consensus
 
-# Test with particle detection
+# Test Stage 2: Particle detection (requires Stage 1 data)
 curl -X POST -F "file=@accented-speech.mp3" -F "accent_hint=singaporean" http://localhost:8000/transcribe-with-particles
+
+# Test diagnostic mode with full ASR details
+curl -X POST -F "file=@test-audio.mp3" http://localhost:8000/transcribe/debug
 ```
 
 ---
@@ -318,12 +321,16 @@ docker-compose up -d --scale whisper-service=3
 | `/health` | GET | Health check for all ASR services | ✅ Working |
 | `/models` | GET | List available ASR models | ✅ Working |
 | `/transcribe` | POST | Parallel transcription across all models | ✅ Working |
-| `/transcribe-with-gemini` | POST | **Advanced 5-step pipeline with LLM analysis** | ✅ Working |
+| `/transcribe-consensus` | POST | **Stage 1: Multi-model consensus with web validation** | ✅ Working |
+| `/transcribe-with-particles` | POST | **Stage 2: Accent-specific discourse particle detection** | ✅ Working |
+| `/transcribe/debug` | POST | Full diagnostic transcription with ASR model details | ✅ Working |
+| `/initialize-autocomplete` | POST | Initialize autocomplete service with transcription data | ✅ Working |
 
 **Key Features:**
-- **5-Step Gemini Pipeline**: Consensus → Search → Validation → Particle Detection → Final Output
-- **Cultural Particle Analysis**: Detects Southeast Asian, British, Indian discourse particles
-- **Multi-model Consensus**: Combines results from 6 ASR models
+- **Two-Stage Pipeline Architecture**: Stage 1 (Consensus) → Stage 2 (Particle Detection)
+- **Stage 1 Features**: Multi-model consensus, web validation via Tavily API, A-B choice system
+- **Stage 2 Features**: Accent-specific particle detection, cultural discourse analysis
+- **Multi-model Consensus**: Combines results from 6 ASR models with confidence weighting
 - **IPA Phoneme Analysis**: Uses Allosaurus for phonetic particle detection
 
 ---
@@ -352,8 +359,8 @@ docker-compose up -d --scale whisper-service=3
 | Endpoint | Method | Description | Status |
 |----------|--------|-------------|---------|
 | `/health` | GET | Service health check | ✅ Working |
-| `/suggest/position` | GET | Position-based word suggestions | ✅ Implemented |
-| `/suggest/prefix` | GET | Prefix-based text completion | ✅ Implemented |
+| `/suggest/position` | GET | Position-based word suggestions | ✅ Working |
+| `/suggest/prefix` | GET | Prefix-based text completion | ✅ Working |
 
 **Query Parameters:**
 - **Position suggestions**: `?audio_id={id}&word_index={pos}`
@@ -398,8 +405,8 @@ docker-compose up -d --scale whisper-service=3
 |-------------|-------|-------|---------|
 | **ASR Models** | 6 | 8001-8006 | ✅ All Operational |
 | **Orchestrator** | 1 | 8000 | ✅ Working |
-| **Autocomplete** | 1 | 8007 | ⚠️ Minor networking issue |
-| **Total Endpoints** | **22** | - | **21/22 Working** |
+| **Autocomplete** | 1 | 8007 | ✅ Redis Integration Working |
+| **Total Endpoints** | **25+** | - | **All Systems Operational** |
 
 ### **Ready for Frontend Integration:**
 - 🎯 **Real-time Transcription** endpoints ready
