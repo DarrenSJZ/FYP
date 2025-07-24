@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, User } from 'lucide-react';
+import { Loader2, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -24,6 +24,11 @@ const Login = () => {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpPasswordConfirm, setSignUpPasswordConfirm] = useState('');
   const [signUpName, setSignUpName] = useState('');
+  
+  // Password visibility states
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpPasswordConfirm, setShowSignUpPasswordConfirm] = useState(false);
   
   // Validation errors
   const [signInErrors, setSignInErrors] = useState<{
@@ -265,13 +270,20 @@ const Login = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signin-password"
-                        type="password"
+                        type={showSignInPassword ? "text" : "password"}
                         placeholder="Your password"
                         value={signInPassword}
                         onChange={(e) => setSignInPassword(e.target.value)}
-                        className={`pl-10 ${signInErrors.password ? 'border-red-500' : ''}`}
+                        className={`pl-10 pr-10 ${signInErrors.password ? 'border-red-500' : ''}`}
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignInPassword(!showSignInPassword)}
+                        className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showSignInPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                     {signInErrors.password && (
                       <p className="text-sm text-red-500">{signInErrors.password}</p>
@@ -341,7 +353,7 @@ const Login = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
-                        type="password"
+                        type={showSignUpPassword ? "text" : "password"}
                         placeholder="Choose a strong password"
                         value={signUpPassword}
                         onChange={(e) => {
@@ -358,10 +370,17 @@ const Login = () => {
                             setSignUpErrors(prev => ({ ...prev, password: passwordError }));
                           }
                         }}
-                        className={`pl-10 ${signUpErrors.password ? 'border-red-500' : ''}`}
+                        className={`pl-10 pr-10 ${signUpErrors.password ? 'border-red-500' : ''}`}
                         required
                         minLength={8}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignUpPassword(!showSignUpPassword)}
+                        className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showSignUpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                     {signUpErrors.password && (
                       <p className="text-sm text-red-500">{signUpErrors.password}</p>
@@ -374,7 +393,7 @@ const Login = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password-confirm"
-                        type="password"
+                        type={showSignUpPasswordConfirm ? "text" : "password"}
                         placeholder="Re-enter your password"
                         value={signUpPasswordConfirm}
                         onChange={(e) => {
@@ -391,10 +410,17 @@ const Login = () => {
                             setSignUpErrors(prev => ({ ...prev, passwordConfirm: passwordConfirmError }));
                           }
                         }}
-                        className={`pl-10 ${signUpErrors.passwordConfirm ? 'border-red-500' : ''}`}
+                        className={`pl-10 pr-10 ${signUpErrors.passwordConfirm ? 'border-red-500' : ''}`}
                         required
                         minLength={8}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignUpPasswordConfirm(!showSignUpPasswordConfirm)}
+                        className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showSignUpPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                     {signUpErrors.passwordConfirm && (
                       <p className="text-sm text-red-500">{signUpErrors.passwordConfirm}</p>
