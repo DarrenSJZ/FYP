@@ -402,10 +402,19 @@ export function PronounConsolidationStage({
                   const searchTerms = extractSearchTerms(effectiveChoices?.option_b.reasoning || '');
                   const confirmedTerms = extractConfirmedTerms(effectiveChoices?.option_b.reasoning || '');
                   const correctedTerms = extractCorrectedTerms(effectiveChoices?.option_b.reasoning || '');
+                  const hasNoProperNouns = (effectiveChoices?.option_b.reasoning || '').includes('No proper nouns requiring web verification found');
                   
-                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0) {
+                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0 || hasNoProperNouns) {
                     return (
                       <div className="space-y-2">
+                        {hasNoProperNouns && searchTerms.length === 0 && confirmedTerms.length === 0 && correctedTerms.length === 0 && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground font-medium">Web verification:</span>
+                            <Badge variant="secondary" className="text-xs bg-muted/50 text-muted-foreground">
+                              N/A
+                            </Badge>
+                          </div>
+                        )}
                         {searchTerms.length > 0 && (
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs text-muted-foreground font-medium">Verified:</span>
@@ -569,12 +578,21 @@ export function PronounConsolidationStage({
                   const confirmedTerms = extractConfirmedTerms(effectiveChoices?.option_b.reasoning || '');
                   const correctedTerms = extractCorrectedTerms(effectiveChoices?.option_b.reasoning || '');
                   const cleanedReasoning = cleanReasoning(effectiveChoices?.option_b.reasoning || '');
+                  const hasNoProperNouns = (effectiveChoices?.option_b.reasoning || '').includes('No proper nouns requiring web verification found');
                   
-                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0 || cleanedReasoning) {
+                  if (searchTerms.length > 0 || confirmedTerms.length > 0 || correctedTerms.length > 0 || hasNoProperNouns || cleanedReasoning) {
                     return (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Info className="w-3 h-3 text-muted-foreground" />
+                          {hasNoProperNouns && searchTerms.length === 0 && confirmedTerms.length === 0 && correctedTerms.length === 0 && (
+                            <>
+                              <span className="text-xs text-muted-foreground font-medium">Web verification:</span>
+                              <Badge variant="secondary" className="text-xs bg-muted/50 text-muted-foreground">
+                                N/A
+                              </Badge>
+                            </>
+                          )}
                           {searchTerms.length > 0 && (
                             <>
                               <span className="text-xs text-muted-foreground font-medium">Verified:</span>
